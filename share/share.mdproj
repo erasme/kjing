@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ItemType>GenericProject</ItemType>
+    <ProductVersion>10.0.0</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{4535063E-FEEA-46BE-A5C7-BBC4F851C73E}</ProjectGuid>
+    <newfilesearch>OnLoadAutoInsert</newfilesearch>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Default|AnyCPU' ">
+    <OutputPath>.</OutputPath>
+    <CustomCommands>
+      <CustomCommands>
+        <Command type="Build" command="make" workingdir="${ProjectDir}" />
+      </CustomCommands>
+    </CustomCommands>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <OutputPath>.</OutputPath>
+    <CustomCommands>
+      <CustomCommands>
+        <Command type="Build" command="make" workingdir="${ProjectDir}" />
+      </CustomCommands>
+    </CustomCommands>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <OutputPath>.</OutputPath>
+    <CustomCommands>
+      <CustomCommands>
+        <Command type="Build" command="make" workingdir="${ProjectDir}" />
+      </CustomCommands>
+    </CustomCommands>
+  </PropertyGroup>
+  <ItemGroup>
+    <Folder Include="mimeicon\" />
+    <Folder Include="www\" />
+    <Folder Include="www\client\" />
+    <Folder Include="www\admin\" />
+    <Folder Include="www\admin\img\" />
+    <Folder Include="www\admin\logins\" />
+    <Folder Include="www\client\kjing\" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="mimeicon\application%252fmsword.png" />
+    <None Include="mimeicon\application%252fpdf.png" />
+    <None Include="mimeicon\application%252fvnd.openxmlformats-officedocument.wordprocessingml.document.png" />
+    <None Include="mimeicon\application%252fzip.png" />
+    <None Include="mimeicon\applications-internet.svg" />
+    <None Include="mimeicon\audio.png" />
+    <None Include="mimeicon\default.png" />
+    <None Include="mimeicon\image%252fjpeg.png" />
+    <None Include="mimeicon\image%252fpng.png" />
+    <None Include="mimeicon\image.png" />
+    <None Include="mimeicon\text.png" />
+    <None Include="mimeicon\video.png" />
+    <None Include="www\era\era-debug.js" />
+    <None Include="www\era\era.js" />
+    <None Include="www\era\anim\animationmanager.js" />
+    <None Include="www\era\anim\bounceease.js" />
+    <None Include="www\era\anim\clock.js" />
+    <None Include="www\era\anim\clockgroup.js" />
+    <None Include="www\era\anim\easingfunction.js" />
+    <None Include="www\era\anim\elasticease.js" />
+    <None Include="www\era\anim\linearease.js" />
+    <None Include="www\era\anim\powerease.js" />
+    <None Include="www\era\anim\timemanager.js" />
+    <None Include="www\era\core\delayedtask.js" />
+    <None Include="www\era\core\dragevent.js" />
+    <None Include="www\era\core\event.js" />
+    <None Include="www\era\core\file.js" />
+    <None Include="www\era\core\filepostuploader.js" />
+    <None Include="www\era\core\fingerevent.js" />
+    <None Include="www\era\core\httprequest.js" />
+    <None Include="www\era\core\media.js" />
+    <None Include="www\era\core\mouseevent.js" />
+    <None Include="www\era\core\object.js" />
+    <None Include="www\era\core\remotedebug.js" />
+    <None Include="www\era\core\rtc.js" />
+    <None Include="www\era\core\socket.js" />
+    <None Include="www\era\core\timer.js" />
+    <None Include="www\era\core\uri.js" />
+    <None Include="www\era\core\util.js" />
+    <None Include="www\era\excanvas\AUTHORS" />
+    <None Include="www\era\excanvas\COPYING" />
+    <None Include="www\era\excanvas\README" />
+    <None Include="www\era\excanvas\excanvas.compiled.js" />
+    <None Include="www\era\excanvas\excanvas.js" />
+    <None Include="www\era\excanvas\excanvas.js.old" />
+    <None Include="www\era\form\dialog.js" />
+    <None Include="www\era\form\field.js" />
+    <None Include="www\era\form\fieldcontainer.js" />
+    <None Include="www\era\form\panel.js" />
+    <None Include="www\era\form\panelcontainer.js" />
+    <None Include="www\era\ui\accordeon.js" />
+    <None Include="www\era\ui\accordeonable.js" />
+    <None Include="www\era\ui\app.js" />
+    <None Include="www\era\ui\audio.js" />
+    <None Include="www\era\ui\box.js" />
+    <None Include="www\era\ui\button.js" />
+    <None Include="www\era\ui\buttongraphic.js" />
+    <None Include="www\era\ui\canvaselement.js" />
+    <None Include="www\era\ui\carousel.js" />
+    <None Include="www\era\ui\carouselable %28copie%29.js" />
+    <None Include="www\era\ui\carouselable.js" />
+    <None Include="www\era\ui\checkbox.js" />
+    <None Include="www\era\ui\checkboxgraphic.js" />
+    <None Include="www\era\ui\color.js" />
+    <None Include="www\era\ui\combo.js" />
+    <None Include="www\era\ui\compactlabel.js" />
+    <None Include="www\era\ui\container.js" />
+    <None Include="www\era\ui\contenteditable.js" />
+    <None Include="www\era\ui\contextbar.js" />
+    <None Include="www\era\ui\datepicker.js" />
+    <None Include="www\era\ui\dialog.js" />
+    <None Include="www\era\ui\downloadbutton.js" />
+    <None Include="www\era\ui\draggable.js" />
+    <None Include="www\era\ui\dropbox.js" />
+    <None Include="www\era\ui\element.js" />
+    <None Include="www\era\ui\embed.js" />
+    <None Include="www\era\ui\entry.js" />
+    <None Include="www\era\ui\fade.js" />
+    <None Include="www\era\ui\fixed.js" />
+    <None Include="www\era\ui\flip.js" />
+    <None Include="www\era\ui\flow.js" />
+    <None Include="www\era\ui\fold.js" />
+    <None Include="www\era\ui\frame.js" />
+    <None Include="www\era\ui\grid.js" />
+    <None Include="www\era\ui\html.js" />
+    <None Include="www\era\ui\icon.js" />
+    <None Include="www\era\ui\iconlist.js" />
+    <None Include="www\era\ui\iframe.js" />
+    <None Include="www\era\ui\image.js" />
+    <None Include="www\era\ui\keyboard.js" />
+    <None Include="www\era\ui\label.js" />
+    <None Include="www\era\ui\lbox.js" />
+    <None Include="www\era\ui\lineargradient.js" />
+    <None Include="www\era\ui\linkable.js" />
+    <None Include="www\era\ui\linkbutton.js" />
+    <None Include="www\era\ui\listview.js" />
+    <None Include="www\era\ui\loading.js" />
+    <None Include="www\era\ui\locator.js" />
+    <None Include="www\era\ui\matrix.js" />
+    <None Include="www\era\ui\menu.js" />
+    <None Include="www\era\ui\monthcalendar.js" />
+    <None Include="www\era\ui\mouseoverable.js" />
+    <None Include="www\era\ui\movable.js" />
+    <None Include="www\era\ui\movablebase.js" />
+    <None Include="www\era\ui\notebook.js" />
+    <None Include="www\era\ui\paned.js" />
+    <None Include="www\era\ui\point.js" />
+    <None Include="www\era\ui\popup.js" />
+    <None Include="www\era\ui\pressable.js" />
+    <None Include="www\era\ui\program.js" />
+    <None Include="www\era\ui\progressbar.js" />
+    <None Include="www\era\ui\rectangle.js" />
+    <None Include="www\era\ui\scrollable.js" />
+    <None Include="www\era\ui\scrollingarea.js" />
+    <None Include="www\era\ui\segmentbar.js" />
+    <None Include="www\era\ui\selectable.js" />
+    <None Include="www\era\ui\selection.js" />
+    <None Include="www\era\ui\selectionable.js" />
+    <None Include="www\era\ui\separator.js" />
+    <None Include="www\era\ui\sflow.js" />
+    <None Include="www\era\ui\shadow.js" />
+    <None Include="www\era\ui\shape.js" />
+    <None Include="www\era\ui\slide.js" />
+    <None Include="www\era\ui\slider.js" />
+    <None Include="www\era\ui\spacer.js" />
+    <None Include="www\era\ui\styles.js" />
+    <None Include="www\era\ui\svgelement.js" />
+    <None Include="www\era\ui\svgparser.js" />
+    <None Include="www\era\ui\switch.js" />
+    <None Include="www\era\ui\text.js" />
+    <None Include="www\era\ui\textarea.js" />
+    <None Include="www\era\ui\textareafield.js" />
+    <None Include="www\era\ui\textbggraphic.js" />
+    <None Include="www\era\ui\textbuttonfield.js" />
+    <None Include="www\era\ui\textfield.js" />
+    <None Include="www\era\ui\togglable.js" />
+    <None Include="www\era\ui\togglebutton.js" />
+    <None Include="www\era\ui\toolbar.js" />
+    <None Include="www\era\ui\transformable.js" />
+    <None Include="www\era\ui\transition.js" />
+    <None Include="www\era\ui\transitionbox.js" />
+    <None Include="www\era\ui\uploadable.js" />
+    <None Include="www\era\ui\uploadbutton.js" />
+    <None Include="www\era\ui\video.js" />
+    <None Include="www\era\ui\virtualkeyboard.js" />
+    <None Include="www\admin\index-debug.html" />
+    <None Include="www\client\index-debug.html" />
+    <None Include="www\admin\kjing\filepreview.js" />
+    <None Include="www\admin\kjing-debug.js" />
+    <None Include="www\admin\main.js" />
+    <None Include="www\admin\kjing\user.js" />
+    <None Include="www\admin\kjing\resource.js" />
+    <None Include="www\admin\kjing\flowdropbox.js" />
+    <None Include="www\admin\index.html" />
+    <None Include="www\admin\Makefile" />
+    <None Include="www\client\main.js" />
+    <None Include="www\client\Makefile" />
+    <None Include="www\client\kjing-debug.js" />
+    <None Include="www\client\index.html" />
+    <None Include="Makefile" />
+    <None Include="www\Makefile" />
+    <None Include="www\admin\logins\create\wizard.js" />
+    <None Include="www\admin\logins\facebook\wizard.js" />
+    <None Include="www\admin\logins\google\wizard.js" />
+    <None Include="www\admin\logins\local\wizard.js" />
+    <None Include="www\admin\logins\logincreator.js" />
+    <None Include="www\admin\logins\loginwizard.js" />
+    <None Include="www\admin\logins\wizarditem.js" />
+    <None Include="www\admin\kjing\userprofil.js" />
+    <None Include="www\admin\kjing\webaccountsection.js" />
+    <None Include="www\admin\kjing\optionsection.js" />
+    <None Include="www\admin\kjing\textfield.js" />
+    <None Include="www\admin\kjing\textareafield.js" />
+    <None Include="www\admin\kjing\newresourcedialog.js" />
+    <None Include="www\admin\kjing\resourcepropertiesdialog.js" />
+    <None Include="www\admin\kjing\newfiledialog.js" />
+    <None Include="www\admin\kjing\group.js" />
+    <None Include="www\admin\kjing\map.js" />
+    <None Include="www\admin\kjing\view.js" />
+    <None Include="www\admin\kjing\device.js" />
+    <None Include="www\admin\kjing\newitem.js" />
+    <None Include="www\era\ui\menutoolbar.js" />
+    <None Include="mimeicon\application%252fvnd.ms%252dexcel.png" />
+    <None Include="mimeicon\application%252fx%252ddirectory.png" />
+    <None Include="mimeicon\application%252fx-kjing-group.png" />
+    <None Include="mimeicon\application%252fx-kjing-group.svg" />
+    <None Include="mimeicon\text%252furi%252dlist.png" />
+    <None Include="www\admin\kjing.js" />
+    <None Include="www\admin\img\default.png" />
+    <None Include="www\client\kjing.js" />
+    <None Include="www\client\kjing\scaledimage.js" />
+    <None Include="www\client\kjing\fileviewer.js" />
+    <None Include="www\client\kjing\videoplayer.js" />
+    <None Include="www\client\kjing\audioplayer.js" />
+    <None Include="www\admin\kjing\filepropertiesdialog.js" />
+    <None Include="www\admin\kjing\audioplayer.js" />
+    <None Include="www\admin\kjing\videoplayer.js" />
+    <None Include="www\admin\kjing\scaledimage.js" />
+    <None Include="www\admin\kjing\fileviewer.js" />
+    <None Include="www\admin\kjing\folder.js" />
+    <None Include="www\admin\kjing\combofield.js" />
+    <None Include="www\admin\kjing\itemview.js" />
+    <None Include="www\client\kjing\scaledimage2.js" />
+    <None Include="www\admin\kjing\file.js" />
+    <None Include="www\client\kjing\device.js" />
+    <None Include="www\admin\kjing\share.js" />
+    <None Include="www\favicon.ico" />
+    <None Include="www\admin\img\apple-icon-114x114.png" />
+    <None Include="www\admin\img\apple-icon-72x72.png" />
+    <None Include="www\admin\img\logo-kjing.svg" />
+    <None Include="www\client\img\apple-icon-114x114.png" />
+    <None Include="www\client\img\apple-icon-72x72.png" />
+    <None Include="www\era\ui\actionbutton.js" />
+    <None Include="www\admin\kjing\rounditemgraphic.js" />
+    <None Include="www\admin\kjing\ratiobox.js" />
+    <None Include="www\admin\kjing\deviceview.js" />
+    <None Include="mimeicon\application%252fx%252ddirectory.svg" />
+    <None Include="mimeicon\default.svg" />
+    <None Include="www\admin\kjing\scaledimage2.js" />
+    <None Include="www\admin\kjing\mapdevicesview.js" />
+    <None Include="www\admin\kjing\deviceitemview.js" />
+  </ItemGroup>
+</Project>

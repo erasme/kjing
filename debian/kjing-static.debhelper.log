@@ -1,0 +1,13 @@
+dh_prep
+dh_installdirs
+dh_install
+dh_fixperms
+dh_installdeb
+dh_shlibdeps
+dh_makeclilibs
+dh_clideps
+dh_gencontrol
+dh_md5sums
+dh_builddeb
+dh_builddeb
+dh_builddeb

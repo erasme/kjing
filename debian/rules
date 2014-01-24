@@ -1,0 +1,80 @@
+#!/usr/bin/make -f
+
+build: build-stamp
+build-stamp:
+	dh_testdir
+
+	mdtool build -c:Release
+	mkbundle --deps --static kjing/bin/Release/KJing.exe kjing/bin/Release/*.dll -o kjing/bin/Release/kjing
+
+	touch $@
+
+clean:
+	dh_testdir
+	dh_testroot
+	rm -f build-stamp 
+
+	rm -Rf kjing/bin config.log
+
+	dh_clean
+
+install: build
+	dh_testdir
+	dh_testroot
+	dh_prep
+	dh_installdirs
+
+	mkdir -p kjing/bin/Release/
+	# commands to install the package into debian/kjing
+	mkdir -p debian/kjing/usr/bin/
+	mkdir -p debian/kjing/usr/lib/kjing/
+	mkdir -p debian/kjing/usr/share/
+	mkdir -p debian/kjing/etc/init/
+	mkdir -p debian/kjing/etc/kjing/
+	
+	cp debian/kjing.upstart debian/kjing/etc/init/kjing.conf
+	cp kjing/kjing.conf debian/kjing/etc/kjing/
+	
+	cp -RL share debian/kjing/usr/share/kjing
+	cp kjing/bin/Release/*.exe debian/kjing/usr/lib/kjing/
+	cp kjing/bin/Release/*.dll debian/kjing/usr/lib/kjing/
+	
+	# commands to install the package into debian/kjing-static
+	mkdir -p debian/kjing-static/usr/bin/
+	mkdir -p debian/kjing-static/usr/lib/kjing/
+	mkdir -p debian/kjing-static/usr/share/
+	mkdir -p debian/kjing-static/etc/init/
+	mkdir -p debian/kjing-static/etc/kjing/
+	
+	cp debian/kjing.upstart debian/kjing-static/etc/init/kjing.conf
+	cp kjing/kjing.conf debian/kjing-static/etc/kjing/
+		
+	cp -RL share debian/kjing-static/usr/share/kjing
+	cp /usr/lib/libMonoPosixHelper.so debian/kjing-static/usr/lib/kjing/
+	cp kjing/bin/Release/kjing debian/kjing-static/usr/bin/
+
+# Build architecture-independent files here.
+binary-indep: build install
+	dh_testdir
+	dh_testroot
+#	dh_installchangelogs 
+#	dh_installdocs
+#	dh_installexamples
+	dh_install
+#	dh_installinit -n
+#	dh_installman
+#	dh_installcligac
+#	dh_link
+#	dh_strip
+#	dh_compress
+	dh_fixperms
+	dh_installdeb
+	dh_shlibdeps
+	dh_makeclilibs
+	dh_clideps -d
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+
+binary: binary-indep
+.PHONY: build clean binary-indep binary install 

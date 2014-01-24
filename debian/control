@@ -1,0 +1,23 @@
+Source: kjing
+Section: unknown
+Priority: extra
+Maintainer: Daniel Lacroix <dlacroix@erasme.org>
+Build-Depends: debhelper (>= 5), cli-common-dev (>= 0.7), liberasme-http1.0-cil (>= 1.0.2), liberasme-cloud1.0-cil (>= 1.0.2), libjs-erajs (>= 1.5), monodevelop (>= 2.0), libmono-sqlite4.0-cil
+Standards-Version: 3.9.4
+
+Package: kjing
+Architecture: all
+Depends: ${cli:Depends}, liberasme-http1.0-cil (>= 1.0.2), liberasme-cloud1.0-cil (>= 1.0.2), libmono-sqlite4.0-cil
+Description: Daemon for the KJing web services
+ Daemon to provide Web services and file distribution for KJing
+ project (http://kjing.org/)
+ 
+Package: kjing-static
+Architecture: any
+Depends: ffmpegstatic, mediainfo, poppler-utils, phantomjs, imagemagick, unoconv, libreoffice
+Conflicts: kjing
+Replaces: kjing
+Description: Static Daemon for KJing web services
+ Daemon to provide Web services and file distribution for the KJing
+ project (http://kjing.org/). Embed mono and its dependency.
+

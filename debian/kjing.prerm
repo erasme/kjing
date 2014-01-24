@@ -1,0 +1,4 @@
+#!/bin/bash
+
+stop kjing
+exit 0
