@@ -4,8 +4,6 @@ KJing.ItemView.extend('KJing.GroupAddUserItemView', {
 	group: undefined,
 
 	constructor: function(config) {
-		this.setRoundMode(true);
-
 		this.resource = config.resource;
 		delete(config.resource);
 		this.group = config.group;
@@ -100,8 +98,6 @@ KJing.ItemView.extend('KJing.RightAddUserItemView', {
 	target: undefined,
 
 	constructor: function(config) {
-		this.setRoundMode(true);
-
 		this.resource = config.resource;
 		delete(config.resource);
 		this.target = config.target;
@@ -203,6 +199,7 @@ Ui.SFlow.extend('KJing.NewResourceSelector', {
 			delete(config.types);
 		}
 		this.setItemAlign('stretch');
+		this.setStretchMaxRatio(5);
 		this.setSpacing(5);
 		
 		var types = {
@@ -466,6 +463,7 @@ Ui.SFlow.extend('KJing.NewUserCreator', {
 		delete(config.resource);
 		
 		this.setItemAlign('stretch');
+		this.setStretchMaxRatio(5);
 	
 		this.firstnameField = new KJing.TextField({ title: 'Prénom', width: 100 });
 		this.connect(this.firstnameField, 'change', this.checkValid);
@@ -542,6 +540,7 @@ Ui.SFlow.extend('KJing.NewResourceCreator', {
 		delete(config.resource);
 		
 		this.setItemAlign('stretch');
+		this.setStretchMaxRatio(5);
 	
 		this.nameField = new KJing.TextField({ title: 'Nom', width: 150 });
 		this.connect(this.nameField, 'change', this.checkValid);
@@ -739,8 +738,8 @@ Ui.Dialog.extend('KJing.NewResourceDialog', {
 	
 		this.setTitle('Nouvelle ressource');
 		this.setFullScrolling(true);
-		this.setPreferedWidth(400);
-		this.setPreferedHeight(400);
+		this.setPreferredWidth(400);
+		this.setPreferredHeight(400);
 		
 		this.transBox = new Ui.TransitionBox();
 		this.setContent(this.transBox);
@@ -749,7 +748,7 @@ Ui.Dialog.extend('KJing.NewResourceDialog', {
 		this.connect(this.selector, 'done', this.onSelectorDone);
 		this.transBox.replaceContent(this.selector);
 		
-		this.setCancelButton(new Ui.Button({ text: 'Annuler' }));
+		this.setCancelButton(new Ui.DialogCloseButton({ text: 'Annuler' }));
 		
 		this.prevButton = new Ui.Button({ text: 'Précédent' });
 		this.connect(this.prevButton, 'press', this.onPrevPress);

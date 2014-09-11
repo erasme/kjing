@@ -42,8 +42,8 @@ Ui.Dialog.extend('KJing.LoginWizard', {
 		this.addEvents('done');
 		this.setTitle('Connexion');
 		this.setFullScrolling(true);
-		this.setPreferedWidth(450);
-		this.setPreferedHeight(450);
+		this.setPreferredWidth(450);
+		this.setPreferredHeight(450);
 
 		this.data = {};
 

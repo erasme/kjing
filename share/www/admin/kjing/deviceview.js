@@ -14,12 +14,9 @@ KJing.View.extend('KJing.DeviceView', {
 		this.resource = config.resource;
 		delete(config.resource);
 
-		var dropbox = new Ui.DropBox();
-		this.setContent(dropbox);
-
 		var vbox = new Ui.VBox({ spacing: 5 });
 		this.mainVBox = vbox;
-		dropbox.setContent(vbox);
+		this.setContent(vbox);
 
 		var hbox = new Ui.HBox();
 		vbox.append(hbox, true);
@@ -85,6 +82,13 @@ KJing.View.extend('KJing.DeviceView', {
 		// TODO
 //		console.log('onDeviceChange IsConnected: '+this.resource.getIsConnected()+', position: '+this.resource.getDevicePosition());
 
+//		console.log('onDeviceChange IsConnected: '+this.resource.getIsConnected()+', IsSync: '+this.resource.getIsDeviceSync());
+
+		// only update the device if the local values
+		// is not newer than the remote ones
+		if(!this.resource.getIsDeviceSync())
+			return;
+
 		this.ratioBox.setRatio(this.resource.getDeviceRatio());
 
 		if(this.path !== this.resource.getDevicePath())
@@ -125,6 +129,21 @@ KJing.View.extend('KJing.DeviceView', {
 			this.resource.setDevicePath(data);
 	}
 }, {
+	getSetupPopup: function() {
+		var popup = new Ui.MenuPopup({ preferredWidth: 200 });
+		var vbox = new Ui.VBox({ spacing: 10 });
+		popup.setContent(vbox);
+
+		var button = new Ui.Button({	text: 'Propriétés', icon: 'edit' });
+		this.connect(button, 'press', function() {
+			var dialog = new KJing.ResourcePropertiesDialog({ resource: this.resource });
+			dialog.open();
+			popup.hide();
+		});
+		vbox.append(button);
+		return popup;
+	},
+
 	onLoad: function() {
 		KJing.DeviceView.base.onLoad.apply(this, arguments);
 		this.connect(this.resource, 'change', this.onDeviceChange);
@@ -153,8 +172,8 @@ Ui.Dialog.extend('KJing.DeviceControlDialog', {
 		delete(config.device);
 		
 		this.setTitle('Device controlleur');
-		this.setPreferedWidth(500);
-		this.setPreferedHeight(500);
+		this.setPreferredWidth(500);
+		this.setPreferredHeight(500);
 		
 		var vbox = new Ui.VBox({ spacing: 5 });
 		this.mainVBox = vbox;

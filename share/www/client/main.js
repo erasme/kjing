@@ -72,6 +72,7 @@ Ui.App.extend('KJing.ClientApp', {
 			this.connect(request, 'done', function() {
 				var json = request.getResponseJSON();			
 				this.viewer = new Storage.FileViewer({ storage: share, file: json, controller: this });
+				this.connect(this.viewer, 'end', this.onViewerPlayEnd);
 				this.viewer.play();
 				this.transBox.replaceContent(this.viewer);
 			});
@@ -143,6 +144,12 @@ Ui.App.extend('KJing.ClientApp', {
 		this.capabilities.height = this.getLayoutHeight();
 		if(this.device !== undefined)
 			this.device.notifyClientData();
+	},
+
+	onViewerPlayEnd: function(viewer) {
+		console.log(this+'.onViewerPlayEnd');
+		// loop forever
+//		viewer.play();
 	}
 });
 

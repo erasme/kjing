@@ -9,8 +9,9 @@ KJing.LoginCreator.extend('KJing.Create.Creator', {
 		this.item = config.item;
 		delete(config.item);
 
-		var request = new Core.HttpRequest({ method: 'POST', url: '/cloud/user',
+		var request = new Core.HttpRequest({ method: 'POST', url: '/cloud/resource',
 			content: JSON.stringify({
+				type: 'user',
 				login: this.getData().login,
 				password: this.getData().password,
 				firstname: this.getData().firstname,
@@ -62,7 +63,7 @@ KJing.WizardItem.extend('KJing.Create.Wizard', {
 
 	constructor: function(config) {
 
-		var flow = new Ui.SFlow({ spacing: 10, itemAlign: 'stretch' });
+		var flow = new Ui.SFlow({ spacing: 10, itemAlign: 'stretch', stretchMaxRatio: 5 });
 		this.setContent(flow);
 
 		this.firstnameField = new KJing.TextField({ title: 'Prénom', width: 150 });

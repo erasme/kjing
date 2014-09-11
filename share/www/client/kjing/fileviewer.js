@@ -141,14 +141,19 @@ Ui.HBox.extend('Storage.FileViewer', {
 		}
 		else {
 			if('play' in this.contentViewer) {
-				this.connect(this.contentViewer, 'end', this.onPlayEnd);
-				this.contentViewer.play();
+				if(this.timerPlay === undefined) {
+					this.timerPlay = this.contentViewer;
+					this.connect(this.contentViewer, 'end', this.onPlayEnd);
+					this.contentViewer.play();
+				}
 			}
 			else {
-				var duration = 5;
-				if('duration' in this.file.meta)
-					duration = parseFloat(this.file.meta.duration);
-				this.timerPlay = new Core.DelayedTask({ scope: this, delay: duration, callback: this.onPlayEnd });
+				if(this.timerPlay === undefined) {
+					var duration = 5;
+					if('duration' in this.file.meta)
+						duration = parseFloat(this.file.meta.duration);
+					this.timerPlay = new Core.DelayedTask({ scope: this, delay: duration, callback: this.onPlayEnd });
+				}
 			}
 		}
 	},
@@ -174,6 +179,7 @@ Ui.HBox.extend('Storage.FileViewer', {
 	},
 
 	onPlayEnd: function() {
+		this.timerPlay = undefined;
 		this.playing = false;
 		this.fireEvent('end', this);
 	},
@@ -858,7 +864,9 @@ Ui.LBox.extend('Storage.PdfFileViewer', {
 		var vbox = new Ui.VBox({ verticalAlign: 'center', spacing: 10 });
 		vbox.append(new Ui.Loading({ width: 50, height: 50, horizontalAlign: 'center' }));
 		vbox.append(new Ui.Text({ text: 'Encodage en cours... Veuillez patienter', textAlign: 'center' }));
-		this.setContent(vbox);		
+		this.setContent(vbox);	
+
+		this.connect(Ui.App.current.getDevice(), 'change', this.onDeviceChange);
 	},
 	
 	setPosition: function(position) {
@@ -887,6 +895,14 @@ Ui.LBox.extend('Storage.PdfFileViewer', {
 			if('duration' in this.file.meta)
 				this.duration = parseFloat(this.file.meta.duration);
 			this.delayTask = new Core.DelayedTask({ scope: this, delay: this.duration, callback: this.onPageEnd });
+		}
+	},
+
+	pause: function() {
+		this.playing = false;
+		if(this.delayTask !== undefined) {
+			this.delayTask.abort();
+			this.delayTask = undefined;
 		}
 	},
 
@@ -946,6 +962,14 @@ Ui.LBox.extend('Storage.PdfFileViewer', {
 			storage: this.storage, file: this.file, page: this.position
 		}));
 		if(this.playing)
+			this.play();
+	},
+
+	onDeviceChange: function(device) {
+		console.log(this+'.onDeviceChange isControlled: '+device.getIsControlled());
+		if(device.getIsControlled())
+			this.pause();
+		else
 			this.play();
 	}
 }, {

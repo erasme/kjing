@@ -84,10 +84,10 @@ Ui.Dialog.extend('KJing.UserProfil', {
 		delete(config.user);
 		
 		this.setFullScrolling(true);
-		this.setPreferedWidth(650);
-		this.setPreferedHeight(550);
+		this.setPreferredWidth(650);
+		this.setPreferredHeight(550);
 		this.setTitle('Profil utilisateur');
-		this.setCancelButton(new Ui.Button({ text: 'Fermer' }));
+		this.setCancelButton(new Ui.DialogCloseButton());
 				
 		if(this.user.getIsReady())
 			this.onUserReady();
@@ -128,7 +128,7 @@ Ui.Dialog.extend('KJing.UserProfil', {
 		
 		this.setContent(mainVbox);
 		
-		this.sflow = new Ui.SFlow({ spacing: 5, itemAlign: 'stretch' });
+		this.sflow = new Ui.SFlow({ spacing: 5, itemAlign: 'stretch', stretchMaxRatio: 5 });
 		mainVbox.append(this.sflow);
 		
 		var avatarButton = new KJing.UploadFaceButton({ user: this.user, marginLeft: 10 });
@@ -194,7 +194,7 @@ Ui.Dialog.extend('KJing.UserProfil', {
 		diff = Core.Object.diff(this.user.getData(), diff);
 		if(diff !== undefined) {
 			var request = new Core.HttpRequest({ method: 'PUT',
-				url: '/cloud/user/'+this.user.getId(),
+				url: '/cloud/resource/'+this.user.getId(),
 				content: JSON.stringify(diff)
 			});
 			this.connect(request, 'done', this.onSaveDone);
@@ -220,7 +220,7 @@ Ui.Dialog.extend('KJing.UserProfil', {
 				this.sflow.enable();
 				this.saveButton.enable();
 		
-				var dialog = new Ui.Dialog({ preferedWidth: 300, title: 'Echec de l\'enregistrement' });
+				var dialog = new Ui.Dialog({ preferredWidth: 300, title: 'Echec de l\'enregistrement' });
 				dialog.setContent(new Ui.Text({ text: 
 					'L\'enregistrement à échoué. Vérifiez que votre mot de passe '+
 					'respecte la politique de sécurité. A savoir qu\'il doit faire au '+
@@ -265,7 +265,7 @@ Ui.Dialog.extend('KJing.UserProfil', {
 		var dialog = new Ui.Dialog({
 			title: 'Suppression de compte',
 			fullScrolling: false,
-			preferedWidth: 300
+			preferredWidth: 300
 		});
 		dialog.setContent(new Ui.Text({ text: 
 			'Voulez vous vraiment supprimer ce compte ? ATTENTION, cet utilisateur '+
@@ -277,7 +277,7 @@ Ui.Dialog.extend('KJing.UserProfil', {
 
 		this.connect(deleteButton, 'press', function() {
 			dialog.disable();
-			var request = new Core.HttpRequest({ method: 'DELETE', url: '/cloud/user/'+this.user.getId() });
+			var request = new Core.HttpRequest({ method: 'DELETE', url: '/cloud/resource/'+this.user.getId() });
 			this.connect(request, 'done', function() {
 				dialog.close();
 				Ui.App.current.setMainPath('');
@@ -298,7 +298,7 @@ Ui.Dialog.extend('KJing.UserProfil', {
 		var dialog = new Ui.Dialog({
 			title: 'Connexion au compte',
 			fullScrolling: false,
-			preferedWidth: 300
+			preferredWidth: 300
 		});
 		dialog.setContent(new Ui.Text({ text: 
 			'Voulez vous vraiment ouvrir une session sur le compte de cet utilisateur ? ATTENTION, '+

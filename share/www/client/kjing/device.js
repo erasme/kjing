@@ -11,11 +11,15 @@ Core.Object.extend('KJing.Device', {
 	clientData: undefined,
 	sendClientTask: undefined,
 	retryTask: undefined,
+	revs: undefined,
+	connectionId: undefined,
 
 	constructor: function(config) {
 		this.addEvents('ready', 'change', 'delete', 'error', 'clientmessage');
 
 		this.clientData = {};
+		this.revs = {};
+		this.clientData.revs = this.revs;
 		
 		if('data' in config) {
 			this.id = config.data.id;
@@ -191,12 +195,20 @@ Core.Object.extend('KJing.Device', {
 
 	onMessageReceived: function(socket, msg) {
 		var json = JSON.parse(msg);
+		console.log('onMessageReceived');
+		console.log(json);
+
 		if('type' in json) {
-			if(json.type === 'change') {
+			if(json.type === 'open') {
+				this.connectionId = json.connection;
+				console.log('GOT MY ID: '+this.connectionId);
+			}
+			else if(json.type === 'change') {
 				this.update();
 			}
 			else if(json.type === 'clientmessage') {
-				this.fireEvent('clientmessage', this, json['message']);
+				this.revs[json.source] = json.message.rev;
+				this.fireEvent('clientmessage', this, json["message"]);
 			}
 		}
 	},

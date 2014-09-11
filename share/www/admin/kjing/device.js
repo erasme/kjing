@@ -1,10 +1,9 @@
 
 KJing.Resource.extend('KJing.Device', {
-	deviceMessageRev: 0,
 	
 	constructor: function(config) {
 	},
-
+	
 	getPath: function() {
 		return this.getData().path;
 	},
@@ -27,7 +26,6 @@ KJing.Resource.extend('KJing.Device', {
 	},
 	
 	sendDeviceMessage: function(message) {
-		this.deviceMessageRev++;
 		var data = this.getDeviceData();
 		if(data !== undefined)
 			this.sendClientMessage(data.id, message);
@@ -35,6 +33,17 @@ KJing.Resource.extend('KJing.Device', {
 
 	setDevicePath: function(path) {
 		this.sendDeviceMessage({ path: path });
+	},
+
+	getDeviceRev: function() {
+		var client = this.getDeviceData();
+		return ((client === undefined) || (client.data === undefined) || (client.data === null) ||
+			(client.data.revs === undefined))?undefined:client.data.revs[this.getConnectionId()];
+	},
+
+	getIsDeviceSync: function() {
+		console.log('getIsDeviceSync connection: '+this.getConnectionId()+', deviceRev: '+this.getDeviceRev()+', messageCount: '+this.getConnectionMessageCount());
+		return (this.getDeviceRev() === this.getConnectionMessageCount());
 	},
 
 	getDevicePath: function() {
@@ -58,7 +67,7 @@ KJing.Resource.extend('KJing.Device', {
 	getDeviceRatio: function() {
 		var client = this.getDeviceData();
 		return ((client === undefined) || (client.data === undefined) || (client.data === null) ||
-			(client.data.capabilities === undefined))
+			(client.data.capabilities === undefined) || (client.data.capabilities.height === 0))
 			?(4/3):(client.data.capabilities.width/client.data.capabilities.height);
 	}
 });

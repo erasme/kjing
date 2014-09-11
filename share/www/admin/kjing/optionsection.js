@@ -1,4 +1,10 @@
 
+Ui.Button.extend('KJing.OptionOpenButton', {
+	constructor: function() {
+		this.setIcon('optionarrow');
+	}
+});
+
 Ui.Fold.extend('KJing.OptionSection', {
 	title: undefined,
 	arrow: undefined,
@@ -7,22 +13,17 @@ Ui.Fold.extend('KJing.OptionSection', {
 	constructor: function() {
 		this.setOver(false);
 		this.setIsFolded(false);
-		
-		var hbox = new Ui.HBox();
-		this.setHeader(hbox);
-	
-		this.arrow = new Ui.Icon({ icon: 'play', fill: '#666666', verticalAlign: 'center', width: 12, height: 12 });
-		hbox.append(this.arrow);
-			
-		this.title = new Ui.Text({ fontWeight: 'bold', margin: 5, color: '#666666', fontSize: 20, verticalAlign: 'center' });
-		hbox.append(this.title, true);
-				
+
+		this.optionOpenButton = new KJing.OptionOpenButton();
+		this.connect(this.optionOpenButton, 'press', this.invert);
+		this.setHeader(this.optionOpenButton);
+						
 		this.optionContent = new Ui.LBox({ paddingLeft: 30 });
 		KJing.OptionSection.base.setContent.call(this, this.optionContent);
 	},
 	
 	setTitle: function(title) {
-		this.title.setText(title);
+		this.optionOpenButton.setText(title);
 	}
 }, {
 	setContent: function(content) {

@@ -61,7 +61,7 @@ Ui.DropBox.extend('KJing.MapDevicesView', {
 
 		this.addMimetype('files');
 		this.addMimetype('application/x-file');
-		this.addMimetype('KJing.DeviceItemView');
+		this.addMimetype(KJing.DeviceItemView);
 		this.connect(this, 'dropfile', this.onMapDropFile);
 		this.connect(this, 'drop', this.onMapDrop);
 
@@ -127,6 +127,7 @@ Ui.DropBox.extend('KJing.MapDevicesView', {
 	},
 
 	updateDevicesPositions: function() {
+		console.log('updateDevicesPosition count: '+this.devices.length);
 		var w = this.mapWidth;
 		var h = this.mapHeight;
 		for(var i = 0; i < this.devices.length; i++) {
@@ -139,8 +140,8 @@ Ui.DropBox.extend('KJing.MapDevicesView', {
 	},
 
 	onMapDrop: function(dropbox, mimetype, data, x, y, effectAllowed) {
-		console.log(this+'.onDrop mimetype: '+mimetype+', pos: ('+x+','+y+')');
-		if(mimetype === 'KJing.DeviceItemView') {
+		console.log(this+'.onDrop mimetype: '+mimetype+', pos: ('+x+','+y+'), data: '+data);
+		if(KJing.DeviceItemView.hasInstance(data)) {
 			var delta = data.getDragDelta();
 			console.log('dragDelta: '+delta.x+','+delta.y);
 			console.log('data.layout: '+data.getLayoutWidth()+'x'+data.getLayoutHeight());
@@ -159,8 +160,9 @@ Ui.DropBox.extend('KJing.MapDevicesView', {
 			// TODO: check for attach
 			console.log(device);
 			console.log(this+'.onDrop DeviceItemView isAttached: '+this.resource.isAttachedDevice(device));
-			if(!this.resource.isAttachedDevice(device))
+			if(!this.resource.isAttachedDevice(device)) {
 				this.resource.attachDevice(device, x, y);
+			}
 			// else move the device on the map
 			else {
 				this.resource.moveDevice(device, x, y);

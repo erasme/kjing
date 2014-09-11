@@ -4,7 +4,7 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ItemType>GenericProject</ItemType>
-    <ProductVersion>10.0.0</ProductVersion>
+    <ProductVersion>8.0.30703</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{4535063E-FEEA-46BE-A5C7-BBC4F851C73E}</ProjectGuid>
     <newfilesearch>OnLoadAutoInsert</newfilesearch>
@@ -71,7 +71,6 @@
     <None Include="www\era\core\event.js" />
     <None Include="www\era\core\file.js" />
     <None Include="www\era\core\filepostuploader.js" />
-    <None Include="www\era\core\fingerevent.js" />
     <None Include="www\era\core\httprequest.js" />
     <None Include="www\era\core\media.js" />
     <None Include="www\era\core\mouseevent.js" />
@@ -87,12 +86,6 @@
     <None Include="www\era\excanvas\README" />
     <None Include="www\era\excanvas\excanvas.compiled.js" />
     <None Include="www\era\excanvas\excanvas.js" />
-    <None Include="www\era\excanvas\excanvas.js.old" />
-    <None Include="www\era\form\dialog.js" />
-    <None Include="www\era\form\field.js" />
-    <None Include="www\era\form\fieldcontainer.js" />
-    <None Include="www\era\form\panel.js" />
-    <None Include="www\era\form\panelcontainer.js" />
     <None Include="www\era\ui\accordeon.js" />
     <None Include="www\era\ui\accordeonable.js" />
     <None Include="www\era\ui\app.js" />
@@ -102,7 +95,6 @@
     <None Include="www\era\ui\buttongraphic.js" />
     <None Include="www\era\ui\canvaselement.js" />
     <None Include="www\era\ui\carousel.js" />
-    <None Include="www\era\ui\carouselable %28copie%29.js" />
     <None Include="www\era\ui\carouselable.js" />
     <None Include="www\era\ui\checkbox.js" />
     <None Include="www\era\ui\checkboxgraphic.js" />
@@ -118,7 +110,6 @@
     <None Include="www\era\ui\draggable.js" />
     <None Include="www\era\ui\dropbox.js" />
     <None Include="www\era\ui\element.js" />
-    <None Include="www\era\ui\embed.js" />
     <None Include="www\era\ui\entry.js" />
     <None Include="www\era\ui\fade.js" />
     <None Include="www\era\ui\fixed.js" />
@@ -129,14 +120,11 @@
     <None Include="www\era\ui\grid.js" />
     <None Include="www\era\ui\html.js" />
     <None Include="www\era\ui\icon.js" />
-    <None Include="www\era\ui\iconlist.js" />
     <None Include="www\era\ui\iframe.js" />
     <None Include="www\era\ui\image.js" />
-    <None Include="www\era\ui\keyboard.js" />
     <None Include="www\era\ui\label.js" />
     <None Include="www\era\ui\lbox.js" />
     <None Include="www\era\ui\lineargradient.js" />
-    <None Include="www\era\ui\linkable.js" />
     <None Include="www\era\ui\linkbutton.js" />
     <None Include="www\era\ui\listview.js" />
     <None Include="www\era\ui\loading.js" />
@@ -144,7 +132,6 @@
     <None Include="www\era\ui\matrix.js" />
     <None Include="www\era\ui\menu.js" />
     <None Include="www\era\ui\monthcalendar.js" />
-    <None Include="www\era\ui\mouseoverable.js" />
     <None Include="www\era\ui\movable.js" />
     <None Include="www\era\ui\movablebase.js" />
     <None Include="www\era\ui\notebook.js" />
@@ -158,7 +145,6 @@
     <None Include="www\era\ui\scrollable.js" />
     <None Include="www\era\ui\scrollingarea.js" />
     <None Include="www\era\ui\segmentbar.js" />
-    <None Include="www\era\ui\selectable.js" />
     <None Include="www\era\ui\selection.js" />
     <None Include="www\era\ui\selectionable.js" />
     <None Include="www\era\ui\separator.js" />
@@ -178,7 +164,6 @@
     <None Include="www\era\ui\textbggraphic.js" />
     <None Include="www\era\ui\textbuttonfield.js" />
     <None Include="www\era\ui\textfield.js" />
-    <None Include="www\era\ui\togglable.js" />
     <None Include="www\era\ui\togglebutton.js" />
     <None Include="www\era\ui\toolbar.js" />
     <None Include="www\era\ui\transformable.js" />
@@ -187,7 +172,6 @@
     <None Include="www\era\ui\uploadable.js" />
     <None Include="www\era\ui\uploadbutton.js" />
     <None Include="www\era\ui\video.js" />
-    <None Include="www\era\ui\virtualkeyboard.js" />
     <None Include="www\admin\index-debug.html" />
     <None Include="www\client\index-debug.html" />
     <None Include="www\admin\kjing\filepreview.js" />
@@ -264,5 +248,17 @@
     <None Include="www\admin\kjing\scaledimage2.js" />
     <None Include="www\admin\kjing\mapdevicesview.js" />
     <None Include="www\admin\kjing\deviceitemview.js" />
+    <None Include="www\era\ui\button.js.sav" />
+    <None Include="www\era\ui\carouselable2.js" />
+    <None Include="www\era\ui\form.js" />
+    <None Include="www\era\ui\text.js.html" />
+    <None Include="www\era\ui\text.js.sav" />
+    <None Include="www\era\ui\uploadbutton.js.sav" />
+    <None Include="www\admin\icons.js" />
+    <None Include="www\era\ui\dragevent.js" />
+    <None Include="www\era\ui\carousel3.js" />
+    <None Include="www\era\ui\carouselable3.js" />
+    <None Include="www\admin\kjing\link.js" />
+    <None Include="www\admin\kjing\linkview.js" />
   </ItemGroup>
 </Project>

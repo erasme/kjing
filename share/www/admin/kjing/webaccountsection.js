@@ -60,10 +60,10 @@ Ui.Dialog.extend('KJing.WebAccountNewDialog', {
 		delete(config.user);
 				
 		this.setTitle('Nouveau compte Web');
-		this.setPreferedWidth(400);
-		this.setPreferedHeight(400);
+		this.setPreferredWidth(400);
+		this.setPreferredHeight(400);
 		
-		this.setCancelButton(new Ui.Button({ text: 'Fermer' }));
+		this.setCancelButton(new Ui.DialogCloseButton());
 		
 		var vbox = new Ui.VBox({ spacing: 5 });
 		this.setContent(vbox);
@@ -116,8 +116,8 @@ Ui.Dialog.extend('KJing.WebAccountNewDialog', {
 		var createButton = new Ui.Button({ text: 'Créer' });
 		this.connect(createButton, 'press', function() {
 			var request = new Core.HttpRequest({ method: 'PUT',
-				url: '/cloud/user/'+this.user.getId(),
-				content: JSON.stringify({ login: loginField.getValue(), password: passwordField.getValue() })
+				url: '/cloud/resource/'+this.user.getId(),
+				content: JSON.stringify({ type: 'user', login: loginField.getValue(), password: passwordField.getValue() })
 			});
 			this.connect(request, 'done', function() {
 				this.close();
@@ -186,9 +186,9 @@ Ui.Dialog.extend('KJing.GoogleAccountDialog', {
 		this.account = config.account;
 		delete(config.account);
 	
-		this.setPreferedWidth(400);
+		this.setPreferredWidth(400);
 		this.setTitle('Compte Google');
-		this.setCancelButton(new Ui.Button({ text: 'Fermer' }));
+		this.setCancelButton(new Ui.DialogCloseButton());
 		
 		var deleteButton = new Ui.Button({ text: 'Supprimer' });
 		this.connect(deleteButton, 'press', this.onDeletePress);
@@ -228,7 +228,7 @@ KJing.WebAccount.extend('KJing.GoogleAccount', {
 }, {
 	"delete": function() {
 		var request = new Core.HttpRequest({ method: 'PUT',
-			url: '/cloud/user/'+this.getUser().getId(),
+			url: '/cloud/resource/'+this.getUser().getId(),
 			content: JSON.stringify({ googleid: null })
 		});
 		request.send();
@@ -261,9 +261,9 @@ Ui.Dialog.extend('KJing.FacebookAccountDialog', {
 		this.account = config.account;
 		delete(config.account);
 	
-		this.setPreferedWidth(400);
+		this.setPreferredWidth(400);
 		this.setTitle('Compte Facebook');
-		this.setCancelButton(new Ui.Button({ text: 'Fermer' }));
+		this.setCancelButton(new Ui.DialogCloseButton());
 		
 		var deleteButton = new Ui.Button({ text: 'Supprimer' });
 		this.connect(deleteButton, 'press', this.onDeletePress);
@@ -304,7 +304,7 @@ KJing.WebAccount.extend('KJing.FacebookAccount', {
 }, {
 	"delete": function() {
 		var request = new Core.HttpRequest({ method: 'PUT',
-			url: '/cloud/user/'+this.getUser().getId(),
+			url: '/cloud/resource/'+this.getUser().getId(),
 			content: JSON.stringify({ facebookid: null })
 		});
 		request.send();
@@ -343,9 +343,9 @@ Ui.Dialog.extend('KJing.LocalAccountDialog', {
 		this.account = config.account;
 		delete(config.account);
 	
-		this.setPreferedWidth(400);
+		this.setPreferredWidth(400);
 		this.setTitle('Compte local');
-		this.setCancelButton(new Ui.Button({ text: 'Fermer' }));
+		this.setCancelButton(new Ui.DialogCloseButton());
 		
 		this.deleteButton = new Ui.Button({ text: 'Supprimer' });
 		this.connect(this.deleteButton, 'press', this.onDeletePress);
@@ -391,7 +391,7 @@ Ui.Dialog.extend('KJing.LocalAccountDialog', {
 		diff.login = this.loginField.getValue();
 				
 		var request = new Core.HttpRequest({ method: 'PUT',
-			url: '/cloud/user/'+this.user.getId(),
+			url: '/cloud/resource/'+this.user.getId(),
 			content: JSON.stringify(diff)
 		});
 		this.connect(request, 'done', this.onSaveDone);
@@ -457,7 +457,7 @@ KJing.WebAccount.extend('KJing.LocalAccount', {
 }, {
 	"delete": function() {
 		var request = new Core.HttpRequest({ method: 'PUT',
-			url: '/cloud/user/'+this.user.getId(),
+			url: '/cloud/resource/'+this.user.getId(),
 			content: JSON.stringify({ login: null, password: null })
 		});
 		request.send();

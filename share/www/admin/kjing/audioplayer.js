@@ -1,26 +1,29 @@
 
-
 Ui.CanvasElement.extend('KJing.PosButton', {}, {
 	updateCanvas: function(ctx) {
 		var width = this.getLayoutWidth();
 		var height = this.getLayoutHeight();
 		var radius = Math.min(width/2, height/2);
 
-		ctx.fillStyle = '#444444';
+		ctx.fillStyle = Ui.Color.create(this.getStyleProperty('foreground')).getCssRgba();
 		ctx.beginPath();
-		ctx.arc(width/2, height/2, radius, 0, Math.PI * 2, false);
-		ctx.closePath();
-		ctx.fill();
-
-		ctx.fillStyle = 'rgb(240,240,240)';//'#aaaaaa';
-		ctx.beginPath();
-		ctx.arc(width/2, height/2, radius*0.66, 0, Math.PI * 2, false);
+		ctx.arc(width/2, height/2, radius-this.getStyleProperty('borderWidth')*2, 0, Math.PI * 2, false);
 		ctx.closePath();
 		ctx.fill();
 	},
 
 	measureCore: function(width, height) {
 		return { width: 30, height: 30 };
+	},
+
+	onStyleChange: function() {
+		this.invalidateDraw();
+	}
+}, {
+	style: {
+		borderWidth: 2,
+		backgroundBorder: '#444444',
+		foreground: 'rgb(240,240,240)'
 	}
 });
 
@@ -69,23 +72,50 @@ Ui.CanvasElement.extend('KJing.PosBar', {
 	updateCanvas: function(ctx) {
 		var width = this.getLayoutWidth();
 		var height = this.getLayoutHeight();
-		var radius = Math.min(width/2, height/2);
+		var radius = Math.min(this.getStyleProperty('radius'), Math.min(width/2, height/2));
+
+		//console.log(this+'.updateCanvas radius: '+radius);
 
 		// bg
-		ctx.fillStyle = '#aaaaaa';
-		this.drawBar(ctx, radius, height/2, width-(radius*2), radius*0.5);
+		ctx.fillStyle = Ui.Color.create(this.getStyleProperty('background')).getCssRgba();
+		ctx.beginPath();
+		ctx.roundRect(0, 0, width, height, radius, radius, radius, radius);
+		ctx.closePath();
+		ctx.fill();
+//		this.drawBar(ctx, radius, height/2, width-(radius*2), radius*0.5);
 		// load bar
-		ctx.fillStyle = '#888888';
-		if(this.loadPos > 0)
-			this.drawBar(ctx, radius, height/2, (width-(radius*2))*this.loadPos, radius*0.5);
+		ctx.fillStyle = Ui.Color.create(this.getStyleProperty('load')).getCssRgba();
+		if(this.loadPos > 0) {
+			ctx.beginPath();
+			ctx.roundRect(0, 0, width*this.loadPos, height, radius, radius, radius, radius);
+			ctx.closePath();
+			ctx.fill();
+		}
+//			this.drawBar(ctx, radius, height/2, (width-(radius*2))*this.loadPos, radius*0.5);
 		// current bar
-		ctx.fillStyle = '#ffc30b';
-		if(this.currentPos > 0)
-			this.drawBar(ctx, radius, height/2, (width-(radius*2))*this.currentPos, radius*0.5);
+		ctx.fillStyle = Ui.Color.create(this.getStyleProperty('current')).getCssRgba();
+		if(this.currentPos > 0) {
+			ctx.beginPath();
+			ctx.roundRect(0, 0, width*this.currentPos, height, radius, radius, radius, radius);
+			ctx.closePath();
+			ctx.fill();
+		}
+//			this.drawBar(ctx, radius, height/2, (width-(radius*2))*this.currentPos, radius*0.5);
 	},
 
 	measureCore: function(width, height) {
-		return { width: 20, height: 20 };
+		return { width: 20, height: 7 };
+	},
+
+	onStyleChange: function() {
+		this.invalidateDraw();
+	}
+}, {
+	style: {
+		radius: 4,
+		current: '#ffc30b',
+		load: '#888888',
+		background: '#aaaaaa'
 	}
 });
 
@@ -100,7 +130,7 @@ Ui.Container.extend('KJing.MediaProgressBar', {
 		this.posBar = new KJing.PosBar({ verticalAlign: 'center' });
 		this.appendChild(this.posBar);
 
-		var button = new KJing.PosButton();
+		var button = new KJing.PosButton({ margin: 10 });
 		this.posButton = new Ui.Movable({ moveVertical: false, horizontalAlign: 'left', verticalAlign: 'center' });
 		this.connect(this.posButton, 'move', this.onButtonMove);
 		this.connect(this.posButton, 'up', this.onButtonUp);
@@ -157,7 +187,7 @@ Ui.Container.extend('KJing.MediaProgressBar', {
 	},
 
 	arrangeCore: function(width, height) {
-		this.posBar.arrange(0, 0, width, height);
+		this.posBar.arrange(height/2, 0, width-height, height);
 		this.posButton.arrange(0, 0, width, height);
 		this.updatePos();
 	}
@@ -209,42 +239,28 @@ Ui.CanvasElement.extend('KJing.PlayButton', {
 		var radius = Math.min(width/2, height/2);
 
 		if(this.backgroundVisible) {
-			ctx.fillStyle = 'rgba(221,221,221,0.6)';
+			ctx.fillStyle = Ui.Color.create(this.getStyleProperty('background')).getCssRgba();
 			ctx.beginPath();
 			ctx.arc(width/2, height/2, radius, 0, Math.PI * 2, false);
 			ctx.closePath();
 			ctx.fill();
 		}
 
-		ctx.fillStyle = '#444444';
+		ctx.fillStyle = Ui.Color.create(this.getStyleProperty('foreground')).getCssRgba();
 
 		// if play
 		if(this.mode == 'play') {
-			ctx.beginPath();
-			ctx.moveTo(width/2-radius*0.3, (height/2)-(radius/2));
-			ctx.lineTo(width/2+radius*0.6, (height/2));
-			ctx.lineTo(width/2-radius*0.3, (height/2)+(radius/2));
-			ctx.closePath();
-			ctx.fill();
+			ctx.save();
+			ctx.translate(width*0.1, width*0.1);
+			Ui.Icon.drawIcon(ctx, 'play', width*0.8, ctx.fillStyle);
+			ctx.restore();
 		}
 		// pause
 		else if(this.mode == 'pause') {
-			ctx.beginPath();
-			ctx.moveTo(width/2-radius*0.3, (height/2)-(radius/2));
-			ctx.lineTo(width/2-radius*0.3+radius/5, (height/2)-(radius/2));
-			ctx.lineTo(width/2-radius*0.3+radius/5, (height/2)+(radius/2));
-			ctx.lineTo(width/2-radius*0.3, (height/2)+(radius/2));
-			ctx.closePath();
-			ctx.fill();
-
-			ctx.beginPath();
-			ctx.moveTo(width/2+radius*0.1, (height/2)-(radius/2));
-			ctx.lineTo(width/2+radius*0.1+radius/5, (height/2)-(radius/2));
-			ctx.lineTo(width/2+radius*0.1+radius/5, (height/2)+(radius/2));
-			ctx.lineTo(width/2+radius*0.1, (height/2)+(radius/2));
-			ctx.closePath();
-			ctx.fill();
-
+			ctx.save();
+			ctx.translate(width*0.1, width*0.1);
+			Ui.Icon.drawIcon(ctx, 'pause', width*0.8, ctx.fillStyle);
+			ctx.restore();
 		}
 		// load
 		else {
@@ -274,10 +290,20 @@ Ui.CanvasElement.extend('KJing.PlayButton', {
 	onHidden: function() {
 		if(this.clock != undefined)
 			this.clock.stop();
+	},
+
+	onStyleChange: function() {
+		this.invalidateDraw();
+	}
+}, {
+	style: {
+		background: 'rgba(221,221,221,0.6)',
+		foreground: '#444444'
 	}
 });
 
 Ui.LBox.extend('KJing.MediaPlayBar', {
+	bg: undefined,
 	media: undefined,
 	progressBar: undefined,
 	playButton: undefined,
@@ -293,13 +319,15 @@ Ui.LBox.extend('KJing.MediaPlayBar', {
 		this.connect(this.media, 'bufferingupdate', this.onMediaBufferingUpdate);
 		this.connect(this.media, 'statechange', this.onMediaStateChange);
 
-		this.append(new Ui.Shadow({	shadowWidth: 2,	radius: 3, inner: false, opacity: 0.5, color: '#555555' }));
+		this.bg = new Ui.Rectangle();
+		this.append(this.bg);
+//		this.append(new Ui.Shadow({	shadowWidth: 2,	radius: 2, inner: false, opacity: 0.5, color: '#555555' }));
 //		var gradient = new Ui.LinearGradient({ orientation: 'vertical', stops: [
 //	        { offset: 0, color: '#dedede'}, { offset: 1, color: '#cccccc' }	] });
 //		this.append(new Ui.Rectangle({ fill: gradient, margin: 3, radius: 5 }));
-		this.append(new Ui.Rectangle({ fill: 'rgb(240,240,240)', margin: 2, radius: 3 }));
+//		this.append(new Ui.Rectangle({ fill: '#eff1f1', margin: 0, radius: 0 }));
 
-		var hbox = new Ui.HBox({ margin: 5 });
+		var hbox = new Ui.HBox({ margin: 0 });
 		this.append(hbox);
 
 		// play/pause/load button
@@ -314,6 +342,15 @@ Ui.LBox.extend('KJing.MediaPlayBar', {
 		var lbox = new Ui.LBox();
 		hbox.append(lbox, true);
 
+		// time labels
+		var hbox2 = new Ui.HBox({ marginLeft: 10, marginRight: 10, marginBottom: 4, verticalAlign: 'bottom' });
+		lbox.append(hbox2);
+		this.posLabel = new Ui.Label({ text: '' });
+		this.totalLabel = new Ui.Label({ text: '' });
+		hbox2.append(this.posLabel);
+		hbox2.append(new Ui.Element(), true);
+		hbox2.append(this.totalLabel);
+
 		// pos bar here
 		this.progressBar = new KJing.MediaProgressBar({ height: 30, verticalAlign: 'center' });
 		this.connect(this.progressBar, 'down', this.onProgressBarDown);
@@ -322,15 +359,6 @@ Ui.LBox.extend('KJing.MediaPlayBar', {
 		lbox.append(this.progressBar, true);
 		if(!this.media.getIsReady())
 			this.progressBar.disable();
-
-		// time labels
-		var hbox2 = new Ui.HBox({ marginLeft: 10, marginRight: 10, verticalAlign: 'bottom' });
-		lbox.append(hbox2);
-		this.posLabel = new Ui.Label({ text: '', color: '#444444' });
-		this.totalLabel = new Ui.Label({ text: '', color: '#444444' });
-		hbox2.append(this.posLabel);
-		hbox2.append(new Ui.Element(), true);
-		hbox2.append(this.totalLabel);
 	},
 
 	updateLabels: function() {
@@ -430,6 +458,18 @@ Ui.LBox.extend('KJing.MediaPlayBar', {
 	onMediaBufferingUpdate: function() {
 		this.progressBar.setLoadPos((this.media.getCurrentTime() + this.media.getCurrentBufferSize()) / this.media.getDuration());
 	}
+}, {
+	onStyleChange: function() {
+		this.bg.setFill(this.getStyleProperty('background'));
+		var foreground = this.getStyleProperty('foreground');
+		this.posLabel.setColor(foreground);
+		this.totalLabel.setColor(foreground);
+	}
+}, {
+	style: {
+		foreground: '#444444',
+		background: 'rgba(241,241,241,0.7)'
+	}
 });
 
 Ui.LBox.extend('KJing.AudioPlayer', {
@@ -449,7 +489,7 @@ Ui.LBox.extend('KJing.AudioPlayer', {
 		var deco = new Ui.VBox({ verticalAlign: 'center', horizontalAlign: 'center', spacing: 10 });
 		this.append(deco);
 
-		var shape = new Ui.Shape({ horizontalAlign: 'center', width: 150, height: 150, scale: 1.5, path: 'M 93.161,0.071 C 59.66,-1.043 32.22,11.314 32.22,11.314 L 32.2,74.023 c -3.411,-1.354 -7.559,-1.675 -11.772,-0.651 -9.083,2.207 -15.031,9.82 -13.285,17.007 1.746,7.187 10.524,11.225 19.606,9.019 8.564,-2.081 14.338,-8.969 13.507,-15.772 l 0,0 0,-46.855 c 0,0 19.404,-6.784 44.573,-8.485 l 0,34.849 0,0 C 81.455,61.843 77.386,61.55 73.25,62.555 64.167,64.761 58.219,72.374 59.965,79.562 61.71,86.749 70.488,90.786 79.571,88.58 87.502,86.653 93.042,80.603 93.158,74.316 l 0.003,0.004 c 0,-0.002 0,-61.521 0,-74.249 z' });
+		var shape = new Ui.Icon({ icon: 'note', horizontalAlign: 'center', width: 150, height: 150 });
 		deco.append(shape);
 
 		this.label = new Ui.Text({ textAlign: 'center', fontSize: 20, width: 300 });
@@ -461,7 +501,7 @@ Ui.LBox.extend('KJing.AudioPlayer', {
 		pressable.setContent(this.playButton);
 		this.append(pressable);
 
-		this.mediaBar = new KJing.MediaPlayBar({ media: this.media, verticalAlign: 'bottom', marginBottom: 20, marginLeft: 20, marginRight: 20 });
+		this.mediaBar = new KJing.MediaPlayBar({ media: this.media, verticalAlign: 'bottom'/*, marginBottom: 20, marginLeft: 20, marginRight: 20*/ });
 		this.append(this.mediaBar);
 	},
 
@@ -506,6 +546,8 @@ Ui.LBox.extend('KJing.AudioPlayer', {
 			this.media.play();
 	}
 });
+
+
 
 
 

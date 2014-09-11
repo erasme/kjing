@@ -299,7 +299,7 @@ Ui.LBox.extend('Storage.DirectoryFileViewer', {
 	}
 });
 	
-Ui.LBox.extend('Storage.ImageFileViewer', {
+Ui.ScrollingArea.extend('Storage.ImageFileViewer', {
 	file: undefined,
 	image: undefined,
 	values: undefined,
@@ -316,56 +316,12 @@ Ui.LBox.extend('Storage.ImageFileViewer', {
 		this.fileViewer = config.fileViewer;
 		delete(config.fileViewer);
 
-		this.transformable = new Ui.Transformable({ inertia: false, clipToBounds: true });
-		this.setContent(this.transformable);
+		this.setMaxScale(4);
 
 		this.image = new KJing.ScaledImage2();
 		this.image.setSrc(this.file.getDownloadUrl());
 		//this.image.setSrc(this.file.getPreviewHighUrl());
-		this.transformable.setContent(this.image);
-
-		this.connect(this.transformable, 'transform', this.onTransform);
-	},
-
-	setContentTransform: function(transform) {
-		if(!this.transformable.getIsDown()) {
-			this.userInteraction = false;
-			this.transformable.setContentTransform(transform.x, transform.y, transform.scale, transform.angle);
-			this.userInteraction = true;
-		}
-	},
-
-	onTransform: function() {
-		var w = this.getLayoutWidth();
-		var h = this.getLayoutHeight();
-
-		this.disconnect(this.transformable, 'transform', this.onTransform);
-
-		var scale = this.transformable.getScale();
-		var x = this.transformable.getTranslateX();
-		var y = this.transformable.getTranslateY();
-
-		scale = Math.min(4, Math.max(1, scale));
-
-		var sw = w * scale;
-		var dw = (sw - w)/2;
-
-		var sh = h * scale;
-		var dh = (sh - h)/2;
-
-//		console.log('onTransform scale: '+scale+', x: '+x+', lw: '+w+', dw: '+dw);
-
-		x = Math.min(x, dw);
-		x = Math.max(x, -dw);
-
-		y = Math.min(y, dh);
-		y = Math.max(y, -dh);
-
-		this.transformable.setContentTransform(x, y, scale, 0);
-
-		this.connect(this.transformable, 'transform', this.onTransform);
-		if((this.userInteraction) && (this.fileViewer !== undefined) && (this.fileViewer.getController() !== undefined))
-			this.fileViewer.getController().setDeviceTransform({ angle: this.transformable.getAngle(), scale: this.transformable.getScale(), x: this.transformable.getTranslateX(), y: this.transformable.getTranslateY() });
+		this.setContent(this.image);
 	}
 });
 
@@ -644,7 +600,7 @@ Ui.LBox.extend('Storage.TextFileViewer', {
 		this.fileViewer = config.fileViewer;
 		delete(config.fileViewer);
 
-		var scroll = new Ui.ScrollingArea({ directionRelease: true, scrollHorizontal: false, scrollVertical: true });
+		var scroll = new Ui.ScrollingArea({ scrollHorizontal: false, scrollVertical: true });
 		this.setContent(scroll);
 
 		var lbox = new Ui.LBox();
@@ -697,7 +653,7 @@ Ui.LBox.extend('Storage.RssItemFileViewer', {
 		this.fileViewer = config.fileViewer;
 		delete(config.fileViewer);
 
-		var scroll = new Ui.ScrollingArea({ directionRelease: true, scrollHorizontal: false, scrollVertical: true });
+		var scroll = new Ui.ScrollingArea({ scrollHorizontal: false, scrollVertical: true });
 		this.setContent(scroll);
 
 		var lbox = new Ui.LBox();
@@ -790,16 +746,16 @@ Ui.LBox.extend('Storage.PdfPage', {
 		this.viewer = config.viewer;
 		delete(config.viewer);
 
-		this.transformable = new Ui.Transformable({ inertia: false, clipToBounds: true });
+		this.transformable = new Ui.ScrollingArea({ maxScale: 4 });
 		this.setContent(this.transformable);
 
 		this.graphic = new KJing.ScaledImage2({ src: '/cloud/pdf/'+this.file.getShare().getId()+'/'+this.file.getData().id+'/pages/'+this.page+'/image?rev='+this.file.getRev() });
 		this.transformable.setContent(this.graphic);
 
-		this.connect(this.transformable, 'transform', this.onTransform);
+//		this.connect(this.transformable, 'transform', this.onTransform);
 	},
 
-	setContentTransform: function(transform) {
+/*	setContentTransform: function(transform) {
 		if(!this.transformable.getIsDown()) {
 			this.userInteraction = false;
 			this.transformable.setContentTransform(transform.x, transform.y, transform.scale, transform.angle);
@@ -840,7 +796,7 @@ Ui.LBox.extend('Storage.PdfPage', {
 //		console.log(this.viewer.getController());
 		if(this.userInteraction && (this.viewer !== undefined) && (this.viewer.getController() !== undefined))
 			this.viewer.getController().setDeviceTransform({ angle: this.transformable.getAngle(), scale: this.transformable.getScale(), x: this.transformable.getTranslateX(), y: this.transformable.getTranslateY() });
-	}
+	}*/
 });
 
 Ui.LBox.extend('Storage.PdfFileViewer', {
@@ -895,7 +851,7 @@ Ui.LBox.extend('Storage.PdfFileViewer', {
 		if(json.status == 'ready') {
 			this.data = json;
 			
-			this.carousel = new Ui.Carousel({ directionRelease: true });
+			this.carousel = new Ui.Carousel();
 			this.connect(this.carousel, 'change', this.onCarouselChange);
 			this.setContent(this.carousel);
 						

@@ -40,7 +40,7 @@ KJing.WizardItem.extend('KJing.Local.Wizard', {
 	errorTimeout: undefined,
 
 	constructor: function(config) {
-		var sflow = new Ui.SFlow({ spacing: 5, itemAlign: 'stretch' });
+		var sflow = new Ui.SFlow({ spacing: 5, itemAlign: 'stretch', stretchMaxRatio: 5 });
 		this.setContent(sflow);
 	
 		this.loginField = new KJing.TextField({ title: 'Identifiant', width: 250 });

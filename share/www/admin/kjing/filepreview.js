@@ -7,8 +7,6 @@ Ui.Selectionable.extend('KJing.FileItemView', {
 	preview: undefined,
 
 	constructor: function(config) {
-		this.setDirectionDrag('horizontal');
-	
 		this.view = config.view;
 		delete(config.view);
 
@@ -18,6 +16,10 @@ Ui.Selectionable.extend('KJing.FileItemView', {
 		this.resource = config.resource;
 		delete(config.resource);
 
+		this.bg = new Ui.Rectangle({ fill: '#e0eff8' });
+		this.bg.hide();
+		this.append(this.bg);
+
 		if('uploader' in config) {
 			this.uploader = config.uploader;
 			delete(config.uploader);
@@ -26,10 +28,17 @@ Ui.Selectionable.extend('KJing.FileItemView', {
 		else {			
 			this.setDownloadUrl(this.resource.getDownloadUrl(), this.resource.getMimetype(), this.resource.getName());
 			this.setMimetype('application/x-file');
-			this.setData(this.resource.getId());
+			this.setDraggableData(this.resource.getId());
 			this.preview = new Storage.FilePreview({ resource: this.resource });
 		}
-		this.setContent(this.preview);
+		this.append(this.preview);
+
+		this.connect(this, 'press', function() {
+			if(this.getIsSelected())
+				this.unselect();
+			else
+				this.select();
+		});
 	},
 
 	getResourceParent: function() {
@@ -108,6 +117,14 @@ Ui.Selectionable.extend('KJing.FileItemView', {
 				}
 			}
 		}
+	},
+
+	onSelect: function() {
+		this.bg.show();
+	},
+
+	onUnselect: function() {
+		this.bg.hide();
 	}
 });
 
@@ -135,13 +152,12 @@ Ui.LBox.extend('Storage.FilePreview', {
 		this.label = new Ui.CompactLabel({ width: 100, maxLine: 3, textAlign: 'center', horizontalAlign: 'center' });
 		vbox.append(this.label);
 
-		var lbox = new Ui.LBox({ verticalAlign: 'bottom', horizontalAlign: 'center' });
-		this.content.setContent(lbox);
-		lbox.append(new Ui.Rectangle({ fill: new Ui.Color({ r: 0.7, b: 0.7, g: 0.7 }) }));
-		lbox.append(new Ui.Rectangle({ fill: 'white', margin: 1 }));
-		var image = new Ui.Image({ src: '/cloud/preview/'+this.resource.getShare().getId()+'/'+this.resource.getData().id+'?rev='+this.resource.getRev(), margin: 3 });
+		var image = new Ui.Image({
+			src: '/cloud/preview/'+this.resource.getShare().getId()+'/'+this.resource.getData().id+'?rev='+this.resource.getRev(),
+			verticalAlign: 'bottom', horizontalAlign: 'center'
+		});
 		this.connect(image, 'error', this.onPreviewError);
-		lbox.append(image);
+		this.content.setContent(image);
 		this.label.setText(this.resource.getName());
 	},
 	

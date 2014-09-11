@@ -16,12 +16,12 @@ Ui.Dialog.extend('Storage.FilePropertiesDialog', {
 		this.resource = config.resource;
 		delete(config.resource);
 	
-		this.setPreferedWidth(500);
-		this.setPreferedHeight(500);
+		this.setPreferredWidth(500);
+		this.setPreferredHeight(500);
 		this.setFullScrolling(true);
 
 		this.setTitle('Propriétés du fichier');
-		this.setCancelButton(new Ui.Button({ text: 'Fermer' }));
+		this.setCancelButton(new Ui.DialogCloseButton());
 
 		if(this.resource.getIsReady())
 			this.onResourceReady();

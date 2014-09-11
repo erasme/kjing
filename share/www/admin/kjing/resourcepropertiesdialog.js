@@ -14,7 +14,6 @@ KJing.ItemView.extend('KJing.RightItemView', {
 		if(KJing.Group.hasInstance(this.user))
 			this.setItemIcon('group');
 		else {
-			this.setRoundMode(true);
 			this.setItemImage(this.user.getFaceUrl());
 			this.setItemName(this.user.getName());
 		}
@@ -141,14 +140,14 @@ Ui.Dialog.extend('KJing.ResourcePropertiesDialog', {
 	
 	constructor: function(config) {
 		this.setFullScrolling(true);
-		this.setPreferedWidth(500);
-		this.setPreferedHeight(500);
+		this.setPreferredWidth(500);
+		this.setPreferredHeight(500);
 		this.setTitle('Propriétés');
 		
 		this.resource = config.resource;
 		delete(config.resource);
 
-		var sflow = new Ui.SFlow({ itemAlign: 'stretch', spacing: 5 });
+		var sflow = new Ui.SFlow({ itemAlign: 'stretch', spacing: 5, stretchMaxRatio: 10 });
 		this.setContent(sflow);
 		
 		var textField = new KJing.TextField({ title: 'Identifiant', value: this.resource.getId(), width: 200 });
@@ -184,7 +183,7 @@ Ui.Dialog.extend('KJing.ResourcePropertiesDialog', {
 		var rightsSection = new KJing.ResourceRightsSection({ resource: this.resource });
 		sflow.append(rightsSection);
 
-		this.setCancelButton(new Ui.Button({ text: 'Fermer' }));
+		this.setCancelButton(new Ui.DialogCloseButton());
 
 		if(this.resource.canWrite()) {
 			var saveButton = new Ui.Button({ text: 'Enregister' });

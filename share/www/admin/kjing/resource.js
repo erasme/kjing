@@ -10,6 +10,8 @@ Core.Object.extend('KJing.Resource', {
 	socket: undefined,
 	monitorCount: 0,
 	retryTask: undefined,
+	connectionId: undefined,
+	connectionMessageCount: undefined,
 
 	constructor: function(config) {
 		this.addEvents('ready', 'change', 'delete', 'error');
@@ -40,6 +42,14 @@ Core.Object.extend('KJing.Resource', {
 
 	getId: function() {
 		return this.id;
+	},
+
+	getConnectionId: function() {
+		return this.connectionId;
+	},
+
+	getConnectionMessageCount: function() {
+		return this.connectionMessageCount;
 	},
 
 	getType: function() {
@@ -196,8 +206,12 @@ Core.Object.extend('KJing.Resource', {
 	},
 
 	sendClientMessage: function(destination, message) {
-		if(this.socket !== undefined)
+		if((this.socket !== undefined) && (this.connectionId !== undefined)) {
+			if(this.connectionMessageCount === undefined)
+				this.connectionMessageCount = 0;
+			message.rev = ++this.connectionMessageCount;
 			this.socket.send(JSON.stringify({ type: 'clientmessage', destination: destination, message: message }));
+		}
 	},
 
 	monitor: function() {
@@ -240,8 +254,18 @@ Core.Object.extend('KJing.Resource', {
 		this.request = undefined;
 	},
 	
-	onMessageReceived: function() {
-		this.update();
+	onMessageReceived: function(socket, msg) {
+		var json = JSON.parse(msg);
+		if('type' in json) {
+			if(json.type === 'open') {
+				this.connectionId = json.connection;
+				this.connectionMessageCount = undefined;
+				console.log('GOT MY ID: '+this.connectionId);
+			}
+			else if(json.type === 'change') {
+				this.update();
+			}
+		}
 	},
 	
 	onSocketError: function() {
@@ -250,6 +274,8 @@ Core.Object.extend('KJing.Resource', {
 	
 	onSocketClose: function() {
 		this.socket = undefined;
+		this.connectionId = undefined;
+		this.connectionMessageCount = undefined;
 		if(this.monitorCount > 0)
 			this.retryTask = new Core.DelayedTask({ delay: 5, scope: this, callback: this.monitor });
 	}
@@ -269,6 +295,8 @@ Core.Object.extend('KJing.Resource', {
 				return new KJing.Folder({ id: id });
 			else if(id.indexOf('share:') === 0)
 				return new KJing.Share({ id: id });
+			else if(id.indexOf('link:') === 0)
+				return new KJing.Link({ id: id });
 			else if(id.indexOf('file:') === 0)
 				return KJing.File.create(id);
 			else
@@ -292,6 +320,8 @@ Core.Object.extend('KJing.Resource', {
 					return new KJing.Folder({ data: id });
 				else if(id.id.indexOf('share:') === 0)
 					return new KJing.Share({ data: id });
+				else if(id.id.indexOf('link:') === 0)
+					return new KJing.Link({ data: id });
 				else if(id.id.indexOf('file:') === 0)
 					return KJing.File.create(id);
 				else

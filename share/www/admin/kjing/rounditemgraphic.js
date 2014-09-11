@@ -13,6 +13,8 @@ Ui.CanvasElement.extend('KJing.RoundItemGraphic', {
 		
 	}
 }, {
+	canvasEngine: 'canvas',
+
 	updateCanvas: function(ctx) {
 		var w = this.getLayoutWidth();
 		var h = this.getLayoutHeight();
@@ -33,7 +35,7 @@ Ui.CanvasElement.extend('KJing.RoundItemGraphic', {
 
 			ctx.save();
 		    ctx.beginPath();
-		    ctx.arc(w/2, h/2, r-2, 0, Math.PI * 2, true);
+		    ctx.arc(w/2, h/2, r-0.5, 0, Math.PI * 2, true);
 		    ctx.closePath();
 		   	ctx.clip();
 
@@ -41,19 +43,18 @@ Ui.CanvasElement.extend('KJing.RoundItemGraphic', {
 			ctx.restore();
 
 		    ctx.beginPath();
-		    ctx.arc(w/2, h/2, r-1.5, 0, Math.PI * 2, true);
-		    ctx.closePath();
-			
-			ctx.strokeStyle = '#444444';
-			ctx.lineWidth = 2;
-			ctx.stroke();
-
-		    ctx.beginPath();
-		    ctx.arc(w/2, h/2, r-3, 0, Math.PI * 2, true);
+		    ctx.arc(w/2, h/2, r-1, 0, Math.PI * 2, true);
 		    ctx.closePath();
 			ctx.strokeStyle = '#ffffff';
 			ctx.lineWidth = 2;
 			ctx.stroke();
+
+/*		    ctx.beginPath();
+		    ctx.arc(w/2, h/2, r-0.5, 0, Math.PI * 2, true);
+		    ctx.closePath();
+			ctx.strokeStyle = '#444444';
+			ctx.lineWidth = 1;
+			ctx.stroke();*/
 		}
 	}
 });

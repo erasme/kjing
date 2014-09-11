@@ -83,6 +83,7 @@ Ui.SFlow.extend('KJing.NewFileSelector', {
 		this.addEvents('done');
 				
 		this.setItemAlign('stretch');
+		this.setStretchMaxRatio(5);
 		this.setSpacing(5);
 		this.setUniform(true);
 		
@@ -127,8 +128,8 @@ Ui.Dialog.extend('KJing.NewFileDialog', {
 	
 		this.setTitle('Nouveau fichier');
 		this.setFullScrolling(true);
-		this.setPreferedWidth(400);
-		this.setPreferedHeight(400);
+		this.setPreferredWidth(400);
+		this.setPreferredHeight(400);
 		
 		this.transBox = new Ui.TransitionBox();
 		this.setContent(this.transBox);
@@ -137,7 +138,7 @@ Ui.Dialog.extend('KJing.NewFileDialog', {
 		this.connect(this.selector, 'done', this.onSelectorDone);
 		this.transBox.replaceContent(this.selector);
 		
-		this.setCancelButton(new Ui.Button({ text: 'Annuler' }));
+		this.setCancelButton(new Ui.DialogCloseButton({ text: 'Annuler' }));
 		
 		this.prevButton = new Ui.Button({ text: 'Précédent' });
 		this.connect(this.prevButton, 'press', this.onPrevPress);

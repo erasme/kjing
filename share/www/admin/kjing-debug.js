@@ -11,6 +11,7 @@ Core.Util.include(appBase+'kjing/map.js');
 Core.Util.include(appBase+'kjing/device.js');
 Core.Util.include(appBase+'kjing/folder.js');
 Core.Util.include(appBase+'kjing/share.js');
+Core.Util.include(appBase+'kjing/link.js');
 Core.Util.include(appBase+'kjing/file.js');
 Core.Util.include(appBase+'kjing/view.js');
 Core.Util.include(appBase+'kjing/itemview.js');
@@ -34,6 +35,7 @@ Core.Util.include(appBase+'kjing/fileviewer.js');
 Core.Util.include(appBase+'kjing/deviceitemview.js');
 Core.Util.include(appBase+'kjing/deviceview.js');
 Core.Util.include(appBase+'kjing/mapdevicesview.js');
+Core.Util.include(appBase+'kjing/linkview.js');
 
 // include login methods
 Core.Util.include(appBase+'logins/wizarditem.js');
@@ -45,4 +47,5 @@ Core.Util.include(appBase+'logins/facebook/wizard.js');
 Core.Util.include(appBase+'logins/create/wizard.js');
 
 // main app
+Core.Util.include(appBase+'icons.js');
 Core.Util.include(appBase+'main.js');

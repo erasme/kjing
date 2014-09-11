@@ -3,7 +3,6 @@ Ui.LBox.extend('KJing.View', {
 	view: undefined,
 	
 	constructor: function(config) {
-		console.log('new KJing.View');
 		this.view = config.view;
 		delete(config.view);
 	},
@@ -28,6 +27,8 @@ Ui.LBox.extend('KJing.View', {
 			return new KJing.DeviceView({ view: view, resource: resource });
 		else if(KJing.Share.hasInstance(resource))
 			return new KJing.StorageView({ view: view, resource: new KJing.File({ share: resource }) });
+		else if(KJing.Link.hasInstance(resource))
+			return new KJing.LinkView({ view: view, resource: resource });
 		else if(KJing.File.hasInstance(resource))
 			return new KJing.StorageView({ view: view, resource: resource });
 		else
