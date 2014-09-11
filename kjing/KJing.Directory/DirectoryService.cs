@@ -128,6 +128,11 @@ namespace KJing.Directory
 			public override void OnOpen()
 			{
 				JsonValue oldResource = Service.GetResource(Resource, null, 0);
+				// send open message
+				JsonValue json = new JsonObject();
+				json["type"] = "open";
+				json["connection"] = Id;
+				Send(json.ToString());
 				// register the client in the currently connected users
 				lock(Service.instanceLock) {
 					WebSocketHandlerCollection<ResourceClient> handlers;
@@ -262,6 +267,12 @@ namespace KJing.Directory
 					dbcmd.CommandText = sql;
 					dbcmd.ExecuteNonQuery();
 				}
+				// create the link table
+				using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+					string sql = "CREATE TABLE link (id VARCHAR PRIMARY KEY, link VARCHAR NOT NULL)";
+					dbcmd.CommandText = sql;
+					dbcmd.ExecuteNonQuery();
+				}
 			}
 			// disable disk sync
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
@@ -357,6 +368,11 @@ namespace KJing.Directory
 				}
 			}
 //			Console.WriteLine("NotifyChange Id: "+resource+", Interested: "+interestedIds);
+		}
+
+		public JsonValue GetResourceOwnRights(string id, string user)
+		{
+			return GetResource(id, user, 0)["ownRights"];
 		}
 
 		public JsonValue GetResource(string id, string filterBy, int depth)
@@ -467,7 +483,7 @@ namespace KJing.Directory
 		JsonValue GetResource(IDbConnection dbcon, IDbTransaction transaction, string id, string filterBy, int depth, List<string> groups, Rights heritedRights, out Rights ownRights, string owner)
 		{
 			JsonValue resource = new JsonObject();
-
+			string type;
 			// select from the resource table
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 				dbcmd.CommandText = "SELECT id,type,name,parent,strftime('%s',ctime) FROM resource WHERE id=@id";
@@ -477,7 +493,7 @@ namespace KJing.Directory
 					if(!reader.Read())
 						throw new WebException(404, 0, "Resource not found");
 					resource["id"] = reader.GetString(0);
-					string type = reader.GetString(1);
+					type = reader.GetString(1);
 					resource["type"] = type;
 					resource["owner"] = owner;
 					if(reader.IsDBNull(2))
@@ -511,6 +527,10 @@ namespace KJing.Directory
 					// file share
 					else if(type == "share") {
 						GetShare(dbcon, transaction, id, resource, filterBy);
+					}
+					// link
+					else if(type == "link") {
+						GetLink(dbcon, transaction, id, resource, filterBy);
 					}
 				}
 			}
@@ -751,6 +771,9 @@ namespace KJing.Directory
 			else if(type == "share") {
 				CreateShare(dbcon, transaction, data);
 			}
+			else if(type == "link") {
+				CreateLink(dbcon, transaction, data);
+			}
 
 			string parent = null;
 			if(data.ContainsKey("parent"))
@@ -805,6 +828,7 @@ namespace KJing.Directory
 				return null;
 
 			// handle parent resource field
+			// ATTENTION: might create problem the day a quota system will exists
 			if(diff.ContainsKey("parent")) {
 				using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 					dbcmd.Transaction = transaction;
@@ -840,6 +864,9 @@ namespace KJing.Directory
 			}
 			else if(type == "share") {
 				ChangeShare(dbcon, transaction, id, diff);
+			}
+			else if(type == "link") {
+				ChangeLink(dbcon, transaction, id, diff);
 			}
 			return GetResource(dbcon, transaction, id, null, 0);
 		}
@@ -906,6 +933,9 @@ namespace KJing.Directory
 			}
 			else if(type == "share") {
 				DeleteShare(dbcon, transaction, id);
+			}
+			else if(type == "link") {
+				DeleteLink(dbcon, transaction, id);
 			}
 
 			// delete from the resource table
@@ -1915,6 +1945,150 @@ namespace KJing.Directory
 			process.Dispose();
 		}
 
+		////////////////////////////////////////////////////////////////////////////////
+		// Handle links resource
+		////////////////////////////////////////////////////////////////////////////////
+
+		void GetLink(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy)
+		{
+			string link = null;
+			// select from the link table
+			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+				dbcmd.CommandText = "SELECT link FROM link WHERE id=@id";
+				dbcmd.Transaction = transaction;
+				dbcmd.Parameters.Add(new SqliteParameter("id", id));
+				using(IDataReader reader = dbcmd.ExecuteReader()) {
+					if(reader.Read()) {
+						if(!reader.IsDBNull(0)) {
+							link = reader.GetString(0);
+						}
+					}
+					reader.Close();
+				}
+			}
+			value["link"] = link;
+		}
+
+		void CreateLink(IDbConnection dbcon, IDbTransaction transaction, JsonValue data)
+		{
+			string id = data["id"];
+			if(data.ContainsKey("link")) {
+				// insert into link table
+				using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+					dbcmd.Transaction = transaction;
+					dbcmd.CommandText = "INSERT INTO link (id,link) VALUES (@id,@link)";
+					dbcmd.Parameters.Add(new SqliteParameter("id", id));
+					dbcmd.Parameters.Add(new SqliteParameter("link", (string)data["link"]));
+					if(dbcmd.ExecuteNonQuery() != 1)
+						throw new Exception("Link create fails");
+				}
+			}
+		}
+
+		void ChangeLink(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue diff)
+		{
+			if(diff.ContainsKey("link")) {
+				using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+					dbcmd.Transaction = transaction;
+					dbcmd.CommandText = "UPDATE link SET link=@link WHERE id=@id";
+					dbcmd.Parameters.Add(new SqliteParameter("id", id));
+					dbcmd.Parameters.Add(new SqliteParameter("link", (string)diff["link"]));
+					dbcmd.ExecuteNonQuery();
+				}
+			}
+		}
+
+		void DeleteLink(IDbConnection dbcon, IDbTransaction transaction, string id)
+		{
+			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+				dbcmd.Transaction = transaction;
+				dbcmd.CommandText = "DELETE FROM link WHERE id=@id";
+				dbcmd.Parameters.Add(new SqliteParameter("id", id));
+				dbcmd.ExecuteNonQuery();
+			}
+		}
+
+		public string GetUserFromLoginPassword(string login, string password)
+		{
+			string foundPassword = null;
+			string user = null;
+			lock(dbcon) {
+				// select from the user table
+				using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+					dbcmd.CommandText = "SELECT id,password FROM user WHERE login=@login";
+					dbcmd.Parameters.Add(new SqliteParameter("login", login));
+					using(IDataReader reader = dbcmd.ExecuteReader()) {
+						if(reader.Read()) {
+							user = reader.GetString(0);
+							if(!reader.IsDBNull(1)) {
+								foundPassword = reader.GetString(1);
+							}
+						}
+						reader.Close ();
+					}
+				}
+			}
+			bool passwordGood = false;
+			if(foundPassword != null) {
+				int pos = foundPassword.IndexOf(':');
+				if(pos == -1)
+					passwordGood = (password == foundPassword);
+				else {
+					string method = foundPassword.Substring(0, pos);
+					string subPassword = foundPassword.Substring(pos+1);
+					if(method == "clear")
+						passwordGood = (password == subPassword);
+					else if(method == "sha1") {
+						System.Security.Cryptography.SHA1 hmac = System.Security.Cryptography.SHA1CryptoServiceProvider.Create();
+						string sha1Password = Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes(password)));
+						passwordGood = (sha1Password == subPassword);
+					}
+				}
+			}
+			if(passwordGood)
+				return user;
+			else
+				return null;
+		}
+
+		public void EnsureIsAuthenticated(HttpContext context)
+		{
+			if(context.User == null) {
+				string authenticatedUser = authSessionService.GetAuthenticatedUser(context);
+				if(authenticatedUser == null) {
+					// check for HTTP Basic authorization
+					if(context.Request.Headers.ContainsKey("authorization")) {
+						string[] parts = context.Request.Headers["authorization"].Split(new char[] { ' ' }, 2, StringSplitOptions.RemoveEmptyEntries);
+						if(parts[0].ToLowerInvariant() == "basic") {
+							string authorization = Encoding.UTF8.GetString(Convert.FromBase64String(parts[1]));
+							int pos = authorization.IndexOf(':');
+							if(pos != -1) {
+								string login = authorization.Substring(0, pos);
+								string password = authorization.Substring(pos + 1);
+								authenticatedUser = GetUserFromLoginPassword(login, password);
+								context.User = authenticatedUser;
+							}
+						}
+					}
+					if(authenticatedUser == null)
+						throw new WebException(401, 0, "Authentication needed");
+				}
+			}
+		}
+
+		public void EnsureRights(HttpContext context, string resource, bool read, bool write, bool admin)
+		{
+			// need a logged user
+			EnsureIsAuthenticated(context);
+
+			JsonValue ownRight = GetResourceOwnRights(resource, context.User);
+			// user are the roots of the system. They are always "readable"
+			if(resource.StartsWith("user:"))
+				ownRight["read"] = true;
+			if(!((!read || (bool)ownRight["read"]) && (!write || (bool)ownRight["write"]) && (!admin || (bool)ownRight["admin"])))
+				throw new WebException(403, 0, "Logged user has no sufficient credentials");
+		}
+
 		public async Task ProcessRequestAsync(HttpContext context)
 		{
 			string[] parts = context.Request.Path.Split(new char[] { '/' }, System.StringSplitOptions.RemoveEmptyEntries);
@@ -1923,13 +2097,17 @@ namespace KJing.Directory
 			/// handle generic part of the resources
 			////////////////////////////////////////////////////////////////////////////////
 
-			// WS /resource/[id]?seenBy=[user]
+			// WS /resource/[id]
 			if((parts.Length == 2) && (parts[0] == "resource") && context.Request.IsWebSocketRequest) {
+				EnsureRights(context, parts[1], true, false, false);
+
 				// accept the web socket and process it
 				await context.AcceptWebSocketRequestAsync(new ResourceClient(this, parts[1]));
 			}
 			// GET /resource/[id]?depth=[depth]&seenBy=[user]
 			else if((context.Request.Method == "GET") && (parts.Length == 2) && (parts[0] == "resource") && IsValidId(parts[1])) {
+				EnsureRights(context, parts[1], true, false, false);
+
 				int depth = 0;
 				if(context.Request.QueryString.ContainsKey("depth"))
 					depth = Math.Min(5, Math.Max(0, Convert.ToInt32(context.Request.QueryString["depth"])));
@@ -1957,23 +2135,43 @@ namespace KJing.Directory
 			}
 			// POST /resource create a resource
 			else if((context.Request.Method == "POST") && (parts.Length == 1) && (parts[0] == "resource")) {
+				JsonValue json = await context.Request.ReadAsJsonAsync();
+
+				if(!json.ContainsKey("type"))
+					throw new WebException(400, 0, "Resource \"type\" is needed to create a new resource");
+				if(!json.ContainsKey("parent") && ((string)json["type"] != "user"))
+					throw new WebException(400, 0, "Resource that are not users need a parent resource");
+				// check rights on the parent
+				if(json.ContainsKey("parent"))
+					EnsureRights(context, (string)json["parent"], false, true, false);
+
 				context.Response.StatusCode = 200;
 				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
-				context.Response.Content = new JsonContent(CreateResource(await context.Request.ReadAsJsonAsync()));
+				context.Response.Content = new JsonContent(CreateResource(json));
 			}
 			// PUT /resource/[id] change a resource
 			else if((context.Request.Method == "PUT") && (parts.Length == 2) && (parts[0] == "resource") && IsValidId(parts[1])) {
+				EnsureRights(context, parts[1], false, true, false);
+				JsonValue json = await context.Request.ReadAsJsonAsync();
+				// if we change the parent, check if we have the right on the new parent
+				if(json.ContainsKey("parent"))
+					EnsureRights(context, json["parent"], false, true, false);
+
 				context.Response.StatusCode = 200;
 				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
-				context.Response.Content = new JsonContent(ChangeResource(parts[1], await context.Request.ReadAsJsonAsync()));
+				context.Response.Content = new JsonContent(ChangeResource(parts[1], json));
 			}
 			// DELETE /resource/[id]
 			else if((context.Request.Method == "DELETE") && (parts.Length == 2) && (parts[0] == "resource") && IsValidId(parts[1])) {
+				EnsureRights(context, parts[1], false, true, false);
+
 				DeleteResource(parts[1]);
 				context.Response.StatusCode = 200;
 			}
 			// POST /resource/[id]/rights change resource rights
 			else if((context.Request.Method == "POST") && (parts.Length == 3) && (parts[0] == "resource") && IsValidId(parts[1]) && (parts[2] == "rights")) {
+				EnsureRights(context, parts[1], false, false, true);
+
 				AddResourceRights(parts[1], await context.Request.ReadAsJsonAsync());
 
 				context.Response.StatusCode = 200;
@@ -1982,6 +2180,8 @@ namespace KJing.Directory
 			}
 			// DELETE /resource/[id]/rights/[user] remove a user resource rights
 			else if((context.Request.Method == "DELETE") && (parts.Length == 4) && (parts[0] == "resource") && IsValidId(parts[1]) && (parts[2] == "rights") && IsValidId(parts[3])) {
+				EnsureRights(context, parts[1], false, false, true);
+
 				JsonObject json = new JsonObject();
 				json["user"] = parts[3];
 				json["read"] = false;
@@ -1992,6 +2192,14 @@ namespace KJing.Directory
 				context.Response.StatusCode = 200;
 				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
 				context.Response.Content = new JsonContent(GetResource(parts[1], null, 0));
+			}
+			// GET /resource/[id]/ownRights?seenBy=[user]
+			else if((context.Request.Method == "GET") && (parts.Length == 3) && (parts[0] == "resource") && (parts[2] == "ownRights") && context.Request.QueryString.ContainsKey("seenBy")) {
+
+				string seenBy = context.Request.QueryString["seenBy"];
+				context.Response.StatusCode = 200;
+				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
+				context.Response.Content = new JsonContent(GetResourceOwnRights(parts[1], seenBy));
 			}
 
 			////////////////////////////////////////////////////////////////////////////////
@@ -2022,35 +2230,6 @@ namespace KJing.Directory
 				context.Response.StatusCode = 200;
 				context.Response.Content = new JsonContent(SearchUsers(firstname, lastname, description, query, limit, seenBy));
 			}
-			// GET /user/[id]
-			else if((context.Request.Method == "GET") && (parts.Length == 2) && (parts[0] == "user")) {
-				context.Response.StatusCode = 200;
-				context.Response.Content = new JsonContent(GetResource(parts[1], null, 1));
-			}
-			// POST /user create a user
-			else if((context.Request.Method == "POST") && (parts.Length == 1) && (parts[0] == "user")) {
-				JsonValue json = await context.Request.ReadAsJsonAsync();
-				json["type"] = "user";
-
-				context.Response.StatusCode = 200;
-				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
-				context.Response.Content = new JsonContent(CreateResource(json));
-			}
-			// PUT /user/[user] change user
-			else if((context.Request.Method == "PUT") && (parts.Length == 2) && (parts[0] == "user") && IsValidId(parts[1])) {
-				JsonValue json = await context.Request.ReadAsJsonAsync();
-				ChangeResource(parts[1], json);
-
-				context.Response.StatusCode = 200;
-				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
-				context.Response.Content = new JsonContent(GetResource(parts[1], null, 0));
-			}
-			// DELETE /user/[user] delete the user
-			else if((context.Request.Method == "DELETE") && (parts.Length == 2) && (parts[0] == "user") && IsValidId(parts[1])) {
-				DeleteResource(parts[1]);
-				context.Response.StatusCode = 200;
-				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
-			}
 			// POST /user/login
 			else if((context.Request.Method == "POST") && (parts.Length == 2) && (parts[0] == "user") && (parts[1] == "login")) {
 				JsonValue content = await context.Request.ReadAsJsonAsync();
@@ -2076,6 +2255,7 @@ namespace KJing.Directory
 						}
 					}
 				}
+
 				bool passwordGood = false;
 				if(foundPassword != null) {
 					int pos = foundPassword.IndexOf(':');
@@ -2109,6 +2289,7 @@ namespace KJing.Directory
 			}
 			// GET /user/[user]/face get the face
 			else if((context.Request.Method == "GET") && (parts.Length == 3) && (parts[0] == "user") && IsValidId(parts[1]) && (parts[2] == "face")) {
+
 				if(File.Exists(basePath + "/faces/" + parts[1])) {
 					context.Response.StatusCode = 200;
 					context.Response.Headers["cache-control"] = "max-age=" + cacheDuration;
@@ -2122,6 +2303,8 @@ namespace KJing.Directory
 			}
 			// POST /user/[user]/face upload the user face
 			else if((context.Request.Method == "POST") && (parts.Length == 3) && (parts[0] == "user") && IsValidId(parts[1]) && (parts[2] == "face")) {
+
+				EnsureRights(context, parts[1], false, true, false);
 
 				string faceFile = null;
 				if(context.Request.Headers["content-type"].StartsWith("multipart/form-data")) {
@@ -2155,30 +2338,10 @@ namespace KJing.Directory
 			/// handle user groups
 			////////////////////////////////////////////////////////////////////////////////
 
-			// GET /group/[id]
-			else if((context.Request.Method == "GET") && (parts.Length == 2) && (parts[0] == "group")) {
-				context.Response.StatusCode = 200;
-				context.Response.Content = new JsonContent(GetResource(parts[1], null, 0));
-			}
-			// POST /group create a group
-			else if((context.Request.Method == "POST") && (parts.Length == 1) && (parts[0] == "group")) {
-				JsonValue json = await context.Request.ReadAsJsonAsync();
-				json["type"] = "group";
-
-				context.Response.StatusCode = 200;
-				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
-				context.Response.Content = new JsonContent(CreateResource(json));
-			}
-			// PUT /group/[group] change group
-			else if((context.Request.Method == "PUT") && (parts.Length == 2) && (parts[0] == "group") && IsValidId(parts[1])) {
-				ChangeResource(parts[1], await context.Request.ReadAsJsonAsync());
-
-				context.Response.StatusCode = 200;
-				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
-				context.Response.Content = new JsonContent(GetResource(parts[1], null, 0));
-			}
 			// POST /group/[group]/users add a user in the group
 			else if((context.Request.Method == "POST") && (parts.Length == 3) && (parts[0] == "group") && IsValidId(parts[1]) && (parts[2] == "users")) {
+				EnsureRights(context, parts[1], false, true, false);
+
 				GroupAddUsers(parts[1], await context.Request.ReadAsJsonAsync());
 
 				context.Response.StatusCode = 200;
@@ -2187,6 +2350,8 @@ namespace KJing.Directory
 			}
 			// DELETE /group/[group]/users/[user] remove a user from the group
 			else if((context.Request.Method == "DELETE") && (parts.Length == 4) && (parts[0] == "group") && IsValidId(parts[1]) && (parts[2] == "users") && IsValidId(parts[3])) {
+				EnsureRights(context, parts[1], false, true, false);
+
 				GroupRemoveUser(parts[1], parts[3]);
 
 				context.Response.StatusCode = 200;
@@ -2194,14 +2359,10 @@ namespace KJing.Directory
 			}
 			// DELETE /group/[group]/users remove some users from the group
 			else if((context.Request.Method == "DELETE") && (parts.Length == 3) && (parts[0] == "group") && IsValidId(parts[1]) && (parts[2] == "users")) {
+				EnsureRights(context, parts[1], false, true, false);
+
 				GroupRemoveUsers(parts[1], await context.Request.ReadAsJsonAsync());
 
-				context.Response.StatusCode = 200;
-				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
-			}
-			// DELETE /group/[group] delete the group
-			else if((context.Request.Method == "DELETE") && (parts.Length == 2) && (parts[0] == "group") && IsValidId(parts[1])) {
-				DeleteResource(parts[1]);
 				context.Response.StatusCode = 200;
 				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
 			}
@@ -2210,68 +2371,10 @@ namespace KJing.Directory
 			/// handle file shares
 			////////////////////////////////////////////////////////////////////////////////
 
-			// GET /share/[id]
-			else if((context.Request.Method == "GET") && (parts.Length == 2) && (parts[0] == "share")) {
-				context.Response.StatusCode = 200;
-				context.Response.Content = new JsonContent(GetResource(parts[1], null, 0));
-			}
-			// POST /share create a file share
-			else if((context.Request.Method == "POST") && (parts.Length == 1) && (parts[0] == "share")) {
-				JsonValue json = await context.Request.ReadAsJsonAsync();
-				json["type"] = "share";
-
-				context.Response.StatusCode = 200;
-				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
-				context.Response.Content = new JsonContent(CreateResource(json));
-			}
-			// PUT /share/[share] change a file share
-			else if((context.Request.Method == "PUT") && (parts.Length == 2) && (parts[0] == "share") && IsValidId(parts[1])) {
-				JsonValue json = await context.Request.ReadAsJsonAsync();
-				ChangeResource(parts[1], json);
-
-				context.Response.StatusCode = 200;
-				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
-				context.Response.Content = new JsonContent(GetResource(parts[1], null, 0));
-			}
-			// DELETE /share/[share] delete the file share
-			else if((context.Request.Method == "DELETE") && (parts.Length == 2) && (parts[0] == "share") && IsValidId(parts[1])) {
-				DeleteResource(parts[1]);
-				context.Response.StatusCode = 200;
-				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
-			}
-
 			////////////////////////////////////////////////////////////////////////////////
 			/// handle devices
 			////////////////////////////////////////////////////////////////////////////////
 
-			// GET /device/[id]
-			else if((context.Request.Method == "GET") && (parts.Length == 2) && (parts[0] == "device") && IsValidId(parts[1])) {
-				context.Response.StatusCode = 200;
-				context.Response.Content = new JsonContent(GetResource(parts[1], null, 0));
-			}
-			// POST /device create a device
-			else if((context.Request.Method == "POST") && (parts.Length == 1) && (parts[0] == "device")) {
-				JsonValue json = await context.Request.ReadAsJsonAsync();
-				json["type"] = "device";
-
-				context.Response.StatusCode = 200;
-				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
-				context.Response.Content = new JsonContent(CreateResource(json));
-			}
-			// PUT /device/[device] change a device
-			else if((context.Request.Method == "PUT") && (parts.Length == 2) && (parts[0] == "device") && IsValidId(parts[1])) {
-				ChangeResource(parts[1], await context.Request.ReadAsJsonAsync());
-
-				context.Response.StatusCode = 200;
-				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
-				context.Response.Content = new JsonContent(GetResource(parts[1], null, 0));
-			}
-			// DELETE /device/[device] delete the device
-			else if((context.Request.Method == "DELETE") && (parts.Length == 2) && (parts[0] == "device") && IsValidId(parts[1])) {
-				DeleteResource(parts[1]);
-				context.Response.StatusCode = 200;
-				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
-			}
 			// POST /device/login
 			else if((context.Request.Method == "POST") && (parts.Length == 2) && (parts[0] == "device") && (parts[1] == "login")) {
 				JsonValue json = await context.Request.ReadAsJsonAsync();
@@ -2317,30 +2420,10 @@ namespace KJing.Directory
 			/// handle maps
 			////////////////////////////////////////////////////////////////////////////////
 
-			// GET /map/[id]
-			else if((context.Request.Method == "GET") && (parts.Length == 2) && (parts[0] == "map") && IsValidId(parts[1])) {
-				context.Response.StatusCode = 200;
-				context.Response.Content = new JsonContent(GetResource(parts[1], null, 0));
-			}
-			// POST /map create a map
-			else if((context.Request.Method == "POST") && (parts.Length == 1) && (parts[0] == "map")) {
-				JsonValue json = await context.Request.ReadAsJsonAsync();
-				json["type"] = "map";
-
-				context.Response.StatusCode = 200;
-				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
-				context.Response.Content = new JsonContent(CreateResource(json));
-			}
-			// PUT /map/[map] change a map
-			else if((context.Request.Method == "PUT") && (parts.Length == 2) && (parts[0] == "map") && IsValidId(parts[1])) {
-				ChangeResource(parts[1], await context.Request.ReadAsJsonAsync());
-
-				context.Response.StatusCode = 200;
-				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
-				context.Response.Content = new JsonContent(GetResource(parts[1], null, 0));
-			}
 			// GET /map/[map]/image get the map file
 			else if((context.Request.Method == "GET") && (parts.Length == 3) && (parts[0] == "map") && (parts[2] == "image") && IsValidId(parts[1])) {
+				EnsureRights(context, parts[1], true, false, false);
+
 				if(File.Exists(basePath+"/maps/"+parts[1])) {
 					context.Response.StatusCode = 200;
 					context.Response.Headers["cache-control"] = "max-age="+cacheDuration;
@@ -2354,6 +2437,9 @@ namespace KJing.Directory
 			}
 			// POST /map/[map]/image set the map background
 			else if((context.Request.Method == "POST") && (parts.Length == 3) && (parts[0] == "map") && (parts[2] == "image") && IsValidId(parts[1])) {
+
+				EnsureRights(context, parts[1], false, true, false);
+
 				string mapFile = null;
 				if(context.Request.Headers["content-type"].StartsWith("multipart/form-data")) {
 					MultipartReader reader = context.Request.ReadAsMultipart();
@@ -2383,6 +2469,8 @@ namespace KJing.Directory
 			}
 			// POST /map/[map]/devices add a device in the map
 			else if((context.Request.Method == "POST") && (parts.Length == 3) && (parts[0] == "map") && IsValidId(parts[1]) && (parts[2] == "devices")) {
+				EnsureRights(context, parts[1], false, true, false);
+
 				MapAddDevices(parts[1], await context.Request.ReadAsJsonAsync());
 
 				context.Response.StatusCode = 200;
@@ -2391,6 +2479,9 @@ namespace KJing.Directory
 			}
 			// PUT /map/[map]/devices/[device] change a device position in the map
 			else if((context.Request.Method == "PUT") && (parts.Length == 4) && (parts[0] == "map") && (parts[2] == "devices") && IsValidId(parts[1]) && IsValidId(parts[3])) {
+
+				EnsureRights(context, parts[1], false, true, false);
+
 				JsonValue json = await context.Request.ReadAsJsonAsync();
 				json["id"] = parts[3];
 				MapAddDevices(parts[1], json);
@@ -2401,6 +2492,8 @@ namespace KJing.Directory
 			}
 			// DELETE /map/[map]/devices/[device] remove a device from the map
 			else if((context.Request.Method == "DELETE") && (parts.Length == 4) && (parts[0] == "map") && IsValidId(parts[1]) && (parts[2] == "devices") && IsValidId(parts[3])) {
+				EnsureRights(context, parts[1], false, true, false);
+
 				MapRemoveDevice(parts[1], parts[3]);
 
 				context.Response.StatusCode = 200;
@@ -2408,14 +2501,10 @@ namespace KJing.Directory
 			}
 			// DELETE /map/[map]/devices remove some devices from the map
 			else if((context.Request.Method == "DELETE") && (parts.Length == 3) && (parts[0] == "map") && IsValidId(parts[1]) && (parts[2] == "devices")) {
+				EnsureRights(context, parts[1], false, true, false);
+
 				MapRemoveDevices(parts[1], await context.Request.ReadAsJsonAsync());
 
-				context.Response.StatusCode = 200;
-				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
-			}
-			// DELETE /map/[map] delete the map
-			else if((context.Request.Method == "DELETE") && (parts.Length == 2) && (parts[0] == "map") && IsValidId(parts[1])) {
-				DeleteResource(parts[1]);
 				context.Response.StatusCode = 200;
 				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
 			}
@@ -2424,32 +2513,6 @@ namespace KJing.Directory
 			/// handle folders
 			////////////////////////////////////////////////////////////////////////////////
 
-			// GET /folder/[id]
-			else if((context.Request.Method == "GET") && (parts.Length == 2) && (parts[0] == "folder")) {
-				context.Response.StatusCode = 200;
-				context.Response.Content = new JsonContent(GetResource(parts[1], null, 0));
-			}
-			// POST /folder create a folder
-			else if((context.Request.Method == "POST") && (parts.Length == 1) && (parts[0] == "folder")) {
-				JsonValue json = await context.Request.ReadAsJsonAsync();
-				json["type"] = "folder";
-
-				context.Response.StatusCode = 200;
-				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
-				context.Response.Content = new JsonContent(CreateResource(json));
-			}
-			// PUT /folder/[folder] change a folder
-			else if((context.Request.Method == "PUT") && (parts.Length == 2) && (parts[0] == "folder") && IsValidId(parts[1])) {
-				context.Response.StatusCode = 200;
-				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
-				context.Response.Content = new JsonContent(ChangeResource(parts[1], await context.Request.ReadAsJsonAsync()));
-			}
-			// DELETE /folder/[folder] delete the folder
-			else if((context.Request.Method == "DELETE") && (parts.Length == 2) && (parts[0] == "folder") && IsValidId(parts[1])) {
-				DeleteResource(parts[1]);
-				context.Response.StatusCode = 200;
-				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
-			}
 		}
 
 		public void Dispose()
