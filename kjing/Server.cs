@@ -47,6 +47,7 @@ using Erasme.Cloud.Pdf;
 using Erasme.Cloud.Message;
 using Erasme.Cloud.Manage;
 using Erasme.Cloud.StaticFiles;
+using Erasme.Cloud.Utils;
 using KJing.Directory;
 
 namespace KJing
@@ -60,17 +61,19 @@ namespace KJing
 			Setup = setup;
 
 			AllowGZip = Setup.AllowGZip;
+			KeepAliveMax = Setup.HttpKeepAliveMax;
+			KeepAliveTimeout = (int)Setup.HttpKeepAliveTimeout;
 
 			// define the logger which handle logs
 			Logger = new FileLogger(Setup.Log+"/kjing.log");
 			// define the task factory for long running tasks
-			LongRunningTaskFactory = new TaskFactory(new Erasme.Cloud.Utils.LimitedConcurrencyTaskScheduler(Setup.MaximumConcurrency));
+			LongRunningTaskScheduler = new PriorityTaskScheduler(Setup.MaximumConcurrency);
 
 			authSessionService = new AuthSessionService(
 				Setup.Storage+"/authsession/", Setup.AuthSessionTimeout, Setup.AuthHeader,
 				Setup.AuthCookie);
 			// plugin to handle auth sessions
-			Add(new AuthSessionPlugin(authSessionService, Setup.AuthHeader, Setup.AuthCookie));
+			//Add(new AuthSessionPlugin(authSessionService, Setup.AuthHeader, Setup.AuthCookie));
 
 			PathMapper mapper = new PathMapper();
 			Add(mapper);
@@ -92,16 +95,16 @@ namespace KJing
 				Setup.DefaultCacheDuration, Logger));
 			mapper.Add(Setup.Path+"/audio", new AudioService(
 				Setup.Storage+"/audio/", storageService, Setup.TemporaryDirectory, Setup.DefaultCacheDuration,
-				LongRunningTaskFactory));
+				LongRunningTaskScheduler));
 			mapper.Add(Setup.Path+"/video", new VideoService(
 				Setup.Storage+"/video/", storageService, Setup.TemporaryDirectory, Setup.DefaultCacheDuration,
-				LongRunningTaskFactory));
+				LongRunningTaskScheduler));
 			mapper.Add(Setup.Path+"/pdf", new PdfService(
 				Setup.Storage+"/pdf/", storageService, Setup.TemporaryDirectory, Setup.DefaultCacheDuration,
-				LongRunningTaskFactory));
+				LongRunningTaskScheduler));
 
 			// management
-			mapper.Add(Setup.Path+"/status", new ManageService());
+			mapper.Add(Setup.Path+"/status", new ManageService(LongRunningTaskScheduler));
 
 			// directory service
 			mapper.Add(Setup.Path, new DirectoryService(
@@ -117,7 +120,7 @@ namespace KJing
 
 		public ILogger Logger { get; private set; }
 
-		public TaskFactory LongRunningTaskFactory { get; private set; }
+		public PriorityTaskScheduler LongRunningTaskScheduler { get; private set; }
 
 		protected override async Task ProcessRequestAsync(HttpContext context)
 		{
