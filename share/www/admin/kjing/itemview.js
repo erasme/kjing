@@ -136,6 +136,7 @@ Ui.Button.extend('KJing.ItemView', {
 	tagsBox: undefined,
 	isRound: false,
 	itemIcon: undefined,
+	selectedIcon: undefined,
 
 	constructor: function(config) {					
 		this.view = config.view;
@@ -163,64 +164,18 @@ Ui.Button.extend('KJing.ItemView', {
 
 	setItemTags: function(tags) {
 		this.itemIcon.setTags(tags);
-
-//		this.tags = tags;
-/*		if(this.tags !== undefined) {
-			if(this.tagsBox === undefined) {
-				this.tagsBox = new Ui.LBox({ width: 64, height: 64, verticalAlign: 'bottom', horizontalAlign: 'center' });
-				this.content.append(this.tagsBox);
-			}			
-			var flow = new Ui.Flow({ itemAlign: 'right', verticalAlign: 'bottom' });
-			this.tagsBox.setContent(flow);
-			for(var i = 0; i < tags.length; i++)
-				flow.append(new Ui.Icon({ icon: tags[i], width: 24, height: 24, fill: '#00c3ff' }));
-		}
-		else {
-			if(this.tagsBox !== undefined) {
-				this.content.remove(this.tagsBox);
-				this.tagsBox = undefined;
-			}
-		}*/
 	},
 
 	setItemIcon: function(icon) {
 		this.itemIcon.setIcon(icon);
-//		this.setIcon(icon);
-/*		this.iconName = icon;
-		this.content.setContent(new Ui.Icon({ icon: this.iconName, verticalAlign: 'bottom', horizontalAlign: 'center', width: 64, height: 64 }));
-		if(this.tagsBox !== undefined)
-			this.append(this.tagsBox);*/
 	},
 
 	setItemIconSrc: function(icon) {
 		this.itemIcon.setIconImage(icon);
-//		this.iconSrc = icon;
-//		this.setIcon(new Ui.Image({ src: this.iconSrc, verticalAlign: 'bottom', horizontalAlign: 'center' }));
-//		if(this.tagsBox !== undefined)
-//			this.content.append(this.tagsBox);
 	},
 
 	setItemImage: function(image) {
 		this.itemIcon.setImage(image);
-/*		this.imageSrc = image;
-		if(this.isRound) {
-			var graphic = new KJing.RoundItemGraphic({
-				verticalAlign: 'bottom', horizontalAlign: 'center',
-				imageSrc: this.imageSrc, width: 70, height: 70
-			});
-			this.setIcon(graphic);
-		}
-		else {
-			var lbox = new Ui.LBox({ verticalAlign: 'bottom', horizontalAlign: 'center' });
-			this.setIcon(lbox);
-			lbox.append(new Ui.Rectangle({ fill: new Ui.Color({ r: 0.7, b: 0.7, g: 0.7 }) }));
-			lbox.append(new Ui.Rectangle({ fill: 'white', margin: 1 }));
-			var image = new Ui.Image({ src: this.imageSrc, margin: 3, width: 64 });
-			lbox.append(image);
-			this.connect(image, 'error', this.onImageError);
-		}
-//		if(this.tagsBox !== undefined)
-//			this.content.append(this.tagsBox);*/
 	},
 	
 	getItemName: function() {
@@ -244,13 +199,30 @@ Ui.Button.extend('KJing.ItemView', {
 			this.setItemIcon(this.iconName);
 	}
 }, {
+	onSelect: function() {
+		this.selectedIcon = new Ui.Icon({
+			icon: 'check', verticalAlign: 'top', horizontalAlign: 'right',
+			marginTop: 5, marginRight: 5,
+			width: 32, height: 32, fill: this.getStyleProperty('selectCheckColor')
+		});
+		this.getDropBox().append(this.selectedIcon);
+	},
+
+	onUnselect: function() {
+		this.getDropBox().remove(this.selectedIcon);
+		this.selectedIcon = undefined;
+	},
+
 	onStyleChange: function() {
 		KJing.ItemView.base.onStyleChange.apply(this, arguments)
 		this.itemIcon.setSquareSize(this.getStyleProperty('iconSize'));
 		this.itemIcon.setRoundMode(this.getStyleProperty('roundMode'));
+		if(this.selectedIcon !== undefined)
+			this.selectedIcon.setFill(this.getStyleProperty('selectCheckColor'));
 	}
 }, {
 	style: {
+		selectCheckColor: 'red',
 		roundMode: false
 	}
 });
