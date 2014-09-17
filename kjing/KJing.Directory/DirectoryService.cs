@@ -399,14 +399,43 @@ namespace KJing.Directory
 			else
 				owner = parents[0];
 			if(filterBy != null) {
+				Dictionary<string, Rights> delegatedRights = GetDelegatedRights(dbcon, transaction, filterBy);
 				groups = new List<string>();
 				GetUserGroups(dbcon, transaction, filterBy, groups);
 				foreach(string parent in parents) {
+					if(delegatedRights.ContainsKey(parent)) {
+						heritedRights.Read |= delegatedRights[parent].Read;
+						heritedRights.Write |= delegatedRights[parent].Write;
+						heritedRights.Admin |= delegatedRights[parent].Admin;
+					}
 					GetResource(dbcon, transaction, parent, filterBy, 0, groups, heritedRights, out ownRights, owner);
 					heritedRights = ownRights;
 				}
+				if(delegatedRights.ContainsKey(id)) {
+					heritedRights.Read |= delegatedRights[id].Read;
+					heritedRights.Write |= delegatedRights[id].Write;
+					heritedRights.Admin |= delegatedRights[id].Admin;
+				}
 			}
+			//Console.WriteLine("GetResource id: " + id + ", filterBy: " + filterBy + ", heritedRight: " + heritedRights);
 			return GetResource(dbcon, transaction, id, filterBy, depth, groups, heritedRights, out ownRights, owner);
+		}
+
+		Dictionary<string, Rights> GetDelegatedRights(IDbConnection dbcon, IDbTransaction transaction, string user)
+		{
+			Dictionary<string, Rights> rights = new Dictionary<string, Rights>();
+			if(user.StartsWith("device:")) {
+				JsonValue device = GetResource(user, null, 0);
+				if(device.ContainsKey("path") && ((string)device["path"] != null)) {
+					string path = (string)device["path"];
+					if(path.StartsWith("file:")) {
+						path = path.Substring(5, path.LastIndexOf(":") - 5);
+					}
+					//Console.WriteLine("GetDeletagedRights share: " + path);
+					rights[path] = new Rights(true, false, false);
+				}
+			}
+			return rights;
 		}
 
 		string GetResourceParent(IDbConnection dbcon, IDbTransaction transaction, string id)
