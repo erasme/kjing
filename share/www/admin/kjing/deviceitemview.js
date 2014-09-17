@@ -13,9 +13,8 @@ Ui.CanvasElement.extend('KJing.DeviceItemGraphic', {
 	},
 	
 	setRatio: function(ratio) {
-		console.log('setRatio: '+ratio);
 		if(isNaN(ratio))
-			throw('STOP HERE');
+			ratis = 1.33;
 		if(this.ratio !== ratio) {
 			this.ratio = ratio;
 			this.invalidateDraw();
@@ -130,7 +129,7 @@ Ui.Selectionable.extend('KJing.DeviceItemView', {
 		this.connect(this.content, 'drop', this.onDrop);
 		this.connect(this.content, 'dropfile', this.onDropFile);
 		vbox.append(this.content);
-		this.content.addMimetype('application/x-file');
+		this.content.addMimetype(KJing.FileItemView);
 
 		this.label = new Ui.CompactLabel({ width: 100, maxLine: 3, textAlign: 'center' });
 		vbox.append(this.label);
@@ -175,9 +174,8 @@ Ui.Selectionable.extend('KJing.DeviceItemView', {
 	},
 	
 	onDrop: function(dropbox, mimetype, data, x, y, effectAllowed) {
-		console.log('onDrop: '+data);
-		if(mimetype === 'application/x-file') {
-			this.getResource().setPath(data);
+		if(KJing.ItemView.hasInstance(data)) {
+			this.getResource().setPath(data.getResource().getId());
 		}
 	},
 	
