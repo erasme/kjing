@@ -6,7 +6,7 @@ KJing.View.extend('KJing.DeviceView', {
 	mainBox: undefined,
 	path: undefined,
 	mainVBox: undefined,
-	directoryView: undefined,
+	listView: undefined,
 	ratioBox: undefined,
 	viewer: undefined,
 
@@ -22,7 +22,7 @@ KJing.View.extend('KJing.DeviceView', {
 		vbox.append(hbox, true);
 	
 		var dropbox = new Ui.DropBox();
-		dropbox.addMimetype('application/x-file');
+		dropbox.addMimetype(KJing.FileItemView);
 		hbox.append(dropbox, true);
 		this.connect(dropbox, 'drop', this.onDrop);
 
@@ -38,8 +38,12 @@ KJing.View.extend('KJing.DeviceView', {
 		hbox.append(vbox2);
 		
 		this.volumeControl = new Ui.Slider({ orientation: 'vertical' });
+		this.connect(this.volumeControl, 'change', this.onVolumeControlChange);
 		vbox2.append(this.volumeControl, true);
 		vbox2.append(new Ui.Icon({ icon: 'sound', width: 24, height: 24, horizontalAlign: 'center' }));
+
+		this.listView = new KJing.DeviceControlListView({ view: this, resource: this.resource });
+		this.mainVBox.append(this.listView);
 	},
 	
 	setPath: function(path) {
@@ -56,11 +60,6 @@ KJing.View.extend('KJing.DeviceView', {
 			this.mainVBox.remove(this.directoryView);
 			this.directoryView = undefined;
 		}
-
-//		if(json.mimetype === 'application/x-directory') {
-//			this.directoryView = new KJing.DeviceControlStorageView({ view: this, resource: KJing.Resource.create(share), file: json.id });
-//			this.mainVBox.append(this.directoryView);
-//		}
 	},
 
 	getPosition: function() {
@@ -100,6 +99,9 @@ KJing.View.extend('KJing.DeviceView', {
 		if(this.viewer !== undefined)
 			this.viewer.setContentTransform(this.resource.getDeviceTransform());
 
+		if(this.volumeControl.getValue() !== this.resource.getDeviceVolume())
+			this.volumeControl.setValue(this.resource.getDeviceVolume());
+
 //		console.log(this.resource.getDeviceTransform());
 		
 /*		var json = JSON.parse(msg);
@@ -124,10 +126,15 @@ KJing.View.extend('KJing.DeviceView', {
 	},
 
 	onDrop: function(element, mimetype, data, x, y, effect) {
-		console.log(this+'.onDrop '+mimetype);
-		if(mimetype == 'application/x-file')
-			this.resource.setDevicePath(data);
+		if(KJing.FileItemView.hasInstance(data))
+			this.resource.setDevicePath(data.getResource().getId());
+	},
+
+	onVolumeControlChange: function() {
+		console.log('volumeControl: '+this.volumeControl.getValue());
+		this.resource.setDeviceVolume(this.volumeControl.getValue());
 	}
+
 }, {
 	getSetupPopup: function() {
 		var popup = new Ui.MenuPopup({ preferredWidth: 200 });
@@ -309,39 +316,29 @@ Ui.Pressable.extend('KJing.DeviceControlFileView', {
 	}
 });
 
-Ui.ScrollingArea.extend('KJing.DeviceControlStorageView', {
+Ui.ScrollingArea.extend('KJing.DeviceControlListView', {
 	view: undefined,
 	resource: undefined,
-	storage: undefined,
-	file: 0,
-	storageRev: 0,
-	updateRequest: undefined,
 	flow: undefined,
 
 	constructor: function(config) {
-		this.setScrollVertical(false);
-	
 		this.view = config.view;
 		delete(config.view);
 		this.resource = config.resource;
 		delete(config.resource);
-		
-		if('file' in config) {
-			this.file = config.file;
-			delete(config.file);
-		}
-		
+
+		this.setScrollVertical(false);
 		this.flow = new Ui.HBox();
 		this.setContent(this.flow);
 		
-		this.update();
+//		this.update();
 	},
 	
 	getResource: function() {
 		return this.resource;
 	},
 		
-	update: function() {
+/*	update: function() {
 		this.updateRequest = new Core.HttpRequest({ method: 'GET', url: '/cloud/storage/'+this.resource.getId()+'/'+this.file+'?depth=1' });
 		this.connect(this.updateRequest, 'done', this.onUpdateDone);
 		this.connect(this.updateRequest, 'error', this.onUpdateError);
@@ -394,5 +391,29 @@ Ui.ScrollingArea.extend('KJing.DeviceControlStorageView', {
 
 	onUpdateError: function() {
 		this.updateRequest = undefined;
-	}		
+	}*/
+
+	onDeviceChange: function() {
+		var playList = this.resource.getDevicePlayList();
+		console.log('playList:');
+		console.log(playList);
+		this.flow.clear();
+		for(var i = 0; i < playList.length; i++) {
+			var item = new Ui.Rectangle({ fill: 'orange', width: 60, height: 60, margin: 10 });
+			this.flow.append(item);
+		}
+
+	}
+}, {
+	onLoad: function() {
+		KJing.DeviceControlListView.base.onLoad.apply(this, arguments);
+		this.connect(this.resource, 'change', this.onDeviceChange);
+		this.resource.monitor();
+	},
+	
+	onUnload: function() {
+		KJing.DeviceControlListView.base.onUnload.apply(this, arguments);
+		this.disconnect(this.resource, 'change', this.onDeviceChange);
+		this.resource.unmonitor();
+	}
 });
