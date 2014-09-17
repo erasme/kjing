@@ -41,6 +41,7 @@
     <Folder Include="www\admin\img\" />
     <Folder Include="www\admin\logins\" />
     <Folder Include="www\client\kjing\" />
+    <Folder Include="www\common\" />
   </ItemGroup>
   <ItemGroup>
     <None Include="mimeicon\application%252fmsword.png" />
@@ -177,8 +178,6 @@
     <None Include="www\admin\kjing\filepreview.js" />
     <None Include="www\admin\kjing-debug.js" />
     <None Include="www\admin\main.js" />
-    <None Include="www\admin\kjing\user.js" />
-    <None Include="www\admin\kjing\resource.js" />
     <None Include="www\admin\kjing\flowdropbox.js" />
     <None Include="www\admin\index.html" />
     <None Include="www\admin\Makefile" />
@@ -203,8 +202,6 @@
     <None Include="www\admin\kjing\newresourcedialog.js" />
     <None Include="www\admin\kjing\resourcepropertiesdialog.js" />
     <None Include="www\admin\kjing\newfiledialog.js" />
-    <None Include="www\admin\kjing\group.js" />
-    <None Include="www\admin\kjing\map.js" />
     <None Include="www\admin\kjing\view.js" />
     <None Include="www\admin\kjing\device.js" />
     <None Include="www\admin\kjing\newitem.js" />
@@ -217,22 +214,11 @@
     <None Include="www\admin\kjing.js" />
     <None Include="www\admin\img\default.png" />
     <None Include="www\client\kjing.js" />
-    <None Include="www\client\kjing\scaledimage.js" />
     <None Include="www\client\kjing\fileviewer.js" />
-    <None Include="www\client\kjing\videoplayer.js" />
-    <None Include="www\client\kjing\audioplayer.js" />
     <None Include="www\admin\kjing\filepropertiesdialog.js" />
-    <None Include="www\admin\kjing\audioplayer.js" />
-    <None Include="www\admin\kjing\videoplayer.js" />
-    <None Include="www\admin\kjing\scaledimage.js" />
     <None Include="www\admin\kjing\fileviewer.js" />
-    <None Include="www\admin\kjing\folder.js" />
     <None Include="www\admin\kjing\combofield.js" />
     <None Include="www\admin\kjing\itemview.js" />
-    <None Include="www\client\kjing\scaledimage2.js" />
-    <None Include="www\admin\kjing\file.js" />
-    <None Include="www\client\kjing\device.js" />
-    <None Include="www\admin\kjing\share.js" />
     <None Include="www\favicon.ico" />
     <None Include="www\admin\img\apple-icon-114x114.png" />
     <None Include="www\admin\img\apple-icon-72x72.png" />
@@ -245,7 +231,6 @@
     <None Include="www\admin\kjing\deviceview.js" />
     <None Include="mimeicon\application%252fx%252ddirectory.svg" />
     <None Include="mimeicon\default.svg" />
-    <None Include="www\admin\kjing\scaledimage2.js" />
     <None Include="www\admin\kjing\mapdevicesview.js" />
     <None Include="www\admin\kjing\deviceitemview.js" />
     <None Include="www\era\ui\button.js.sav" />
@@ -254,11 +239,26 @@
     <None Include="www\era\ui\text.js.html" />
     <None Include="www\era\ui\text.js.sav" />
     <None Include="www\era\ui\uploadbutton.js.sav" />
-    <None Include="www\admin\icons.js" />
     <None Include="www\era\ui\dragevent.js" />
     <None Include="www\era\ui\carousel3.js" />
     <None Include="www\era\ui\carouselable3.js" />
-    <None Include="www\admin\kjing\link.js" />
     <None Include="www\admin\kjing\linkview.js" />
+    <None Include="www\common\common-debug.js" />
+    <None Include="www\common\Makefile" />
+    <None Include="www\common\resource.js" />
+    <None Include="www\common\file.js" />
+    <None Include="www\common\audioplayer.js" />
+    <None Include="www\common\videoplayer.js" />
+    <None Include="www\common\scaledimage.js" />
+    <None Include="www\common\scaledimage2.js" />
+    <None Include="www\common\device.js" />
+    <None Include="www\common\icons.js" />
+    <None Include="www\common\group.js" />
+    <None Include="www\common\folder.js" />
+    <None Include="www\common\map.js" />
+    <None Include="www\common\share.js" />
+    <None Include="www\common\user.js" />
+    <None Include="www\common\link.js" />
+    <None Include="www\admin\kjing\filecontrol.js" />
   </ItemGroup>
 </Project>
