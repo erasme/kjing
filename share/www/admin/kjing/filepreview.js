@@ -1,5 +1,5 @@
 
-Ui.Selectionable.extend('KJing.FileItemView', {
+/*Ui.Selectionable.extend('KJing.FileItemView', {
 	resourceParent: undefined,
 	resource: undefined,
 	uploader: undefined,
@@ -126,59 +126,123 @@ Ui.Selectionable.extend('KJing.FileItemView', {
 	onUnselect: function() {
 		this.bg.hide();
 	}
-});
+});*/
 
-Ui.LBox.extend('Storage.FilePreview', {
+KJing.ItemView.extend('KJing.FileItemView', {
+	resourceParent: undefined,
 	resource: undefined,
-	content: undefined,
+	uploader: undefined,
+	preview: undefined,
 
-	constructor: function(config) {	
+	constructor: function(config) {
+		this.resourceParent = config.resourceParent;
+		delete(config.resourceParent);
+
 		this.resource = config.resource;
 		delete(config.resource);
 
-		if(this.resource.getIsReady())
-			this.onResourceReady();
-		else
-			this.connect(this.resource, 'ready', this.onResourceReady);
+		if('uploader' in config) {
+/*			this.uploader = config.uploader;
+			delete(config.uploader);
+			this.preview = new Storage.FileUploadPreview({ resourceParent: this.resourceParent, uploader: this.uploader });
+*/		}
+		else {
+			this.setDraggableData(this);
+			this.setItemIcon('file');
+			if(this.resource.getIsReady())
+				this.onFileReady();
+			else
+				this.connect(this.resource, 'ready', this.onFileReady);
+		}
 	},
 
-	onResourceReady: function() {
-		var vbox = new Ui.VBox({ spacing: 5 });
-		this.setContent(vbox);
+	getResourceParent: function() {
+		return this.resourceParent;
+	},
 
-		this.content = new Ui.LBox({ width: 70, height: 70 });
-		vbox.append(this.content);
-
-		this.label = new Ui.CompactLabel({ width: 100, maxLine: 3, textAlign: 'center', horizontalAlign: 'center' });
-		vbox.append(this.label);
-
-		var image = new Ui.Image({
-			src: '/cloud/preview/'+this.resource.getShare().getId()+'/'+this.resource.getData().id+'?rev='+this.resource.getRev(),
-			verticalAlign: 'bottom', horizontalAlign: 'center'
-		});
-		this.connect(image, 'error', this.onPreviewError);
-		this.content.setContent(image);
-		this.label.setText(this.resource.getName());
+	getResource: function() {
+		return this.resource;
 	},
 	
-	onPreviewError: function(image) {
-		this.disconnect(image, 'error', this.onPreviewError);
-		var icon = 'file';
+	getUploader: function() {
+		return this.uploader;
+	},
 
+	deleteFile: function() {
+		if(this.uploader !== undefined) {
+			this.uploader.abort();
+			this.uploader = undefined;
+		}
+		if(this.resource !== undefined)
+			this.resource.suppress();
+	},
+	
+	onDelete: function(selection) {
+		selection.getElements()[0].getResource().suppress();
+	},
+	
+	onEdit: function(selection) {
+		var item = selection.getElements()[0];
+		var dialog = new Storage.FilePropertiesDialog({ resource: item.getResource() });
+		dialog.open();
+	},
+	
+	onOpen: function(selection) {
+		var item = selection.getElements()[0];
+		if(item.getResource().getMimetype() === 'application/x-directory')
+			item.view.push(item.getResource().getName(), item.getResource().getId());
+	},
+
+	onFileReady: function() {
 		if(this.resource.getMimetype() === 'application/x-directory')
-			icon = 'folder';
-		else if(this.resource.getMimetype().indexOf('audio/') === 0)
-			icon = 'sound';
-
-		this.content.setContent(new Ui.Icon({
-			icon: icon, verticalAlign: 'bottom', horizontalAlign: 'center',
-			width: 64, height: 64 }));
-
-//		this.content.setContent(new Ui.Image({
-//			src: '/cloud/mimeicon/'+encodeURIComponent(this.resource.getMimetype()),
-//			verticalAlign: 'bottom', horizontalAlign: 'center',
-//			width: 64, height: 64
-//		}));
+			this.setItemIcon('folder');
+		else {
+			if(this.resource.getMimetype().indexOf('audio/') === 0)
+				this.setItemIcon('sound');
+			this.setItemImage('/cloud/preview/'+this.resource.getShare().getId()+'/'+this.resource.getData().id+'?rev='+this.resource.getRev());
+		}
+		this.setItemName(this.resource.getName());
+	}
+}, {
+	getSelectionActions: function() {
+		if(this.uploader !== undefined) {
+			return {
+				suppress: {
+					text: 'Supprimer', icon: 'trash', color: '#d02020',
+					callback: this.onDelete, multiple: false
+				}
+			};
+		}
+		else if(this.resource.getMimetype() === 'application/x-directory') {
+			return {
+				suppress: {
+					text: 'Supprimer', icon: 'trash', color: '#d02020',
+					callback: this.onDelete, multiple: false
+				},
+				open: {
+					"default": true,
+					text: 'Ouvrir', icon: 'eye',
+					callback: this.onOpen, multiple: false
+				},
+				property: {
+					text: 'Propriétés', icon: 'pen',
+					callback: this.onEdit, multiple: false
+				}
+			}
+		}
+		else {
+			return {
+				suppress: {
+					text: 'Supprimer', icon: 'trash', color: '#d02020',
+					callback: this.onDelete, multiple: false
+				},
+				edit: {
+					"default": true,
+					text: 'Propriétés', icon: 'pen',
+					callback: this.onEdit, multiple: false
+				}
+			}
+		}
 	}
 });
 
