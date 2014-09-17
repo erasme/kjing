@@ -202,8 +202,45 @@ KJing.ResourceItemView.extend('KJing.UserItemView', {
 });
 
 KJing.ResourceItemView.extend('KJing.LinkItemView', {
+	linkedResource: undefined,
+
 	constructor: function(config) {
 		this.setItemIcon('draglink');
+	
+		this.linkedResource = this.getResource().getLinkedResource();
+		this.setItemTags([ 'link' ]);
+
+		if(this.linkedResource.getIsReady())
+			this.onLinkedResourceReady();
+		else
+			this.connect(this.linkedResource, 'ready', this.onLinkedResourceReady);
+	},
+
+	onLinkedResourceReady: function() {
+		this.setItemName(this.linkedResource.getName());
+
+		if(KJing.User.hasInstance(this.linkedResource))
+			this.setItemIcon('person');
+		else if(KJing.Group.hasInstance(this.linkedResource))
+			this.setItemIcon('group');
+		else if(KJing.Map.hasInstance(this.linkedResource))
+			this.setItemIcon('map');
+		else if(KJing.Device.hasInstance(this.linkedResource))
+			this.setItemIcon('eye');
+		else if(KJing.Folder.hasInstance(this.linkedResource))
+			this.setItemIcon('folder');
+		else if(KJing.Share.hasInstance(this.linkedResource))
+			this.setItemIcon('files');
+		else if(KJing.File.hasInstance(this.linkedResource))
+			this.setItemIcon('file');
+	}
+
+}, {
+	setShare: function(share) {
+		if(share === true) 
+			this.setItemTags([ 'share', 'link' ]);
+		else
+			this.setItemTags([ 'link' ]);
 	}
 });
 	
@@ -882,10 +919,10 @@ Ui.DropBox.extend('KJing.FolderView', {
 	}
 });
 
-
 Ui.ScrollingArea.extend('KJing.PartView', {
 	user: undefined,
 	locator: undefined,
+	locatorScroll: undefined,
 	setupButton: undefined,
 	content: undefined,
 	contextBar: undefined,
@@ -904,12 +941,12 @@ Ui.ScrollingArea.extend('KJing.PartView', {
 		var hbox = new Ui.HBox();
 		this.vbox.append(hbox);
 
-		var scroll = new Ui.ScrollingArea({ scrollVertical: false });
-		hbox.append(scroll, true);
+		this.locatorScroll = new Ui.ScrollingArea();
+		hbox.append(this.locatorScroll, true);
 
 		this.locator = new Ui.Locator({ path: '/', horizontalAlign: 'left', margin: 5 });
 		this.connect(this.locator, 'change', this.onPathChange);
-		scroll.setContent(this.locator);
+		this.locatorScroll.setContent(this.locator);
 
 		this.setupButton = new Ui.Button({ margin: 5, icon: 'gear' }); 
 		this.setupButton.hide(true);
@@ -926,6 +963,24 @@ Ui.ScrollingArea.extend('KJing.PartView', {
 
 	getContentView: function() {
 		return this.content;
+	},
+
+	getStack: function() {
+		return this.stack;
+	},
+
+	setStack: function(stack) {
+		this.stack = stack;
+		var level = this.stack[this.stack.length-1];
+		if(this.content !== undefined)
+			this.vbox.remove(this.content);
+		this.content = KJing.View.create(this, level.resource);
+		this.vbox.append(this.content, true);
+		this.updateLocator();
+		if('getSetupPopup' in this.content)
+			this.setupButton.show();
+		else
+			this.setupButton.hide(true);
 	},
 	
 	push: function(text, resource) {
@@ -1022,6 +1077,119 @@ Ui.Button.extend('KJing.UserProfilButton', {
 	}
 });
 
+Ui.Button.extend('KJing.Bookmark', {
+	bookmark: undefined,
+
+	constructor: function(config) {
+		this.bookmark = config.bookmark;
+		delete(config.bookmark);
+
+		this.setIcon('star');
+		this.setText(this.bookmark.name);
+
+		this.setDraggableData(this);
+	},
+
+	suppress: function() {
+		Ui.App.current.deleteBookmark(this.bookmark);
+	},
+
+	open: function() {
+		this.onPress();
+	}
+}, {
+	getSelectionActions: function() {
+		return {
+			suppress: {
+				text: 'Supprimer', icon: 'trash',
+				scope: this, callback: this.suppress, multiple: true
+			},
+			open: {
+				"default": true,
+				text: 'Ouvrir', icon: 'eye',
+				scope: this, callback: this.open, multiple: false
+			}
+		};
+	},
+
+	onPress: function() {
+		Ui.App.current.setState(this.bookmark.state);
+	}
+});
+
+Ui.MenuPopup.extend('KJing.DisplayPopup', {
+	app: undefined,
+	bookmarksVBox: undefined,
+
+	constructor: function(config) {
+		this.app = config.app;
+		delete(config.app);
+
+		var vbox = new Ui.VBox();
+		this.setContent(vbox);
+
+		var orientationButton = new Ui.SegmentBar({ margin: 10,
+			field: 'text', data: [
+				{ text: 'Horizontal', value: 'horizontal' }, { text: 'Vertical', value: 'vertical' }
+		] });
+		vbox.append(orientationButton);
+		if(this.app.paned.getOrientation() === 'horizontal')
+			orientationButton.setCurrentPosition(0);
+		else
+			orientationButton.setCurrentPosition(1);
+		this.connect(orientationButton, 'change', function(b, data) {
+			this.app.paned.setOrientation(data.value);
+		});
+
+		var invertButton = new Ui.DefaultButton({ icon: 'switch', text: 'Inverser', margin: 10 });
+		vbox.append(invertButton);
+		this.connect(invertButton, 'press', function() {
+			this.app.paned.invert();
+		});
+
+		vbox.append(new Ui.Text({ fontWeight: 'bold', text: 'Favoris', margin: 10 }));
+
+		var addButton = new Ui.DefaultButton({ text: 'Ajouter un favori', margin: 10 });
+		this.connect(addButton, 'press', function() {
+			var dialog = new Ui.Dialog({ preferredWidth: 300, title: 'Nouveau favori' });
+			var nameField = new KJing.TextField({ title: 'Nom', value: 'Nouveau' });
+			dialog.setContent(nameField);
+			dialog.setCancelButton(new Ui.DialogCloseButton());
+			var savButton = new Ui.Button({ text: 'Enregistrer' });
+			this.connect(savButton, 'press', function() {
+				this.app.addBookmark(nameField.getValue(), this.app.saveDisplayState());
+				dialog.close();
+			});
+			dialog.setActionButtons([ savButton ]);
+			dialog.open();
+		});
+		vbox.append(addButton);
+
+		this.bookmarksVBox = new Ui.VBox();
+		vbox.append(this.bookmarksVBox);
+	},
+
+	onBookmarksChange: function() {
+		this.bookmarksVBox.clear();
+		// display bookmarks
+		var bookmarks = this.app.getBookmarks();
+		for(var i = 0; i < bookmarks.length; i++)
+			this.bookmarksVBox.append(new KJing.Bookmark({ bookmark: bookmarks[i] }));
+
+	}
+}, {
+	onLoad: function() {
+		KJing.DisplayPopup.base.onLoad.call(this);
+		this.connect(this.app, 'bookmarkschange', this.onBookmarksChange);
+		this.onBookmarksChange();
+	},
+	
+	onUnload: function() {
+		KJing.DisplayPopup.base.onUnload.call(this);
+		this.disconnect(this.app, 'bookmarkschange', this.onBookmarksChange);
+	}
+});
+
 Ui.App.extend('KJing.AdminApp', {
 	user: undefined,
 	selection: undefined,
@@ -1033,6 +1201,8 @@ Ui.App.extend('KJing.AdminApp', {
 	paned: undefined,
 
 	constructor: function(config) {
+		this.addEvents('bookmarkschange');
+
 		this.sendGetAuthSession();
 		this.connect(this.getDrawing(), 'keyup', this.onKeyUp);
 	},
@@ -1186,9 +1356,29 @@ Ui.App.extend('KJing.AdminApp', {
 		popup.setContent(new Ui.Text({ text: 'TODO', verticalAlign: 'center', width: 150, height: 200, margin: 10 }));
 		popup.show(button, 'bottom');
 	},
-	
+
+	saveDisplayState: function() {
+		var state = {
+			orientation: this.paned.getOrientation(),
+			position: this.paned.getPos(),
+			part1: this.paned.getContent1().getStack(),
+			part2: this.paned.getContent2().getStack()
+		}
+		return state;
+	},
+
+	setState: function(state) {
+		this.paned.setOrientation(state.orientation);
+		this.paned.setPos(state.position);
+		this.paned.getContent1().setStack(state.part1);
+		this.paned.getContent2().setStack(state.part2);
+	},
+
 	onDisplayPress: function(button) {
-		var popup = new Ui.MenuPopup({ preferredWidth: 200 });
+		var popup = new KJing.DisplayPopup({ app: this, preferredWidth: 220 });
+		popup.show(button, 'bottom');
+
+/*		var popup = new Ui.MenuPopup({ preferredWidth: 220 });
 
 		var vbox = new Ui.VBox();
 		popup.setContent(vbox);
@@ -1212,18 +1402,81 @@ Ui.App.extend('KJing.AdminApp', {
 			this.paned.invert();
 		});
 
+		vbox.append(new Ui.Text({ fontWeight: 'bold', text: 'Favoris', margin: 10 }));
+
+		var addButton = new Ui.DefaultButton({ text: 'Ajouter au favoris', margin: 10 });
+		this.connect(addButton, 'press', function() {
+			popup.hide();
+			var dialog = new Ui.Dialog({ preferredWidth: 300, title: 'Nouveau favori' });
+			var nameField = new KJing.TextField({ title: 'Nom', value: 'Nouveau' });
+			dialog.setContent(nameField);
+			dialog.setCancelButton(new Ui.DialogCloseButton());
+			var savButton = new Ui.Button({ text: 'Enregistrer' });
+			this.connect(savButton, 'press', function() {
+				this.addBookmark(nameField.getValue(), this.saveDisplayState());
+				dialog.close();
+			});
+			dialog.setActionButtons([ savButton ]);
+			dialog.open();
+		});
+		vbox.append(addButton);
+
+		var bookmarksVBox = new Ui.VBox();
+		vbox.append(bookmarksVBox);
+
+		// display bookmarks
+		var bookmarks = this.getBookmarks();
+		for(var i = 0; i < bookmarks.length; i++)
+			bookmarksVBox.append(new KJing.Bookmark({ bookmark: bookmarks[i] }));
+
 //		popup.setContent(new Ui.Text({ text: 'TODO', verticalAlign: 'center', width: 150, height: 200, margin: 10 }));
 		popup.show(button, 'bottom');
+
+		this.connect(this, 'bookmarkschange', function() {
+			bookmarksVBox.clear();
+			// display bookmarks
+			var bookmarks = this.getBookmarks();
+			for(var i = 0; i < bookmarks.length; i++)
+				bookmarksVBox.append(new KJing.Bookmark({ bookmark: bookmarks[i] }));
+		});*/
 	},
-	
+
+	getBookmarks: function() {
+		var bookmarks = localStorage.getItem('bookmarks');
+		if(bookmarks !== null) {
+			bookmarks = JSON.parse(bookmarks);
+			for(var i = 0; i < bookmarks.length; i++)
+				bookmarks[i].id = i;
+		}
+		else
+			bookmarks = [];
+		return bookmarks;
+	},
+
+	addBookmark: function(name, state) {
+		var bookmarks = this.getBookmarks();
+		bookmarks.unshift({ name: name, state: state });
+		localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
+		this.fireEvent('bookmarkschange', this);
+	},
+
+	deleteBookmark: function(bookmark) {
+		var bookmarks = this.getBookmarks();
+		if((bookmark.id >= 0) && (bookmark.id < bookmarks.length)) {
+			bookmarks.splice(bookmark.id, 1);
+			localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
+			this.fireEvent('bookmarkschange', this);
+		}
+	},
+
 	onLogoutPress: function(button) {
 		if('localStorage' in window) {
 			// remove login
 			localStorage.removeItem('login');
 			// remove password
 			localStorage.removeItem('password');
-			// remove currentPath
-			localStorage.removeItem('currentPath');
+			// remove bookmarks
+			localStorage.removeItem('bookmarks');
 			// remove the authsession
 			localStorage.removeItem('authsession');
 		}
@@ -1287,10 +1540,27 @@ style: {
 		background: "#ffffff",
 		"Ui.Button": {
 			background: new Ui.Color({ r: 1, g: 1, b: 1, a: 0.1 }),
-			backgroundBorder: new Ui.Color({ r: 1, g: 1, b: 1, a: 0.1 })
+			backgroundBorder: new Ui.Color({ r: 1, g: 1, b: 1, a: 0.1 }),
+			iconSize: 28,
+			textHeight: 28
+		},
+		"Ui.DefaultButton": {
+			borderWidth: 1,
+			background: "#fefefe",
+			backgroundBorder: 'black',
+			iconSize: 16,
+			textHeight: 16
+		},
+		"Ui.ActionButton": {
+			showText: false
+		},
+		"Ui.SegmentBar": {
+			spacing: 7,
+			color: "#ffffff"
 		}
 	},
 	"Ui.SegmentBar": {
+		spacing: 8,
 		color: "#ffffff"
 	},
 	"Ui.Dialog": {
@@ -1312,9 +1582,6 @@ style: {
 		background: "rgba(250,250,250,0)",
 		foreground: "#ffffff",
 		radius: 0
-	},
-	"Ui.Selectionable": {
-		shadow: new Ui.Color({r: 0, g: 0.72, b: 0.95, a: 0.4 })
 	},
 	"Ui.Separator": {
 		color: "#999999"
@@ -1387,6 +1654,7 @@ style: {
 		backgroundBorder: new Ui.Color({ r: 1, g: 1, b: 1, a: 0 }),
 		focusBackground: new Ui.Color({ r: 1, g: 1, b: 1, a: 0 }),
 		focusBackgroundBorder: new Ui.Color({r: 0, g: 0.72, b: 0.95 }),
+		selectCheckColor: new Ui.Color({r: 0, g: 0.72, b: 0.95 }),
 		radius: 0,
 		borderWidth: 2
 	},
@@ -1400,6 +1668,9 @@ style: {
 		roundMode: true
 	},
 	"KJing.RightAddUserItemView": {
+		roundMode: true
+	},
+	"KJing.RightItemView": {
 		roundMode: true
 	},
 	"KJing.MenuToolBar": {
