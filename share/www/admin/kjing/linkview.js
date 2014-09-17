@@ -1,6 +1,8 @@
 ﻿
 KJing.View.extend('KJing.LinkView', {
 	resource: undefined,
+	linkedResource: undefined,
+	linkedView: undefined,
 
 	constructor: function(config) {
 		this.resource = config.resource;
@@ -10,13 +12,18 @@ KJing.View.extend('KJing.LinkView', {
 			this.onResourceReady();
 		else
 			this.connect(this.resource, 'ready', this.onResourceReady);
+	},
 
-		this.setContent(new Ui.Rectangle({ fill: 'purple', margin: 10 }));
+	getSetupPopup: function() {
+		 if((this.linkedView !== undefined) && ('getSetupPopup' in this.linkedView))
+		 	return this.linkedView.getSetupPopup();
+		 else
+			return new Ui.MenuPopup({ preferredWidth: 200 });
 	},
 
 	onResourceReady: function() {
-		console.log('resource ready');
-		var linkedResource = this.resource.getLinkedResource();
-		this.setContent(KJing.View.create(this.view, linkedResource));
+		this.linkedResource = this.resource.getLinkedResource();
+		this.linkedView = KJing.View.create(this.view, this.linkedResource);
+		this.setContent(this.linkedView);
 	}
 });
