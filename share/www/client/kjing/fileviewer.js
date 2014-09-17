@@ -304,7 +304,32 @@ Ui.LBox.extend('Storage.DirectoryFileViewer', {
 		}
 	}
 });
+/*
+Ui.ScrollingArea.extend('Storage.ImageFileViewer', {
+	file: undefined,
+	image: undefined,
+	values: undefined,
+	quality: false,
+	fileViewer: undefined,
+	transformable: undefined,
+	userInteraction: true,
 
+	constructor: function(config) {
+
+		this.file = config.file;
+		delete(config.file);
+				
+		this.fileViewer = config.fileViewer;
+		delete(config.fileViewer);
+
+		this.setMaxScale(4);
+
+		this.image = new KJing.ScaledImage2();
+		this.image.setSrc(this.file.getDownloadUrl());
+		//this.image.setSrc(this.file.getPreviewHighUrl());
+		this.setContent(this.image);
+	}
+});*/
 
 Ui.LBox.extend('Storage.ImageFileViewer', {
 	storage: undefined,
