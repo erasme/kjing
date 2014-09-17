@@ -1,5 +1,5 @@
 
-Ui.Selectionable.extend('KJing.WebAccount', {
+KJing.ItemView.extend('KJing.WebAccount', {
 	label: undefined,
 	accountIcon: undefined,
 	user: undefined,
@@ -9,15 +9,8 @@ Ui.Selectionable.extend('KJing.WebAccount', {
 
 		this.user = config.user;
 		delete(config.user);
-		
-		var vbox = new Ui.VBox({ margin: 0 });
-		this.setContent(vbox);
-	
-		this.accountIcon = new Ui.Icon({ icon: 'google', width: 48, height: 48, fill: '#444444', horizontalAlign: 'center' });
-		vbox.append(this.accountIcon);
-	
-		this.label = new Ui.CompactLabel({ width: 80, maxLine: 2, textAlign: 'center' });
-		vbox.append(this.label);
+
+		this.setItemIcon('google');		
 	},
 	
 	getUser: function() {
@@ -25,13 +18,9 @@ Ui.Selectionable.extend('KJing.WebAccount', {
 	},
 	
 	setAccountIcon: function(icon) {
-		this.accountIcon.setIcon(icon);
+		this.setItemIcon(icon);
 	},
-	
-	setText: function(text) {
-		this.label.setText(text);
-	},
-	
+
 	"delete": function() {
 		this.fireEvent('delete', this);
 	},
@@ -48,6 +37,7 @@ Ui.Selectionable.extend('KJing.WebAccount', {
 		return count > 1;
 	}
 });
+
 
 Ui.Dialog.extend('KJing.WebAccountNewDialog', {
 	user: undefined,
