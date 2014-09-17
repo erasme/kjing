@@ -203,10 +203,10 @@ Ui.SFlow.extend('KJing.NewResourceSelector', {
 		this.setSpacing(5);
 		
 		var types = {
-			folder: { icon: 'folder', text: 'Dossier', creator: KJing.NewFolderCreator },
+			folder: { icon: 'folder', text: 'Classeur', creator: KJing.NewFolderCreator },
 			user: { icon: 'person', text: 'Utilisateur', creator: KJing.NewUserCreator },
 			group: { icon: 'group', text: 'Groupe de personne', creator: KJing.NewGroupCreator },
-			share: { icon: 'files', text: 'Partage de fichiers', creator: KJing.NewShareCreator },
+			share: { icon: 'files', text: 'Dossier de fichiers', creator: KJing.NewShareCreator },
 			map: { icon: 'map', text: 'Salle de diffusion', creator: KJing.NewMapCreator },
 			groupuser: { icon: 'person', text: 'Utilisateur', creator: KJing.NewGroupUserCreator },
 			groupgroup: { icon: 'group', text: 'Groupe de personne', creator: KJing.NewGroupGroupCreator },
