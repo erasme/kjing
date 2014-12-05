@@ -11,7 +11,7 @@ Ui.DropBox.extend('KJing.UploadFaceButton', {
 		this.user = config.user;
 		delete(config.user);
 			
-		this.addMimetype('files');
+		this.addType('files', 'copy');
 	
 		this.uploadable = new Ui.Uploadable();
 		this.setContent(this.uploadable);
@@ -38,13 +38,14 @@ Ui.DropBox.extend('KJing.UploadFaceButton', {
 		this.connect(uploader, 'progress', this.onUploadProgress);
 		this.connect(uploader, 'complete', this.onUploadComplete);
 		uploader.send();
+		Ui.App.current.addUploader(uploader);
 	},
 
 	onUploadProgress: function(uploader) {
 	},
 
 	onUploadComplete: function(uploader) {
-		this.image.setSrc('/cloud/user/'+this.user.getId()+'/face');
+//		this.image.setSrc('/cloud/user/'+this.user.getId()+'/face');
 		this.user.update();
 	},
 	
@@ -76,8 +77,6 @@ Ui.Dialog.extend('KJing.UserProfil', {
 	saveButton: undefined,
 	sflow: undefined,
 	webSection: undefined,
-	saveRequests: undefined,
-	errorRequests: undefined,
 
 	constructor: function(config) {
 		this.user = config.user;
@@ -174,9 +173,6 @@ Ui.Dialog.extend('KJing.UserProfil', {
 	},
 
 	onSavePress: function() {
-		this.saveRequests = [];
-		this.errorRequests = [];
-	
 		// handle general user data
 		var diff = {};
 
@@ -193,74 +189,34 @@ Ui.Dialog.extend('KJing.UserProfil', {
 		// build the difference
 		diff = Core.Object.diff(this.user.getData(), diff);
 		if(diff !== undefined) {
-			var request = new Core.HttpRequest({ method: 'PUT',
-				url: '/cloud/resource/'+this.user.getId(),
-				content: JSON.stringify(diff)
-			});
-			this.connect(request, 'done', this.onSaveDone);
+			var request = this.user.changeData(diff);
+			this.connect(request, 'done', this.close);
 			this.connect(request, 'error', this.onSaveError);
-			this.saveRequests.push(request);
 			request.send();
-		}
-		
-		// nothing to do, close the dialog
-		if(this.saveRequests.length === 0) {
-			this.close();
-		}
-		// else disable saveButton and any change
-		else {
+			// disable saveButton and any change
 			this.sflow.disable();
 			this.saveButton.disable();
 		}
+		// nothing to do, close the dialog
+		else {
+			this.close();
+		}
 	},
 
-	testSaveEnd: function() {
-		if(this.saveRequests.length == 0) {
-			if(this.errorRequests.length > 0) {
-				this.sflow.enable();
-				this.saveButton.enable();
+	onSaveError: function() {
+		this.sflow.enable();
+		this.saveButton.enable();
 		
-				var dialog = new Ui.Dialog({ preferredWidth: 300, title: 'Echec de l\'enregistrement' });
-				dialog.setContent(new Ui.Text({ text: 
-					'L\'enregistrement à échoué. Vérifiez que votre mot de passe '+
-					'respecte la politique de sécurité. A savoir qu\'il doit faire au '+
-					'moins 8 caractères et contenir des chiffres et des lettres.' }))
-				var button = new Ui.Button({ text: 'Fermer' });
-				dialog.setActionButtons([ button ]);
-				this.connect(button, 'press', function() {
-					dialog.close();
-				});
-				dialog.open();
-			}
-			else {
-				this.close();
-			}
-		}
+		var dialog = new Ui.Dialog({ preferredWidth: 300, title: 'Echec de l\'enregistrement' });
+		dialog.setContent(new Ui.Text({ text: 'L\'enregistrement à échoué.' }));
+		var button = new Ui.Button({ text: 'Fermer' });
+		dialog.setActionButtons([ button ]);
+		this.connect(button, 'press', function() {
+			dialog.close();
+		});
+		dialog.open();
 	},
-			
-	onSaveDone: function(request) {
-		var pos = undefined;
-		for(var i = 0; i < this.saveRequests.length; i++) {
-			if(this.saveRequests[i] === request)
-				pos = i;
-		}
-		if(pos !== undefined)
-			this.saveRequests.splice(pos, 1);
-		this.testSaveEnd();
-	},
-	
-	onSaveError: function(request) {
-		this.errorRequests.push(request);
-		var pos = undefined;
-		for(var i = 0; i < this.saveRequests.length; i++) {
-			if(this.saveRequests[i] === request)
-				pos = i;
-		}
-		if(pos !== undefined)
-			this.saveRequests.splice(pos, 1);
-		this.testSaveEnd();
-	},
-	
+		
 	onDeletePress: function() {
 		var dialog = new Ui.Dialog({
 			title: 'Suppression de compte',

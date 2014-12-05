@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>10.0.0</ProductVersion>
+    <ProductVersion>8.0.30703</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{F1847742-3D53-43F4-B19D-9DFAD199744F}</ProjectGuid>
     <OutputType>Exe</OutputType>
@@ -44,12 +44,33 @@
     <Compile Include="Server.cs" />
     <Compile Include="WebException.cs" />
     <Compile Include="KJing.Directory\DirectoryService.cs" />
-    <Compile Include="KJing.Device\DeviceService.cs" />
+    <Compile Include="KJing.Directory\Rights.cs" />
+    <Compile Include="KJing.Directory\IService.cs" />
+    <Compile Include="KJing.Directory\LinkService.cs" />
+    <Compile Include="KJing.Directory\MapService.cs" />
+    <Compile Include="KJing.Directory\ResourceService.cs" />
+    <Compile Include="KJing.Directory\UserService.cs" />
+    <Compile Include="KJing.Directory\DeviceService.cs" />
+    <Compile Include="KJing.Directory\GroupService.cs" />
+    <Compile Include="KJing.Storage\Storage.cs" />
+    <Compile Include="KJing.Directory\FileService.cs" />
+    <Compile Include="KJing.Directory\FolderService.cs" />
+    <Compile Include="KJing.Directory\IFilePlugin.cs" />
+    <Compile Include="KJing.Directory\ImageMediaInfoPlugin.cs" />
+    <Compile Include="KJing.Directory\VideoMediaInfoPlugin.cs" />
+    <Compile Include="KJing.Directory\ThumbnailPlugin.cs" />
+    <Compile Include="KJing.Directory\AudioPlugin.cs" />
+    <Compile Include="KJing.Directory\PdfImagePlugin.cs" />
+    <Compile Include="KJing.Directory\UploaderService.cs" />
+    <Compile Include="KJing.Directory\VideoPlugin.cs" />
+    <Compile Include="KJing.Directory\PdfPlugin.cs" />
+    <Compile Include="KJing.Manage\ManageRights.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
     <Folder Include="KJing.Directory\" />
-    <Folder Include="KJing.Device\" />
+    <Folder Include="KJing.Storage\" />
+    <Folder Include="KJing.Manage\" />
   </ItemGroup>
   <ProjectExtensions>
     <MonoDevelop>

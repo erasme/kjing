@@ -1,249 +1,13 @@
-/*
-Core.Object.extend('KJing.Device', {
-	ready: false,
-	deleted: false,
-	id: undefined,
-	data: undefined,
-	request: undefined,
-	socket: undefined,
-	isSocketOpen: false,
-	isMonitored: false,
-	clientData: undefined,
-	sendClientTask: undefined,
-	retryTask: undefined,
-	revs: undefined,
-	connectionId: undefined,
-
-	constructor: function(config) {
-		this.addEvents('ready', 'change', 'delete', 'error', 'clientmessage');
-
-		this.clientData = {};
-		this.revs = {};
-		this.clientData.revs = this.revs;
-		
-		if('data' in config) {
-			this.id = config.data.id;
-			this.updateData(config.data);
-			delete(config.data);
-		}
-		else if('id' in config) {
-			this.id = config.id;
-			delete(config.id);
-			this.data = { id: this.id };
-			this.update();
-		}
-		this.monitor();
-	},
-		
-	getIsDeleted: function() {
-		return this.deleted;
-	},
-	
-	getIsReady: function() {
-		return this.ready;
-	},
-
-	getId: function() {
-		return this.id;
-	},
-	
-	changeData: function(diff) {
-		var request = new Core.HttpRequest({ method: 'PUT',
-			url: '/cloud/resource/'+this.id,
-			content: JSON.stringify(diff)
-		});
-		request.send();
-	},
-
-	getData: function() {
-		return this.data;
-	},
-
-	countControllers: function() {
-		var count = 0;
-		if('clients' in this.data) {
-			for(var i = 0; i < this.data.clients.length; i++) {
-				if(this.data.clients[i].user !== this.id)
-					count++;
-			}
-		}
-		return count;
-	},
-
-	getIsControlled: function() {
-		return this.countControllers() > 0;
-	},
-
-	getName: function() {
-		return this.data.name;
-	},
-	
-	getRights: function() {
-		return this.data.rights;
-	},
-	
-	addRights: function(rights) {	
-		var request = new Core.HttpRequest({ method: 'POST',
-			url: '/cloud/resource/'+this.id+'/rights',
-			content: JSON.stringify(rights)
-		});
-		this.connect(request, 'done', function() {
-			this.update();
-		});
-		request.send();
-	},
-
-	suppress: function() {
-		var request = new Core.HttpRequest({ method: 'DELETE',
-			url: '/cloud/resource/'+this.id
-		});
-		this.connect(request, 'done', function() {
-			this.deleted = true;
-			this.fireEvent('delete', this);
-		});
-		request.send();
-	},
-
-	update: function() {
-		if(this.request !== undefined)
-			return;
-		this.request = new Core.HttpRequest({ url: '/cloud/resource/'+this.id+"?seenBy="+this.id });
-		this.connect(this.request, 'done', this.onGetDataDone);
-		this.connect(this.request, 'error', this.onGetDataError);
-		this.request.send();
-	},
-
-	updateData: function(data) {
-		if((this.data === undefined) || (JSON.stringify(this.data) !== JSON.stringify(data))) {
-			this.data = data;
-
-			if(!this.ready) {
-				this.ready = true;
-				this.fireEvent('ready', this);
-			}
-			this.fireEvent('change', this);
-		}
-	},
-
-	sendClientMessage: function(destination, message) {
-		if(this.socket !== undefined)
-			this.socket.send(JSON.stringify({ type: 'clientmessage', destination: destination, message: message }));
-	},
-
-	getClientData: function() {
-		return this.clientData;
-	},
-
-	sendClientData: function(clientData) {
-		if((this.socket !== undefined) && this.isSocketOpen)
-			this.socket.send(JSON.stringify({ type: 'clientdata', data: clientData }));
-	},
-
-	notifyClientData: function() {
-		// delay the client data notification to limit the rate of the updates
-		if(this.sendClientTask === undefined) {
-			this.sendClientTask = new Core.DelayedTask({ scope: this, delay: 0.25, callback: function() {
-				this.sendClientTask = undefined;
-				this.sendClientData(this.clientData);
-			}});
-		}
-	},
-
-	monitor: function() {
-		this.retryTask = undefined;
-		this.isMonitored = true;
-		if(this.socket === undefined) {
-			this.socket = new Core.Socket({ service: '/cloud/resource/'+this.id+'?seenBy='+this.id });
-			this.connect(this.socket, 'open', this.onSocketOpen);
-			this.connect(this.socket, 'message', this.onMessageReceived);
-			this.connect(this.socket, 'error', this.onSocketError);
-			this.connect(this.socket, 'close', this.onSocketClose);
-		}
-	},
-	
-	unmonitor: function() {
-		if(this.retryTask !== undefined) {
-			this.retryTask.abort();
-			this.retryTask = undefined;
-		}
-		this.isMonitored = false;
-		if(this.socket !== undefined) {
-			this.socket.close();
-			this.socket = undefined;
-		}
-	},
-
-	onGetDataError: function(request) {
-		if(request.getStatus() == 404)
-			this.fireEvent('delete', this);
-		else
-			this.fireEvent('error', this);
-		this.request = undefined;
-	},
-
-	onGetDataDone: function(request) {
-		var data = request.getResponseJSON();
-		this.updateData(data);
-		this.request = undefined;
-	},
-
-	onSocketOpen: function() {
-		this.isSocketOpen = true;
-		if(this.clientData !== undefined)
-			this.sendClientData(this.clientData);
-	},
-
-	onMessageReceived: function(socket, msg) {
-		var json = JSON.parse(msg);
-		console.log('onMessageReceived');
-		console.log(json);
-
-		if('type' in json) {
-			if(json.type === 'open') {
-				this.connectionId = json.connection;
-				console.log('GOT MY ID: '+this.connectionId);
-			}
-			else if(json.type === 'change') {
-				this.update();
-			}
-			else if(json.type === 'clientmessage') {
-				this.revs[json.source] = json.message.rev;
-				this.fireEvent('clientmessage', this, json["message"]);
-			}
-		}
-	},
-	
-	onSocketError: function() {
-		this.socket.close();
-	},
-	
-	onSocketClose: function() {
-		this.isSocketOpen = false;
-		this.socket = undefined;
-		if(this.isMonitored)
-			this.retryTask = new Core.DelayedTask({ delay: 5, scope: this, callback: this.monitor });
-	}
-	
-}, {}, {
-	create: function(id) {
-		if(typeof(id) === 'string')
-			return new KJing.Device({ id: id });
-		else if(typeof(id) === 'object') {
-			if(KJing.Device.hasInstance(id))
-				return id;
-			else if('id' in id)
-				return new KJing.Device({ data: id });
-		}
-	}
-});*/
-
 
 KJing.Resource.extend('KJing.Device', {
 	clientData: undefined,
 	sendClientTask: undefined,
-	revs: undefined,
+	devicePlayList: undefined,
+	currentFileControl: undefined,
 	
 	constructor: function(config) {
+		this.addEvents('playlistchange', 'clientdatachange');
+		this.clientData = { revs: this.revs };
 		this.connect(this, 'monitor', this.onDeviceMonitor);
 	},
 	
@@ -274,7 +38,7 @@ KJing.Resource.extend('KJing.Device', {
 		var clients = this.getData().clients;
 		if(clients !== undefined) {
 			for(var i = 0; i < clients.length; i++) {
-				if(clients[i].user == this.getId())
+				if(clients[i].user === this.getId())
 					return clients[i];
 			}
 		}
@@ -302,7 +66,8 @@ KJing.Resource.extend('KJing.Device', {
 	},
 
 	getIsDeviceSync: function() {
-		console.log('getIsDeviceSync connection: '+this.getConnectionId()+', deviceRev: '+this.getDeviceRev()+', messageCount: '+this.getConnectionMessageCount());
+//		console.log('getIsDeviceSync connection: '+this.getConnectionId()+', deviceRev: '+this.getDeviceRev()+', messageCount: '+this.getConnectionMessageCount());
+//		console.log(this.getDeviceData());
 		return (this.getDeviceRev() === this.getConnectionMessageCount());
 	},
 
@@ -350,19 +115,14 @@ KJing.Resource.extend('KJing.Device', {
 	},
 
 	getDevicePlayList: function() {
-		var client = this.getDeviceData();
-		if((client === undefined) || (client.data === undefined) || (client.data === null) ||
-			(client.data.state === undefined) || (client.data.state.list === undefined))
-			return [];
-		return client.data.state.list;
+		if(this.devicePlayList === undefined) {
+			this.devicePlayList = [];
+			this.updateDataCore();
+		}
+		return this.devicePlayList;
 	},
 
 	getClientData: function() {
-		if(this.clientData === undefined) {
-			this.clientData = {};
-			this.revs = {};
-			this.clientData.revs = this.revs;
-		}
 		return this.clientData;
 	},
 
@@ -374,7 +134,7 @@ KJing.Resource.extend('KJing.Device', {
 	notifyClientData: function() {
 		// delay the client data notification to limit the rate of the updates
 		if(this.sendClientTask === undefined) {
-			this.sendClientTask = new Core.DelayedTask({ scope: this, delay: 0.25, callback: function() {
+			this.sendClientTask = new Core.DelayedTask({ scope: this, delay: 0.015, callback: function() {
 				this.sendClientTask = undefined;
 				this.sendClientData(this.clientData);
 			}});
@@ -384,6 +144,77 @@ KJing.Resource.extend('KJing.Device', {
 	onDeviceMonitor: function() {
 		if(this.clientData !== undefined)
 			this.sendClientData(this.clientData);
+	}
+}, {
+	updateDataCore: function() {
+
+//		console.log(this+'.updateDataCore isSync: '+this.getIsDeviceSync());
+		if(!this.getIsDeviceSync())
+			return;
+
+
+		if(this.devicePlayList !== undefined) {
+			var playList;
+			var client = this.getDeviceData();
+			if((client === undefined) || (client.data === undefined) || (client.data === null) ||
+				(client.data.state === undefined) || (client.data.state.list === undefined))
+				playList = [];
+			else 
+				playList = client.data.state.list;
+			
+			var fileControlList = [];
+
+			// find new items
+			for(var i = 0; i < playList.length; i++) {
+				var item = playList[i];
+				var found = false;
+				var fileControl;
+				for(var i2 = 0; i2 < this.devicePlayList.length; i2++) {
+					fileControl = this.devicePlayList[i2];
+					if((item.id === fileControl.getId()) && (item.path === fileControl.getFile().getId())) {
+						found = true;
+						break;
+					}
+				}
+				if(found === false) {
+					fileControl = new KJing.FileControl({
+						device: this, id: item.id,
+						file: KJing.File.create(item.path)
+					});
+					fileControl.updateData(item);
+				}
+				// update the data
+				else {
+					fileControl.updateData(item);
+				}
+				fileControlList.push(fileControl);
+			}
+
+			var playlistChange = this.devicePlayList.length !== fileControlList.length;
+
+			for(var i = 0; !playlistChange && (i < this.devicePlayList.length); i++) {
+				playlistChange = this.devicePlayList[i].getFile().getId() !== fileControlList[i].getFile().getId();
+			}
+
+			this.devicePlayList = fileControlList;
+
+			// find the new current file control
+			var nCurrent = undefined;
+			var dPos = this.getDevicePosition();
+			if(dPos !== undefined)
+				nCurrent = this.devicePlayList[dPos];
+
+			if(playlistChange)
+				this.fireEvent('playlistchange', this);
+
+			if(nCurrent !== this.currentFileControl) {
+				if(this.currentFileControl !== undefined)
+					this.currentFileControl.onDeviceUncurrent();
+				this.currentFileControl = nCurrent;
+				if(this.currentFileControl !== undefined)
+					this.currentFileControl.onDeviceCurrent();
+			}
+		}
 	}
 });
 	

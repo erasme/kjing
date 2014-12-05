@@ -1,53 +1,4 @@
 
-Ui.SFlow.extend('KJing.NewDirectoryCreator', {
-	resource: undefined,
-	valid: false,
-	nameField: undefined,
-
-	constructor: function(config) {
-		this.addEvents('done', 'valid', 'notvalid');
-		
-		this.resource = config.resource;
-		delete(config.resource);
-		
-		this.setItemAlign('stretch');
-		
-		this.nameField = new KJing.TextAreaField({ title: 'Nom' });
-		this.append(this.nameField);
-		this.connect(this.nameField, 'change', this.checkValid);
-	},
-	
-	checkValid: function() {
-		var valid = (this.nameField.getValue() !== '');
-		if(this.valid !== valid) {
-			this.valid = valid;
-			if(this.valid)
-				this.fireEvent('valid', this);
-			else
-				this.fireEvent('notvalid', this);
-		}
-	},
-	
-	create: function() {
-		this.valid = false;
-		this.fireEvent('notvalid', this);
-	
-		var request = new Core.HttpRequest({
-			method: 'POST', url: this.resource.getChildrenUploadUrl(),
-			content: JSON.stringify({ name: this.nameField.getValue(), mimetype: 'application/x-directory' })
-		})
-		this.connect(request, 'done', function() {
-			this.fireEvent('done', this);
-			this.resource.update();
-		});
-		this.connect(request, 'error', function() {
-			// TODO handle error
-			this.fireEvent('done', this);
-		});
-		request.send();
-	}
-});
-
 Ui.SFlow.extend('KJing.NewFileCreator', {
 	resource: undefined,
 
@@ -59,8 +10,10 @@ Ui.SFlow.extend('KJing.NewFileCreator', {
 		
 		var file = config.file;
 		delete(config.file);
-						
-		var uploader = new Core.FilePostUploader({ file: file, service: this.resource.getChildrenUploadUrl() });
+					
+		var uploader = new Core.FilePostUploader({ file: file, service: '/cloud/file' });
+		var uploaderId = Ui.App.current.addUploader(uploader);
+		uploader.setField('define', JSON.stringify({ type: 'file', parent: this.resource.getId(), uploader: uploaderId }));
 		this.connect(uploader, 'progress', this.onUploadProgress);
 		this.connect(uploader, 'complete', this.onUploadComplete);
 		uploader.send();
@@ -78,115 +31,152 @@ Ui.SFlow.extend('KJing.NewFileCreator', {
 	}
 });
 
-Ui.SFlow.extend('KJing.NewFileSelector', {
+Ui.SFlow.extend('KJing.NewTextFileCreator', {
+	resource: undefined,
+	nameField: undefined,
+	valid: false,
+
 	constructor: function(config) {
-		this.addEvents('done');
-				
+		this.addEvents('done', 'valid', 'notvalid');
+		
+		this.resource = config.resource;
+		delete(config.resource);
+
 		this.setItemAlign('stretch');
 		this.setStretchMaxRatio(5);
-		this.setSpacing(5);
-		this.setUniform(true);
-		
-		var types = [
-			{ type: 'folder', icon: 'folder', text: 'Dossier', creator: KJing.NewDirectoryCreator  },
-			{ type: 'file', uploader: true, icon: 'new', text: 'Fichier', creator: KJing.NewFileCreator }
-		];
-		for(var i = 0; i < types.length; i++) {
-			var item = types[i];
-			var button;
-			if(item.uploader) {
-				button = new Ui.UploadButton({ text: item.text, icon: item.icon, orientation: 'horizontal', width: 200 });
-				this.connect(button, 'file', this.onButtonFile);
-			}
-			else {
-				button = new Ui.Button({ text: item.text, icon: item.icon, orientation: 'horizontal', width: 200 });
-				this.connect(button, 'press', this.onButtonPress);
-			}
-			button.kjingNewFileSelectorType = item;
-			this.append(button);
+
+		this.nameField = new KJing.TextField({ title: 'Nom', width: 150 });
+		this.connect(this.nameField, 'change', this.checkValid);
+		this.append(this.nameField);
+	},
+
+	create: function() {
+		var boundary = '----';
+		var characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+		for(var i = 0; i < 16; i++)
+			boundary += characters[Math.floor(Math.random()*characters.length)];
+		boundary += '----';
+
+		var request = new Core.HttpRequest({
+			method: 'POST',
+			url: '/cloud/file'
+		});
+		request.setRequestHeader("Content-Type", "multipart/form-data; boundary="+boundary);
+		request.setContent(
+			'--'+boundary+'\r\n'+
+			'Content-Disposition: form-data; name="define"\r\n'+
+			'Content-Type: application/json; charset=UTF-8\r\n\r\n'+
+			JSON.stringify({ parent: this.resource.getId(), name: this.nameField.getValue(), mimetype: 'text/plain', position: 0 })+'\r\n'+
+			'--'+boundary+'\r\n'+
+			'Content-Disposition: form-data; name="file"; filename="noname"\r\n'+
+			'Content-Type: text/plain; charset=UTF-8\r\n\r\n'+
+			'\r\n'+
+			'--'+boundary+'--\r\n'
+		);
+		this.connect(request, 'done', this.onRequestDone);
+		this.connect(request, 'done', this.onRequestFail);
+		request.send();
+	},
+
+	checkValid: function() {
+		var valid = (this.nameField.getValue() !== '');
+	
+		if(this.valid !== valid) {
+			this.valid = valid;
+			if(this.valid)
+				this.fireEvent('valid', this);
+			else
+				this.fireEvent('notvalid', this);
 		}
 	},
-	
-	onButtonFile: function(button, file) {
-		this.fireEvent('done', this, button.kjingNewFileSelectorType, file);
+
+	onRequestFail: function() {
+		this.valid = true;
+		this.fireEvent('valid', this);
 	},
 	
-	onButtonPress: function(button) {
-		this.fireEvent('done', this, button.kjingNewFileSelectorType);
+	onRequestDone: function(req) {
+		this.fireEvent('done', this);
+
+		var file = KJing.File.create(req.getResponseJSON());
+
+		// open the texte editor
+		var dialog = new Storage.TextEditor({ file: file });
+		dialog.open();
 	}
 });
 
-Ui.Dialog.extend('KJing.NewFileDialog', {
+Ui.SFlow.extend('KJing.NewUrlFileCreator', {
 	resource: undefined,
-	transBox: undefined,
-	selector: undefined,
-	creator: undefined,
+	nameField: undefined,
+	urlField: undefined,
+	valid: false,
 
 	constructor: function(config) {
+		this.addEvents('done', 'valid', 'notvalid');
+		
 		this.resource = config.resource;
 		delete(config.resource);
-	
-		this.setTitle('Nouveau fichier');
-		this.setFullScrolling(true);
-		this.setPreferredWidth(400);
-		this.setPreferredHeight(400);
-		
-		this.transBox = new Ui.TransitionBox();
-		this.setContent(this.transBox);
-		
-		this.selector = new KJing.NewFileSelector();
-		this.connect(this.selector, 'done', this.onSelectorDone);
-		this.transBox.replaceContent(this.selector);
-		
-		this.setCancelButton(new Ui.DialogCloseButton({ text: 'Annuler' }));
-		
-		this.prevButton = new Ui.Button({ text: 'Précédent' });
-		this.connect(this.prevButton, 'press', this.onPrevPress);
-		
-		this.createButton = new Ui.Button({ text: 'Créer' });
-		this.connect(this.createButton, 'press', this.onCreatePress);
+
+		this.setItemAlign('stretch');
+		this.setStretchMaxRatio(5);
+
+		this.nameField = new KJing.TextField({ title: 'Nom', width: 150 });
+		this.connect(this.nameField, 'change', this.checkValid);
+		this.append(this.nameField);
+
+		this.urlField = new KJing.TextField({ title: 'URL', width: 350 });
+		this.connect(this.urlField, 'change', this.checkValid);
+		this.append(this.urlField);
 	},
-	
-	onSelectorDone: function(sel, type, file) {
-		this.setTitle(type.text);
-		this.setActionButtons([ this.prevButton, this.createButton ]);
-		if(file !== undefined)
-			this.creator = new type.creator({ resource: this.resource, file: file });
-		else
-			this.creator = new type.creator({ resource: this.resource });
-		this.transBox.replaceContent(this.creator);
-		this.connect(this.creator, 'done', this.onCreatorDone);
-		this.connect(this.creator, 'valid', this.onCreatorValid);
-		this.connect(this.creator, 'notvalid', this.onCreatorNotvalid);
-		this.onCreatorNotvalid(this.creator);
+
+	create: function() {
+		var boundary = '----';
+		var characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+		for(var i = 0; i < 16; i++)
+			boundary += characters[Math.floor(Math.random()*characters.length)];
+		boundary += '----';
+
+		var request = new Core.HttpRequest({
+			method: 'POST',
+			url: '/cloud/file'
+		});
+		request.setRequestHeader("Content-Type", "multipart/form-data; boundary="+boundary);
+		request.setContent(
+			'--'+boundary+'\r\n'+
+			'Content-Disposition: form-data; name="define"\r\n'+
+			'Content-Type: application/json; charset=UTF-8\r\n\r\n'+
+			JSON.stringify({ parent: this.resource.getId(), name: this.nameField.getValue(), mimetype: 'text/uri-list', position: 0 })+'\r\n'+
+			'--'+boundary+'\r\n'+
+			'Content-Disposition: form-data; name="file"; filename="noname"\r\n'+
+			'Content-Type: text/plain; charset=UTF-8\r\n\r\n'+
+			this.urlField.getValue()+'\r\n'+
+			'--'+boundary+'--\r\n'
+		);
+		this.connect(request, 'done', this.onRequestDone);
+		this.connect(request, 'done', this.onRequestFail);
+		request.send();
 	},
+
+	checkValid: function() {
+		var urlPattern = new RegExp("^http(s){0,1}://.+?");
+		var valid = (this.nameField.getValue() !== '') && urlPattern.test(this.urlField.getValue());
 	
-	onPrevPress: function() {
-		this.setTitle('Nouveau fichier');
-		this.setActionButtons([]);
-		this.transBox.replaceContent(this.selector);
-		if(this.creator !== undefined) {
-			this.disconnect(this.creator, 'done', this.onCreatorDone);
-			this.disconnect(this.creator, 'valid', this.onCreatorValid);
-			this.disconnect(this.creator, 'notvalid', this.onCreatorNovalid);
-			this.creator = undefined;
+		if(this.valid !== valid) {
+			this.valid = valid;
+			if(this.valid)
+				this.fireEvent('valid', this);
+			else
+				this.fireEvent('notvalid', this);
 		}
 	},
-	
-	onCreatePress: function() {
-		this.creator.create();
+
+	onRequestFail: function() {
+		this.valid = true;
+		this.fireEvent('valid', this);
 	},
 	
-	onCreatorDone: function() {
-		this.close();
-//		this.resource.update();
-	},
-	
-	onCreatorValid: function() {
-		this.createButton.enable();
-	},
-	
-	onCreatorNotvalid: function() {
-		this.createButton.disable();
+	onRequestDone: function() {
+		this.fireEvent('done', this);
 	}
 });

@@ -204,6 +204,9 @@ Ui.SFlow.extend('KJing.NewResourceSelector', {
 		
 		var types = {
 			folder: { icon: 'folder', text: 'Classeur', creator: KJing.NewFolderCreator },
+			file: { icon: 'file', uploader: true, text: 'Fichier local', creator: KJing.NewFileCreator },
+			textfile: { icon: 'text', text: 'Fichier texte vide', creator: KJing.NewTextFileCreator },
+			urlfile: { icon: 'earth', text: 'Lien vers un site', creator: KJing.NewUrlFileCreator },
 			user: { icon: 'person', text: 'Utilisateur', creator: KJing.NewUserCreator },
 			group: { icon: 'group', text: 'Groupe de personne', creator: KJing.NewGroupCreator },
 			share: { icon: 'files', text: 'Dossier de fichiers', creator: KJing.NewShareCreator },
@@ -224,11 +227,22 @@ Ui.SFlow.extend('KJing.NewResourceSelector', {
 					continue;
 			}
 			var item = types[type];
-			var button = new Ui.Button({ text: item.text, icon: item.icon, orientation: 'horizontal', width: 200 });
+			var button;
+			if(item.uploader) {
+				button = new Ui.UploadButton({ text: item.text, icon: item.icon, orientation: 'horizontal', width: 200 });
+				this.connect(button, 'file', this.onButtonFile);
+			}
+			else { 
+				button = new Ui.Button({ text: item.text, icon: item.icon, orientation: 'horizontal', width: 200 });
+				this.connect(button, 'press', this.onButtonPress);
+			}
 			button.kjingNewResourceSelectorType = item;
-			this.connect(button, 'press', this.onButtonPress);
 			this.append(button);
 		}
+	},
+
+	onButtonFile: function(button, file) {
+		this.fireEvent('done', this, button.kjingNewResourceSelectorType, file);
 	},
 	
 	onButtonPress: function(button) {
@@ -616,7 +630,8 @@ Ui.SFlow.extend('KJing.AirPlayDeviceForm', {
 	constructor: function(config) {
 		this.setItemAlign('stretch');
 		this.setSpacing(10);
-		
+		this.setStretchMaxRatio(5);
+
 		this.addressField = new KJing.TextField({ title: 'Nom de l\'hôte (ou adresse IP)', width: 150 });
 		this.append(this.addressField);
 		
@@ -631,6 +646,7 @@ Ui.SFlow.extend('KJing.ChromecastDeviceForm', {
 	constructor: function(config) {
 		this.setItemAlign('stretch');
 		this.setSpacing(10);
+		this.setStretchMaxRatio(5);
 		
 		this.addressField = new KJing.TextField({ title: 'Nom de l\'hôte (ou adresse IP)', width: 150 });
 		this.append(this.addressField);
@@ -739,7 +755,7 @@ Ui.Dialog.extend('KJing.NewResourceDialog', {
 		this.setTitle('Nouvelle ressource');
 		this.setFullScrolling(true);
 		this.setPreferredWidth(400);
-		this.setPreferredHeight(400);
+		this.setPreferredHeight(450);
 		
 		this.transBox = new Ui.TransitionBox();
 		this.setContent(this.transBox);
@@ -756,18 +772,21 @@ Ui.Dialog.extend('KJing.NewResourceDialog', {
 		this.createButton = new Ui.Button({ text: 'Créer' });
 		this.connect(this.createButton, 'press', this.onCreatePress);
 	},
-	
-	onSelectorDone: function(selector, type) {
+
+	onSelectorDone: function(sel, type, file) {
 		this.setTitle(type.text);
 		this.setActionButtons([ this.prevButton, this.createButton ]);
-		this.creator = new type.creator({ resource: this.resource });
+		if(file !== undefined)
+			this.creator = new type.creator({ resource: this.resource, file: file });
+		else
+			this.creator = new type.creator({ resource: this.resource });
 		this.transBox.replaceContent(this.creator);
 		this.connect(this.creator, 'done', this.onCreatorDone);
 		this.connect(this.creator, 'valid', this.onCreatorValid);
 		this.connect(this.creator, 'notvalid', this.onCreatorNotvalid);
 		this.onCreatorNotvalid(this.creator);
 	},
-	
+
 	onPrevPress: function() {
 		this.setTitle('Nouvelle ressource');
 		this.setActionButtons([]);

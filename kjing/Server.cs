@@ -28,27 +28,21 @@
 //
 
 using System;
+using System.Text;
 using System.Globalization;
 using System.Threading.Tasks;
 using Erasme.Http;
 using Erasme.Json;
 using Erasme.Cloud.Logger;
 using Erasme.Cloud.Authentication;
-using Erasme.Cloud.Queue;
-using Erasme.Cloud.HttpProxy;
 using Erasme.Cloud.Google;
 using Erasme.Cloud.Facebook;
-using Erasme.Cloud.Mime;
-using Erasme.Cloud.Storage;
 using Erasme.Cloud.Preview;
-using Erasme.Cloud.Audio;
-using Erasme.Cloud.Video;
-using Erasme.Cloud.Pdf;
-using Erasme.Cloud.Message;
 using Erasme.Cloud.Manage;
 using Erasme.Cloud.StaticFiles;
 using Erasme.Cloud.Utils;
 using KJing.Directory;
+using KJing.Manage;
 
 namespace KJing
 {
@@ -60,6 +54,7 @@ namespace KJing
 		{
 			Setup = setup;
 
+			//StopOnException = true;
 			AllowGZip = Setup.AllowGZip;
 			KeepAliveMax = Setup.HttpKeepAliveMax;
 			KeepAliveTimeout = (int)Setup.HttpKeepAliveTimeout;
@@ -72,8 +67,6 @@ namespace KJing
 			authSessionService = new AuthSessionService(
 				Setup.Storage+"/authsession/", Setup.AuthSessionTimeout, Setup.AuthHeader,
 				Setup.AuthCookie);
-			// plugin to handle auth sessions
-			//Add(new AuthSessionPlugin(authSessionService, Setup.AuthHeader, Setup.AuthCookie));
 
 			PathMapper mapper = new PathMapper();
 			Add(mapper);
@@ -81,35 +74,17 @@ namespace KJing
 			// authentication session web service
 			mapper.Add(Setup.Path+"/authsession", authSessionService);
 
-			// file storage
-			mapper.Add(Setup.Path+"/mimeicon", new MimeIconService(
-				Setup.Static+"/mimeicon/", Setup.DefaultCacheDuration));
-			StorageService storageService = new StorageService(
-				Setup.Storage+"/storage/", Setup.TemporaryDirectory, Setup.DefaultCacheDuration, Logger);
-			mapper.Add(Setup.Path+"/storage", storageService);
-			mapper.Add(Setup.Path+"/preview", new PreviewService(
-				Setup.Storage+"/preview/", storageService, 64, 64, Setup.TemporaryDirectory,
-				Setup.DefaultCacheDuration, Logger));
-			mapper.Add(Setup.Path+"/previewhigh", new PreviewService(
-				Setup.Storage+"/previewhigh/", storageService, 1024, 768, Setup.TemporaryDirectory,
-				Setup.DefaultCacheDuration, Logger));
-			mapper.Add(Setup.Path+"/audio", new AudioService(
-				Setup.Storage+"/audio/", storageService, Setup.TemporaryDirectory, Setup.DefaultCacheDuration,
-				LongRunningTaskScheduler));
-			mapper.Add(Setup.Path+"/video", new VideoService(
-				Setup.Storage+"/video/", storageService, Setup.TemporaryDirectory, Setup.DefaultCacheDuration,
-				LongRunningTaskScheduler));
-			mapper.Add(Setup.Path+"/pdf", new PdfService(
-				Setup.Storage+"/pdf/", storageService, Setup.TemporaryDirectory, Setup.DefaultCacheDuration,
-				LongRunningTaskScheduler));
+			// directory service
+			DirectoryService directoryService = new DirectoryService(
+				Setup.Storage + "/directory", authSessionService, Setup.AuthHeader, Setup.AuthCookie,
+				Setup.TemporaryDirectory, Setup.DefaultCacheDuration, Logger, LongRunningTaskScheduler);
 
 			// management
-			mapper.Add(Setup.Path+"/status", new ManageService(LongRunningTaskScheduler));
+			ManageService manageService = new ManageService(LongRunningTaskScheduler);
+			manageService.Rights = new ManageRights(directoryService);
+			mapper.Add(Setup.Path+"/status", manageService);
 
-			// directory service
-			mapper.Add(Setup.Path, new DirectoryService(
-				Setup.Storage+"/directory", authSessionService, Setup.AuthHeader, Setup.AuthCookie,
-				storageService, Setup.TemporaryDirectory, Setup.DefaultCacheDuration, Logger));
+			mapper.Add(Setup.Path, directoryService);
 
 			// static file distribution (web app)
 			Add(new StaticFilesService(Setup.Static+"/www/", Setup.DefaultCacheDuration));
@@ -202,33 +177,57 @@ namespace KJing
 				json["code"] = webException.Code;
 				json["detail"] = webException.Detail;
 				context.Response.Content = new JsonContent(json);
+				if(webException.Exception != null)
+					exception = webException.Exception;
 			}
+				
+			StringBuilder log = new StringBuilder();
+
+			// remote address
+			log.Append(context.Request.RemoteEndPoint.ToString());
+			log.Append(" ");
+
+			// x-forwarded-for
+			if(context.Request.Headers.ContainsKey("x-forwarded-for")) {
+				log.Append("[");
+				log.Append(context.Request.Headers["x-forwarded-for"]);
+				log.Append("] ");
+			}
+
+			// user
+			if(context.User != null) {
+				log.Append(context.User);
+				log.Append(" ");
+			}
+			else
+				log.Append("- ");
+
+			// request 
+			log.Append("\"");
+			log.Append(context.Request.Method);
+			log.Append(" ");
+			log.Append(context.Request.FullPath);
+			log.Append("\" ");
+			// response
+			if(context.WebSocket != null)
+				log.Append("WS ");
 			else {
-				// remote address
-				string log = context.Request.RemoteEndPoint.ToString() + " ";
-				// user
-				if(context.User != null)
-					log += context.User + " ";
-				else
-					log += "- ";
-
-				// request 
-				log += "\"" + context.Request.Method + " " + context.Request.FullPath + "\" ";
-				// response
-				if(context.WebSocket != null)
-					log += "WS ";
-				else
-					log += context.Response.StatusCode + " ";
-				// bytes received
-				log += context.Request.ReadCounter + "/" + context.Request.WriteCounter + " ";
-				// time
-				log += Math.Round((DateTime.Now - context.Request.StartTime).TotalMilliseconds).ToString(CultureInfo.InvariantCulture) + "ms\n";
-				// exception details
-				log += exception.ToString();
-
-				// write the log
-				Logger.Log(LogLevel.Debug, log);
+				log.Append(context.Response.StatusCode);
+				log.Append(" ");
 			}
+			// bytes received
+			log.Append(context.Request.ReadCounter);
+			log.Append("/");
+			log.Append(context.Request.WriteCounter);
+			log.Append(" ");
+			// time
+			log.Append(Math.Round((DateTime.Now - context.Request.StartTime).TotalMilliseconds).ToString(CultureInfo.InvariantCulture));
+			log.Append("ms\n");
+			// exception details
+			log.Append(exception.ToString());
+
+			// write the log
+			Logger.Log(LogLevel.Debug, log.ToString());
 		}
 	}
 }

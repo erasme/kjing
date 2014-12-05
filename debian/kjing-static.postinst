@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# test if running user exists
+id kjing > /dev/null 2> /dev/null;
+if [[ $? != 0  ]]; then
+	useradd -r --home /var/lib/kjing/ --shell /bin/false -M kjing;
+fi
+
+# logs directory
+if [[ ! ( -x /var/log/kjing ) ]]; then
+	mkdir -p /var/log/kjing;
+	chown kjing:kjing /var/log/kjing;
+fi
+
+# data directory
+if [[ ! ( -x /var/lib/kjing ) ]]; then
+	mkdir -p /var/lib/kjing;
+	chown kjing:kjing /var/lib/kjing;
+fi
+
+# allow kjing to bind port < 1024
+if [ -f /sbin/setcap ]; then
+	setcap 'cap_net_bind_service=+ep' /usr/bin/kjing;
+fi

@@ -137,6 +137,8 @@ KJing.OptionSection.extend('KJing.ResourceRightsSection', {
 
 Ui.Dialog.extend('KJing.ResourcePropertiesDialog', {
 	resource: undefined,
+	nameField: undefined,
+	positionField: undefined,
 	
 	constructor: function(config) {
 		this.setFullScrolling(true);
@@ -154,12 +156,20 @@ Ui.Dialog.extend('KJing.ResourcePropertiesDialog', {
 		textField.disable();
 		sflow.append(textField);
 
-		var nameField = new KJing.TextField({ title: 'Nom', value: this.resource.getName(), width: 200 });
-		sflow.append(nameField);
+		this.nameField = new KJing.TextField({ title: 'Nom', value: this.resource.getName(), width: 200 });
+		sflow.append(this.nameField);
+
+		sflow.append(new KJing.TextField({
+			title: 'Création', value: this.formatDate(new Date(this.resource.getData().ctime)), width: 200,
+			enable: false }));
+			
+		sflow.append(new KJing.TextField({
+			title: 'Modification', value: this.formatDate(new Date(this.resource.getData().mtime)), width: 200,
+			enable: false }));
 
 		// handle specific fields
 		if(KJing.Device.hasInstance(this.resource)) {
-			var deviceUrlField = new KJing.TextField({ title: 'URL du client Web' });
+			var deviceUrlField = new KJing.TextField({ title: 'URL du client Web', width: 300 });
 			deviceUrlField.setValue((new Core.Uri({ uri: '../client/?device='+this.resource.getId() })).toString());
 			deviceUrlField.disable();
 			sflow.append(deviceUrlField);
@@ -173,22 +183,25 @@ Ui.Dialog.extend('KJing.ResourcePropertiesDialog', {
 //			var mapShortUrlField = new KJing.TextField({ title: 'URL courte des clients Web', width: 300 });
 //			sflow.append(mapShortUrlField);
 		}
-		else if(KJing.Share.hasInstance(this.resource)) {
-			var spaceUsedField = new KJing.TextField({ title: 'Espace utilisé', width: 200 });
-			spaceUsedField.disable();
-			spaceUsedField.setValue(this.formatSize(this.resource.getData().used));
-			sflow.append(spaceUsedField);
+		else if(KJing.File.hasInstance(this.resource)) {
 		}
+
+		this.positionField = new KJing.TextField({ title: 'Position dans le dossier', value: this.resource.getData().position, width: 200 });
+		sflow.append(this.positionField);
 
 		var rightsSection = new KJing.ResourceRightsSection({ resource: this.resource });
 		sflow.append(rightsSection);
 
 		this.setCancelButton(new Ui.DialogCloseButton());
 
-		if(this.resource.canWrite()) {
-			var saveButton = new Ui.Button({ text: 'Enregister' });
+		if(Ui.App.current.getUser().isAdmin() || this.resource.canWrite()) {
+			var deleteButton = new Ui.Button({ text: 'Supprimer', style: { "Ui.Button": { color: '#fa4141' } } });
+			this.connect(deleteButton, 'press', this.onDeletePress);
+
+			var saveButton = new Ui.Button({ text: 'Enregistrer' });
 			this.connect(saveButton, 'press', this.onSavePress);
-			this.setActionButtons([ saveButton ]);
+
+			this.setActionButtons([ deleteButton, saveButton ]);
 		}
 		else
 			sflow.disable();
@@ -207,8 +220,46 @@ Ui.Dialog.extend('KJing.ResourcePropertiesDialog', {
 		return res;
 	},
 
+	formatDate: function(date) {
+		var res = '';
+		if(date.getDate() < 10)
+			res += '0'+date.getDate();
+		else
+			res += date.getDate();
+		res += '/';
+		if((date.getMonth()+1) < 10)
+			res += '0'+(date.getMonth()+1);
+		else
+			res += (date.getMonth()+1);
+		res += '/'+date.getFullYear()+' ';
+		if(date.getHours() < 10)
+			res += '0'+date.getHours();
+		else
+			res += date.getHours();
+		res += ':';
+		if(date.getMinutes() < 10)
+			res += '0'+date.getMinutes();
+		else
+			res += date.getMinutes();
+		res += ':';
+		if(date.getSeconds() < 10)
+			res += '0'+date.getSeconds();
+		else
+			res += date.getSeconds();
+		return res;
+	},
+
+	onDeletePress: function() {
+		this.resource.suppress();
+		this.close();
+	},
+
 	onSavePress: function() {
-		// TODO
-		console.log(this+'.onSavePress');
+		var json = {
+			name: this.nameField.getValue(),
+			position: parseInt(this.positionField.getValue())
+		};
+		this.resource.changeData(json);
+		this.close();
 	}
 });

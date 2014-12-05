@@ -2,7 +2,6 @@
 Ui.HBox.extend('Storage.FileViewer', {
 	uploader: undefined,
 	file: undefined,
-	controller: undefined,
 	updateNeeded: false,
 	viewer: undefined,
 	tools: undefined,
@@ -26,28 +25,25 @@ Ui.HBox.extend('Storage.FileViewer', {
 			this.update(config.file);
 			delete(config.file);
 		}
-		if('controller' in config) {
-			this.controller = config.controller;
-			delete(config.controller);
+	},
+
+	getSetupPopup: function() {
+		var popup = new Ui.MenuPopup({ preferredWidth: 200 });
+		var vbox = new Ui.VBox({ spacing: 10 });
+		popup.setContent(vbox);
+
+		for(var i = 0; i < this.tools.length; i++) {
+			vbox.append(this.tools[i]);
 		}
-	},
 
-	getPosition: function() {
-		return ((this.contentViewer !== undefined) && ('getPosition' in this.contentViewer)) ? this.contentViewer.getPosition() : 0;
-	},
-
-	setPosition: function(position) {
-		if((this.contentViewer !== undefined) && ('setPosition' in this.contentViewer))
-			return this.contentViewer.setPosition(position);
-	},
-
-	setContentTransform: function(transform) {
-		if((this.contentViewer !== undefined) && ('setContentTransform' in this.contentViewer))
-			return this.contentViewer.setContentTransform(transform);
-	},
-	
-	getController: function() {
-		return this.controller;
+		var button = new Ui.Button({ text: 'Propriétés', icon: 'edit' });
+		this.connect(button, 'press', function() {
+			var dialog = new KJing.ResourcePropertiesDialog({ resource: this.file });
+			dialog.open();
+			popup.hide();
+		});
+		vbox.append(button);
+		return popup;
 	},
 
 	update: function(file) {
@@ -68,8 +64,8 @@ Ui.HBox.extend('Storage.FileViewer', {
 		if(this.uploader !== undefined)
 			this.contentBox.setContent(new Storage.UploaderViewer({ storage: this.storage, uploader: this.uploader, fileViewer: this }));
 		else {
-			console.log('buildContent file: '+this.file.getId()+', mime: '+this.file.getData().mimetype);
-			console.log(this.file.getData());
+//			console.log('buildContent file: '+this.file.getId()+', mime: '+this.file.getData().mimetype);
+//			console.log(this.file.getData());
 		
 			this.tools = [];
 			this.supportProperties = true;
@@ -80,30 +76,33 @@ Ui.HBox.extend('Storage.FileViewer', {
 				this.contentViewer = new Storage.ImageFileViewer({ file: this.file, fileViewer: this });
 			else if(this.file.getMimetype() == 'text/uri-list')
 				this.contentViewer = new Storage.SiteFileViewer({ file: this.file, fileViewer: this });
-			else if(this.file.getMimetype() == 'application/x-webnapperon2-rss-item')
-				this.contentViewer = new Storage.RssItemFileViewer({ file: this.file, fileViewer: this });
+//			else if(this.file.getMimetype() == 'application/x-webnapperon2-rss-item')
+//				this.contentViewer = new Storage.RssItemFileViewer({ file: this.file, fileViewer: this });
 			else if((!navigator.isIE7 && !navigator.isIE8) && (this.file.getMimetype().indexOf('video/') == 0))
 				this.contentViewer = new Storage.VideoFileViewer({ file: this.file, fileViewer: this });
 			else if((!navigator.isIE7 && !navigator.isIE8) && (this.file.getMimetype().indexOf('audio/') == 0))
 				this.contentViewer = new Storage.AudioFileViewer({ file: this.file, fileViewer: this });
 			else if((this.file.getMimetype().indexOf('text/plain') == 0) && (this.file.getData().size < 50000))
 				this.contentViewer = new Storage.TextFileViewer({ file: this.file, fileViewer: this });
-			else if((this.file.getMimetype().indexOf('application/pdf') == 0) ||
-					(this.file.getMimetype().indexOf('application/vnd.oasis.opendocument.text') == 0) ||
-			        (this.file.getMimetype().indexOf('application/vnd.oasis.opendocument.presentation') == 0) ||
-					(this.file.getMimetype().indexOf('application/vnd.oasis.opendocument.graphics') == 0) ||
-					(this.file.getMimetype().indexOf('application/vnd.sun.xml.writer') == 0) ||
-					// Microsoft PowerPoint
-					(this.file.getMimetype().indexOf('application/vnd.ms-powerpoint') == 0) ||
-					// Microsoft Word
-					(this.file.getMimetype().indexOf('application/msword') == 0) ||
-					// Microsoft Word 2007
-			        (this.file.getMimetype().indexOf('application/vnd.openxmlformats-officedocument.wordprocessingml.document') == 0) ||
-			        // RichText
-			        (this.file.getMimetype().indexOf('text/richtext') == 0))
+			else if(this.file.getMimetype().indexOf('application/pdf') === 0)
 				this.contentViewer = new Storage.PdfFileViewer({ file: this.file, fileViewer: this });
-			else if((this.file.getMimetype().indexOf('application/x-directory') == 0) && (this.file.size < 50000))
-				this.contentViewer = new Storage.DirectoryFileViewer({ file: this.file, fileViewer: this });
+
+//			else if((this.file.getMimetype().indexOf('application/pdf') == 0) ||
+//					(this.file.getMimetype().indexOf('application/vnd.oasis.opendocument.text') == 0) ||
+//			        (this.file.getMimetype().indexOf('application/vnd.oasis.opendocument.presentation') == 0) ||
+//					(this.file.getMimetype().indexOf('application/vnd.oasis.opendocument.graphics') == 0) ||
+//					(this.file.getMimetype().indexOf('application/vnd.sun.xml.writer') == 0) ||
+//					// Microsoft PowerPoint
+//					(this.file.getMimetype().indexOf('application/vnd.ms-powerpoint') == 0) ||
+//					// Microsoft Word
+//					(this.file.getMimetype().indexOf('application/msword') == 0) ||
+//					// Microsoft Word 2007
+//			        (this.file.getMimetype().indexOf('application/vnd.openxmlformats-officedocument.wordprocessingml.document') == 0) ||
+//			        // RichText
+//			        (this.file.getMimetype().indexOf('text/richtext') == 0))
+//				this.contentViewer = new Storage.PdfFileViewer({ file: this.file, fileViewer: this });
+//			else if((this.file.getMimetype().indexOf('application/x-directory') == 0) && (this.file.size < 50000))
+//				this.contentViewer = new Storage.DirectoryFileViewer({ file: this.file, fileViewer: this });
 			else
 				this.contentViewer = new Storage.GenericFileViewer({ file: this.file, fileViewer: this });
 
@@ -176,8 +175,6 @@ Ui.HBox.extend('Storage.FileViewer', {
 	},
 
 	onFileChange: function() {
-		console.log(this+'.onFileChange');
-		console.log(this.file);
 		this.buildContent();
 	}
 
@@ -187,12 +184,14 @@ Ui.HBox.extend('Storage.FileViewer', {
 		this.connect(this.file, 'change', this.onFileChange);
 		if(this.file.getIsReady())
 			this.onFileChange();
+		this.file.monitor();
 	},
 	
 	onUnload: function() {
 		Storage.FileViewer.base.onUnload.apply(this, arguments);
 		this.disconnect(this.file, 'change', this.onFileChange);
 		this.removeContent();
+		this.file.unmonitor();
 	}
 });
 
@@ -319,8 +318,13 @@ Ui.ScrollingArea.extend('Storage.ImageFileViewer', {
 		this.setMaxScale(4);
 
 		this.image = new KJing.ScaledImage2();
-		this.image.setSrc(this.file.getDownloadUrl());
-		//this.image.setSrc(this.file.getPreviewHighUrl());
+//		if((this.file.getMimetype() === 'image/png') ||
+//		   (this.file.getMimetype() === 'image/jpeg') ||
+//		   (this.file.getMimetype() === 'image/gif'))
+//			this.image.setSrc(this.file.getDownloadUrl());
+//		else
+		if(this.file.getPreviewHighUrl() !== undefined)
+			this.image.setSrc(this.file.getPreviewHighUrl());
 		this.setContent(this.image);
 	}
 });
@@ -337,7 +341,7 @@ Ui.LBox.extend('Storage.GifImageFileViewer', {
 		this.fileViewer = config.fileViewer;
 		delete(config.fileViewer);
 		this.image = new KJing.ScaledImage2();
-		this.image.setSrc(this.file.getPreviewHighUrl());
+		this.image.setSrc(this.file.getDownloadUrl());
 		this.setContent(this.image);
 	}
 });
@@ -351,14 +355,12 @@ Ui.LBox.extend('Storage.SiteFileViewer', {
 	linkButton: undefined,
 
 	constructor: function(config) {
-		this.storage = config.storage;
-		delete(config.storage);
 		this.file = config.file;
 		delete(config.file);
 		this.fileViewer = config.fileViewer;
 		delete(config.fileViewer);
 
-		var request = new Core.HttpRequest({ method: 'GET', url: '/cloud/storage/'+this.storage+'/'+this.file.id+'/content?rev='+this.file.rev });
+		var request = new Core.HttpRequest({ method: 'GET', url: this.file.getDownloadUrl() });
 		this.connect(request, 'done', this.onContentLoaded);
 		request.send();
 
@@ -367,15 +369,15 @@ Ui.LBox.extend('Storage.SiteFileViewer', {
 
 		var lbox = new Ui.LBox({ verticalAlign: 'bottom', horizontalAlign: 'center' });
 		vbox.append(lbox);
-		lbox.append(new Ui.Rectangle({ fill: new Ui.Color({ r: 0.7, b: 0.7, g: 0.7 }), radius: 2 }));
-		lbox.append(new Ui.Rectangle({ fill: 'white', margin: 1, radius: 2 }));
-		var image = new Ui.Image({ src: '/cloud/previewhigh/'+this.storage+'/'+this.file.id+'?rev='+this.file.rev, width: 128, margin: 3 });
+		var image = new Ui.Image({ width: 128 });
+		if(this.file.getPreviewUrl() !== undefined)
+			image.setSrc(this.file.getPreviewUrl());
 		lbox.append(image);
 		this.connect(image, 'error', function() {
-			lbox.setContent(new Ui.Image({ src: '/cloud/mimeicon?mimetype='+encodeURIComponent(this.file.mimetype), verticalAlign: 'bottom', horizontalAlign: 'center', width: 128 }));
+			lbox.setContent(new Ui.Icon({ icon: 'earth', verticalAlign: 'bottom', horizontalAlign: 'center', width: 128 }));
 		});
 
-		this.text = new Ui.Text({ textAlign: 'center', text: this.file.name, fontSize: 20 });
+		this.text = new Ui.Text({ textAlign: 'center', text: this.file.getName(), fontSize: 20 });
 		vbox.append(this.text);
 
 		this.linkButton = new Ui.LinkButton({ text: 'Ouvrir le site', horizontalAlign: 'center' });
@@ -387,14 +389,14 @@ Ui.LBox.extend('Storage.SiteFileViewer', {
 		//console.log('iframe: '+this.file.meta.iframe);
 		
 		// embed in a iframe
-		if((this.file.meta !== undefined) && (this.file.meta.iframe === 'true')) {
-			var iframe = new Ui.IFrame({ src: request.getResponseText() });
-			this.setContent(iframe);
-		}
-		else {
+//		if((this.file.meta !== undefined) && (this.file.meta.iframe === 'true')) {
+//			var iframe = new Ui.IFrame({ src: request.getResponseText() });
+//			this.setContent(iframe);
+//		}
+//		else {
 			this.linkButton.setSrc(request.getResponseText());
 			this.linkButton.enable();
-		}
+//		}
 	}
 });
 
@@ -402,59 +404,19 @@ Ui.LBox.extend('Storage.AudioFileViewer', {
 	file: undefined,
 	fileViewer: undefined,
 	player: undefined,
-	request: undefined,
-	checkTask: undefined,
 	playing: false,
 
 	constructor: function(config) {
+		console.log('new Storage.AudioFileViewer');
+
 		this.addEvents('end');
 	
 		this.file = config.file;
 		delete(config.file);
 		this.fileViewer = config.fileViewer;
 		delete(config.fileViewer);
+	},
 
-		var vbox = new Ui.VBox({ verticalAlign: 'center', spacing: 10 });
-		vbox.append(new Ui.Loading({ width: 50, height: 50, horizontalAlign: 'center' }));
-		vbox.append(new Ui.Text({ text: 'Encodage en cours... Veuillez patienter', textAlign: 'center' }));
-		
-		this.setContent(vbox);
-	},
-	
-	checkReady: function() {
-		if(this.checkTask !== undefined)
-			this.checkTask = undefined;
-		if((this.player !== undefined) || (this.request !== undefined))
-			return;
-		this.request = new Core.HttpRequest({ method: 'GET', url: '/cloud/audio/'+this.file.getShare().getId()+'/'+this.file.getData().id+'/info' });
-		this.connect(this.request, 'done', this.onCheckDone);
-		this.connect(this.request, 'error', this.onCheckError);
-		this.request.send();
-	},
-	
-	onCheckDone: function() {
-		var json = this.request.getResponseJSON();
-		if(json.status[json.support] == 'ready') {
-			this.player = new KJing.AudioPlayer({ src: '/cloud/audio/'+this.file.getShare().getId()+'/'+this.file.getData().id, text: this.file.getName() });
-			this.setContent(this.player);
-			this.connect(this.player, 'end', this.onMediaEnd);
-			if(this.playing)
-				this.play();
-		}
-		else if(json.status[json.support] == 'building') {
-			this.checkTask = new Core.DelayedTask({ delay: 2, scope: this, callback: this.checkReady });
-		}
-		else {
-			this.setContent(new Ui.Text({ text: 'Impossible d\'écouter ce fichier son' }));
-		}
-		this.request = undefined;
-	},
-	
-	onCheckError: function() {
-		this.setContent(new Ui.Text({ text: 'Impossible d\'écouter ce fichier son', verticalAlign: 'center' }));
-		this.request = undefined;
-	},
-	
 	uncurrent: function() {
 		if(this.player !== undefined)
 			this.player.pause();
@@ -469,19 +431,46 @@ Ui.LBox.extend('Storage.AudioFileViewer', {
 	
 	onMediaEnd: function() {
 		this.fireEvent('end', this);
+	},
+
+	onFileChange: function() {
+		console.log(this+'.onFileChange');
+		console.log(this.file.getData());
+		// no MP3 audio, sorry
+		if(this.file.getData().audioMp3 === undefined) {
+			this.setContent(new Ui.Text({ text: 'Impossible d\'écouter ce fichier son', verticalAlign: 'center', textAlign: 'center' }));
+		}
+		else {
+			var audioMp3 = KJing.File.create(this.file.getData().audioMp3);
+			if(audioMp3.getMimetype() === 'application/x-cache-progress') {
+				var vbox = new Ui.VBox({ verticalAlign: 'center', spacing: 10 });
+				vbox.append(new Ui.Loading({ width: 50, height: 50, horizontalAlign: 'center' }));
+				vbox.append(new Ui.Text({ text: 'Encodage en cours... Veuillez patienter', textAlign: 'center' }));
+			}
+			// rock an roll
+			else if(audioMp3.getMimetype() === 'audio/mpeg') {
+				this.player = new KJing.AudioPlayer({ src: audioMp3.getDownloadUrl(), text: this.file.getName() });
+				this.connect(this.player, 'end', this.onMediaEnd);
+				this.setContent(this.player);
+				if(this.playing)
+					this.play();
+			}
+			// sorry no MP3
+			else
+				this.setContent(new Ui.Text({ text: 'Impossible d\'écouter ce fichier son', verticalAlign: 'center', textAlign: 'center' }));
+		}
 	}
 	
 }, {
 	onVisible: function() {
-		if(this.player === undefined)
-			this.checkReady();
+		if(this.player === undefined) {
+			this.connect(this.file, 'change', this.onFileChange);
+			this.onFileChange();
+		}
 	},
 
 	onHidden: function() {
-		if(this.checkTask !== undefined) {
-			this.checkTask.abort();
-			this.checkTask = undefined;
-		}
+		this.disconnect(this.file, 'change', this.onFileChange);
 		if(this.player !== undefined)
 			this.player.pause();
 	}
@@ -491,8 +480,6 @@ Ui.Pressable.extend('Storage.VideoFileViewer', {
 	file: undefined,
 	fileViewer: undefined,
 	player: undefined,
-	request: undefined,
-	checkTask: undefined,
 	playing: false,
 
 	constructor: function(config) {
@@ -503,47 +490,8 @@ Ui.Pressable.extend('Storage.VideoFileViewer', {
 		this.fileViewer = config.fileViewer;
 		delete(config.fileViewer);
 
-		var vbox = new Ui.VBox({ verticalAlign: 'center', spacing: 10 });
-		vbox.append(new Ui.Loading({ width: 50, height: 50, horizontalAlign: 'center' }));
-		vbox.append(new Ui.Text({ text: 'Encodage en cours... Veuillez patienter', textAlign: 'center' }));
-		
-		this.setContent(vbox);
-
 		this.setLock(true);
 		this.connect(this, 'press', this.onVideoPress);
-	},
-
-	checkReady: function() {
-		if(this.checkTask !== undefined)
-			this.checkTask = undefined;
-		if((this.player !== undefined) || (this.request !== undefined))
-			return;
-		this.request = new Core.HttpRequest({ method: 'GET', url: '/cloud/video/'+this.file.getShare().getId()+'/'+this.file.getData().id+'/info' });
-		this.connect(this.request, 'done', this.onCheckDone);
-		this.connect(this.request, 'error', this.onCheckError);
-		this.request.send();
-	},
-	
-	onCheckDone: function() {
-		var json = this.request.getResponseJSON();
-		if(json.status[json.support] == 'ready') {
-			this.player = new KJing.VideoPlayer({ src: '/cloud/video/'+this.file.getShare().getId()+'/'+this.file.getData().id, poster: this.file.getPreviewHighUrl() });
-			this.connect(this.player, 'statechange', this.onVideoStateChange);
-			this.connect(this.player, 'end', this.onVideoEnd);
-			this.setContent(this.player);
-			if(this.playing)
-				this.play();
-		}
-		else if(json.status[json.support] == 'building')
-			this.checkTask = new Core.DelayedTask({ delay: 2, scope: this, callback: this.checkReady });
-		else
-			this.setContent(new Ui.Text({ text: 'Impossible de lire ce fichier vidéo', verticalAlign: 'center', textAlign: 'center' }));
-		this.request = undefined;
-	},
-	
-	onCheckError: function() {
-		this.setContent(new Ui.Text({ text: 'Impossible de lire ce fichier vidéo', verticalAlign: 'center', textAlign: 'center' }));
-		this.request = undefined;
 	},
 
 	onVideoEnd: function(player) {
@@ -570,18 +518,44 @@ Ui.Pressable.extend('Storage.VideoFileViewer', {
 		var support = !navigator.iOs && !navigator.Android;		
 		if((this.player !== undefined) && (support))
 			this.player.play();
+	},
+
+	onFileChange: function() {
+		// no MP4 video, sorry
+		if(this.file.getData().videoMp4 === undefined) {
+			this.setContent(new Ui.Text({ text: 'Impossible de lire ce fichier vidéo', verticalAlign: 'center', textAlign: 'center' }));
+		}
+		else {
+			var videoMp4 = KJing.File.create(this.file.getData().videoMp4);
+			if(videoMp4.getMimetype() === 'application/x-cache-progress') {
+				var vbox = new Ui.VBox({ verticalAlign: 'center', spacing: 10 });
+				vbox.append(new Ui.Loading({ width: 50, height: 50, horizontalAlign: 'center' }));
+				vbox.append(new Ui.Text({ text: 'Encodage en cours... Veuillez patienter', textAlign: 'center' }));
+			}
+			// rock an roll
+			else if(videoMp4.getMimetype() === 'video/mp4') {
+				this.player = new KJing.VideoPlayer({ src: videoMp4.getDownloadUrl(), poster: this.file.getPreviewHighUrl() });
+				this.connect(this.player, 'statechange', this.onVideoStateChange);
+				this.connect(this.player, 'end', this.onVideoEnd);
+				this.setContent(this.player);
+				if(this.playing)
+					this.play();
+			}
+			// sorry no MP4
+			else
+				this.setContent(new Ui.Text({ text: 'Impossible de lire ce fichier vidéo', verticalAlign: 'center', textAlign: 'center' }));
+		}
 	}
 }, {
 	onVisible: function() {
-		if(this.player === undefined)
-			this.checkReady();
+		if(this.player === undefined) {
+			this.connect(this.file, 'change', this.onFileChange);
+			this.onFileChange();
+		}
 	},
 
 	onHidden: function() {
-		if(this.checkTask !== undefined) {
-			this.checkTask.abort();
-			this.checkTask = undefined;
-		}
+		this.disconnect(this.file, 'change', this.onFileChange);
 		if(this.player !== undefined)
 			this.player.pause();
 	}
@@ -600,24 +574,34 @@ Ui.LBox.extend('Storage.TextFileViewer', {
 		this.fileViewer = config.fileViewer;
 		delete(config.fileViewer);
 
-		var scroll = new Ui.ScrollingArea({ scrollHorizontal: false, scrollVertical: true });
-		this.setContent(scroll);
+		var scalebox = new Ui.ScaleBox({ fixedWidth: 800, fixedHeight: 600 });
+		this.setContent(scalebox);
 
-		var lbox = new Ui.LBox();
-		lbox.append(new Storage.PageBackgroundGraphic({ margin: 7 }));
-		scroll.setContent(lbox);
+		scalebox.append(new Ui.Rectangle({ fill: 'black' }));
 
-		this.text = new Wn.ImproveText({ margin: 30, style: { "Wn.ImproveText": { fontSize: 20 } } });
-
-		lbox.append(this.text);
-
-		//console.log('src: '+'/app/texteditor/?storage='+this.storage+'&file='+this.file.id);
-		var editButton = new Ui.LinkButton({ icon: 'edit', src: '/app/texteditor/?storage='+this.storage+'&file='+this.file.id });
-		this.fileViewer.appendTool(editButton);
+		this.text = new Ui.Text({ margin: 20, style: { "Ui.Text": { fontSize: 40, color: 'white' } } });
+		scalebox.append(this.text);
 
 		var request = new Core.HttpRequest({ method: 'GET', url: this.file.getDownloadUrl() });
 		this.connect(request, 'done', this.onTextLoaded);
 		request.send();
+
+		var button = new Ui.Button({ text: 'Edit', icon: 'edit' });
+		this.connect(button, 'press', function() {
+			var dialog = new Storage.TextEditor({ file: this.file });
+			dialog.open();
+			// find MenuPopup
+			var popup = undefined;
+			var current = button.getParent();
+			while((popup === undefined) && (current !== undefined)) {
+				if(Ui.Popup.hasInstance(current))
+					popup = current;
+				current = current.getParent();
+			}
+			if(popup !== undefined)
+				popup.hide();
+		});
+		this.fileViewer.appendTool(button);
 	},
 
 	onTextLoaded: function(req) {
@@ -729,74 +713,42 @@ Ui.CanvasElement.extend('Storage.PdfPageGraphic', {
 	}
 });
 
-Ui.LBox.extend('Storage.PdfPage', {
+Ui.ScrollingArea.extend('Storage.PdfPage', {
 	file: undefined,
-	page: undefined,
-	graphic: undefined,
-	viewer: undefined,
-	userInteraction: true,
-	transformable: undefined,
 
-	constructor: function(config) {		
-
+	constructor: function(config) {
 		this.file = config.file;
 		delete(config.file);
-		this.page = config.page;
-		delete(config.page);
-		this.viewer = config.viewer;
-		delete(config.viewer);
 
-		this.transformable = new Ui.ScrollingArea({ maxScale: 4 });
-		this.setContent(this.transformable);
+		this.setMaxScale(4);
+		this.setContent(new KJing.ScaledImage2({ src: this.file.getDownloadUrl() }));
+	}
+});
 
-		this.graphic = new KJing.ScaledImage2({ src: '/cloud/pdf/'+this.file.getShare().getId()+'/'+this.file.getData().id+'/pages/'+this.page+'/image?rev='+this.file.getRev() });
-		this.transformable.setContent(this.graphic);
+Ui.CarouselableLoader.extend('Storage.PdfPagesLoader', {
+	file: undefined,
+	pages: undefined,
 
-//		this.connect(this.transformable, 'transform', this.onTransform);
+	constructor: function(config) {
+		this.file = config.file;
+		delete(config.file);
+
+		console.log(this.file);
+
+		this.pages = this.file.getData().pdfPages.cache;
+	}
+}, {
+	getMin: function() {
+		return 0;
 	},
 
-/*	setContentTransform: function(transform) {
-		if(!this.transformable.getIsDown()) {
-			this.userInteraction = false;
-			this.transformable.setContentTransform(transform.x, transform.y, transform.scale, transform.angle);
-			this.userInteraction = true;
-		}
+	getMax: function() {
+		return this.pages.length - 1;
 	},
-
-	onTransform: function() {
-		var w = this.getLayoutWidth();
-		var h = this.getLayoutHeight();
-
-		this.disconnect(this.transformable, 'transform', this.onTransform);
-
-		var scale = this.transformable.getScale();
-		var x = this.transformable.getTranslateX();
-		var y = this.transformable.getTranslateY();
-
-		scale = Math.min(4, Math.max(1, scale));
-
-		var sw = w * scale;
-		var dw = (sw - w)/2;
-
-		var sh = h * scale;
-		var dh = (sh - h)/2;
-
-//		console.log('onTransform scale: '+scale+', x: '+x+', lw: '+w+', dw: '+dw);
-
-		x = Math.min(x, dw);
-		x = Math.max(x, -dw);
-
-		y = Math.min(y, dh);
-		y = Math.max(y, -dh);
-
-		this.transformable.setContentTransform(x, y, scale, 0);
-
-//		console.log(this.getMatrix().toString());
-		this.connect(this.transformable, 'transform', this.onTransform);
-//		console.log(this.viewer.getController());
-		if(this.userInteraction && (this.viewer !== undefined) && (this.viewer.getController() !== undefined))
-			this.viewer.getController().setDeviceTransform({ angle: this.transformable.getAngle(), scale: this.transformable.getScale(), x: this.transformable.getTranslateX(), y: this.transformable.getTranslateY() });
-	}*/
+	
+	getElementAt: function(position) {
+		return new Storage.PdfPage({ file: KJing.File.create(this.pages[position]) });
+	}
 });
 
 Ui.LBox.extend('Storage.PdfFileViewer', {
@@ -805,6 +757,7 @@ Ui.LBox.extend('Storage.PdfFileViewer', {
 	data: undefined,
 	isCurrent: false,
 	carousel: undefined,
+	loader: undefined,
 	checkTask: undefined,
 	request: undefined,
 	position: 0,
@@ -815,99 +768,13 @@ Ui.LBox.extend('Storage.PdfFileViewer', {
 		this.fileViewer = config.fileViewer;
 		delete(config.fileViewer);
 
-		var vbox = new Ui.VBox({ verticalAlign: 'center', spacing: 10 });
-		vbox.append(new Ui.Loading({ width: 50, height: 50, horizontalAlign: 'center' }));
-		vbox.append(new Ui.Text({ text: 'Encodage en cours... Veuillez patienter', textAlign: 'center' }));
-		this.setContent(vbox);		
+		this.onPagesReady();
 	},
 
-	getPosition: function() {
-		return (this.carousel === undefined)?0:this.carousel.getCurrentPosition();
-	},
-
-	setPosition: function(position) {
-		if(this.carousel !== undefined)
-			this.carousel.setCurrentAt(position);
-	},
-
-	setContentTransform: function(transform) {
-		if(this.carousel !== undefined)
-			this.carousel.getCurrent().setContentTransform(transform);
-	},
-
-	checkReady: function() {
-		if(this.checkTask != undefined)
-			this.checkTask = undefined;
-		if(this.request != undefined)
-			return;
-		this.request = new Core.HttpRequest({ method: 'GET', url: '/cloud/pdf/'+this.file.getShare().getId()+'/'+this.file.getData().id });
-		this.connect(this.request, 'done', this.onCheckDone);
-		this.connect(this.request, 'error', this.onCheckError);
-		this.request.send();
-	},
-	
-	onCheckDone: function() {
-		var json = this.request.getResponseJSON();
-		if(json.status == 'ready') {
-			this.data = json;
-			
-			this.carousel = new Ui.Carousel();
-			this.connect(this.carousel, 'change', this.onCarouselChange);
-			this.setContent(this.carousel);
-						
-			this.onDataDone();
-		}
-		else if(json.status == 'building') {
-			this.checkTask = new Core.DelayedTask({ delay: 2, scope: this, callback: this.checkReady });
-		}
-		else {
-			this.setContent(new Ui.Text({ text: 'Impossible de lire ce fichier PDF', verticalAlign: 'center' }));
-		}
-		this.request = undefined;
-	},
-	
-	onCheckError: function() {
-		this.setContent(new Ui.Text({ text: 'Impossible de lire ce fichier vidéo', verticalAlign: 'center' }));
-		this.request = undefined;
-	},
-	
-	onCarouselChange: function(carousel, position) {
-		// remote control
-		if(this.fileViewer.getController() !== undefined)
-			this.fileViewer.getController().setPosition(position);
-	},
-	
-	onDataDone: function(req) {
-		for(var i = 0; i < this.data.pages.length; i++) {
-			var page =  new Storage.PdfPage({
-				file: this.file, page: i, viewer: this.fileViewer
-			});
-			this.carousel.append(page);
-		}
-	},
-
-	current: function() {
-		this.isCurrent = true;
-	},
-	
-	uncurrent: function() {
-		this.isCurrent = false;
-	}
-}, {
-	onVisible: function() {
-		if(this.carousel === undefined)
-			this.checkReady();
-	},
-
-	onHidden: function() {
-		if(this.request != undefined) {
-			this.request.abort();
-			this.request = undefined;
-		}
-		if(this.checkTask != undefined) {
-			this.checkTask.abort();
-			this.checkTask = undefined;
-		}
+	onPagesReady: function() {
+		this.loader = new Storage.PdfPagesLoader({ file: this.file });
+		this.carousel = new Ui.Carousel3({ loader: this.loader });
+		this.setContent(this.carousel);
 	}
 });
 
@@ -925,7 +792,7 @@ Ui.LBox.extend('Storage.GenericFileViewer', {
 		var vbox = new Ui.VBox({ verticalAlign: 'center', horizontalAlign: 'center', spacing: 10 });
 		this.setContent(vbox);
 
-		vbox.append(new Ui.Image({ src: '/cloud/mimeicon?mimetype='+encodeURIComponent(this.file.getMimetype()), width: 128, height: 128, horizontalAlign: 'center' }));
+		vbox.append(new Ui.Icon({ icon: 'file', width: 128, height: 128, horizontalAlign: 'center' }));
 
 		this.text = new Ui.Text({ textAlign: 'center', text: this.file.getName(), fontSize: 20 });
 		vbox.append(this.text);

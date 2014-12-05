@@ -32,11 +32,16 @@ namespace KJing
 {
 	public sealed class WebException: Exception
 	{
-		public WebException(int httpStatus, int code, string detail)
+		public WebException(int httpStatus, int code, string detail) : this(httpStatus, code, detail, null)
+		{
+		}
+
+		public WebException(int httpStatus, int code, string detail, Exception exception)
 		{
 			HttpStatus = httpStatus;
 			Code = code;
 			Detail = detail;
+			Exception = exception;
 		}
 
 		public int HttpStatus { get; private set; }
@@ -44,5 +49,7 @@ namespace KJing
 		public int Code { get; private set; }
 
 		public string Detail { get; private set; }
+
+		public Exception Exception { get; private set; }
 	}
 }

@@ -10,7 +10,7 @@ Ui.Dialog.extend('Storage.FilePropertiesDialog', {
 	mtimeField: undefined,
 	positionField: undefined,
 	durationField: undefined,
-	iframeField: undefined,
+//	iframeField: undefined,
 
 	constructor: function(config) {
 		this.resource = config.resource;
@@ -35,7 +35,12 @@ Ui.Dialog.extend('Storage.FilePropertiesDialog', {
 
 		var vbox = new Ui.VBox({ spacing: 10 });
 		mainVbox.append(vbox);
-		
+
+		var hbox = new Ui.HBox({ spacing: 10 });
+		vbox.append(hbox);		
+		hbox.append(new Ui.Text({ text: 'Id', width: 100, textAlign: 'right', verticalAlign: 'center' }));
+		hbox.append(new Ui.TextField({ verticalAlign: 'center', enable: false, value: this.resource.getId() }), true);
+				
 		var hbox = new Ui.HBox({ spacing: 10 });
 		vbox.append(hbox);		
 		hbox.append(new Ui.Text({ text: 'Nom', width: 100, textAlign: 'right', verticalAlign: 'center' }));
@@ -78,10 +83,10 @@ Ui.Dialog.extend('Storage.FilePropertiesDialog', {
 		this.durationField = new Ui.TextField({ verticalAlign: 'center' });
 		hbox.append(this.durationField, true);
 		
-		if(this.resource.getMimetype() === 'text/uri-list') {
-			this.iframeField = new Ui.CheckBox({ text: 'IFrame' });
-			vbox.append(this.iframeField);
-		}
+//		if(this.resource.getMimetype() === 'text/uri-list') {
+//			this.iframeField = new Ui.CheckBox({ text: 'IFrame' });
+//			vbox.append(this.iframeField);
+//		}
 
 		if(this.resource.getMimetype() !== 'application/x-directory') {
 			var preview = new Storage.FileViewer({ file: this.resource, height: 300 });
@@ -152,9 +157,9 @@ Ui.Dialog.extend('Storage.FilePropertiesDialog', {
 			position: this.positionField.getValue(),
 			meta: { duration: this.durationField.getValue() }
 		};
-		if(this.resource.getMimetype() === 'text/uri-list') {
-			json.meta.iframe = this.iframeField.getValue();
-		}
+//		if(this.resource.getMimetype() === 'text/uri-list') {
+//			json.meta.iframe = this.iframeField.getValue();
+//		}
 		this.resource.changeData(json);
 		this.close();
 	},
@@ -168,15 +173,15 @@ Ui.Dialog.extend('Storage.FilePropertiesDialog', {
 		this.nameField.setValue(this.resource.getName());
 		this.mimetypeField.setText(this.resource.getMimetype());
 		this.filesizeField.setText(this.formatSize(this.resource.getData().size));
-		this.ctimeField.setText(this.formatDate(new Date(this.resource.getData().ctime*1000)));
-		this.mtimeField.setText(this.formatDate(new Date(this.resource.getData().mtime*1000)));
+		this.ctimeField.setText(this.formatDate(new Date(this.resource.getData().ctime)));
+		this.mtimeField.setText(this.formatDate(new Date(this.resource.getData().mtime)));
 		this.positionField.setValue(this.resource.getData().position);
-		if('duration' in this.resource.getData().meta)
-			this.durationField.setValue(this.resource.getData().meta.duration);
-		else
+//		if('duration' in this.resource.getData().meta)
+//			this.durationField.setValue(this.resource.getData().meta.duration);
+//		else
 			this.durationField.setValue(undefined);
-		if(this.iframeField !== undefined)
-			this.iframeField.setValue((new Boolean(this.resource.getData().meta.iframe)).valueOf());
+//		if(this.iframeField !== undefined)
+//			this.iframeField.setValue((new Boolean(this.resource.getData().meta.iframe)).valueOf());
 	}
 }, {
 	onLoad: function() {

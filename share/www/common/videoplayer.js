@@ -1,20 +1,25 @@
 
 Ui.LBox.extend('KJing.VideoPlayer', {
 	media: undefined,
+	scroll: undefined,
 	playButton: undefined,
 	mediaBar: undefined,
 	controlsVisible: true,
 
 	constructor: function(config) {
-		this.addEvents('statechange', 'end');
+		this.addEvents('statechange', 'end', 'timeupdate', 'transform');
 
-		var scroll = new Ui.ScrollingArea({ maxScale: 4 });
-		this.append(scroll);
+		this.scroll = new Ui.ScrollingArea({ maxScale: 4 });
+		this.connect(this.scroll, 'scroll', function(s)  {
+			this.fireEvent('transform', this, this.getContentTransform());
+		});
+		this.append(this.scroll);
 
 		this.media = new Ui.Video();
-		scroll.setContent(this.media);
+		this.scroll.setContent(this.media);
 
 		this.connect(this.media, 'statechange', this.onMediaStateChange);
+		this.connect(this.media, 'timeupdate', this.onMediaTimeUpdate);
 		this.connect(this.media, 'ended', this.onMediaEnd);
 
 		var pressable = new Ui.Pressable({ verticalAlign: 'center', horizontalAlign: 'center' });
@@ -25,6 +30,27 @@ Ui.LBox.extend('KJing.VideoPlayer', {
 
 		this.mediaBar = new KJing.MediaPlayBar({ media: this.media, verticalAlign: 'bottom' });
 		this.append(this.mediaBar);
+	},
+
+	getIsDown: function() {
+		return this.scroll.getIsDown();
+	},
+
+	getIsInertia: function() {
+		return this.scroll.getIsInertia();
+	},
+
+	getContentTransform: function() {
+		return {
+			x: -this.scroll.getRelativeOffsetX(),
+			y: -this.scroll.getRelativeOffsetY(),
+			scale: this.scroll.getScale()
+		};
+	},
+
+	setContentTransform: function(transform) {
+		this.scroll.setScale(transform.scale);
+		this.scroll.setOffset(-transform.x, -transform.y, false);
 	},
 
 	setSrc: function(src) {
@@ -47,6 +73,26 @@ Ui.LBox.extend('KJing.VideoPlayer', {
 		return this.media.getState();
 	},
 
+	getDuration: function() {
+		return this.media.getDuration();
+	},
+
+	getCurrentTime: function() {
+		return this.media.getCurrentTime();
+	},
+
+	setCurrentTime: function(time) {
+		this.media.setCurrentTime(time);
+	},
+
+	getVolume: function() {
+		this.media.getVolume();
+	},
+
+	setVolume: function(volume) {
+		this.media.setVolume(volume);
+	},
+
 	getIsControlsVisible: function() {
 		return this.controlsVisible;
 	},
@@ -65,6 +111,10 @@ Ui.LBox.extend('KJing.VideoPlayer', {
 
 	onMediaEnd: function(media) {
 		this.fireEvent('end', this);
+	},
+
+	onMediaTimeUpdate: function(media) {
+		this.fireEvent('timeupdate', this, media.getCurrentTime(), media.getDuration());
 	},
 
 	onMediaStateChange: function(media, state) {

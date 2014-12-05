@@ -1,649 +1,159 @@
-
-Ui.HBox.extend('Storage.FileViewer', {
-	uploader: undefined,
-	file: undefined,
-	storage: undefined,
-	updateNeeded: false,
-	viewer: undefined,
-	tools: undefined,
-	contentBox: undefined,
+//
+// File viewer that handle all mimetypes
+//
+Ui.LBox.extend('KJing.FileViewer', {
+	fileControl: undefined,
 	playing: false,
-	contentViewer: undefined,
-	controller: undefined,
 	playTimer: undefined,
+	contentViewer: undefined,
 
 	constructor: function(config) {
-		this.addEvents('toolschange', 'end');
-	
-		this.storage = config.storage;
-		delete(config.storage);
+		this.addEvents('end');
 
-		this.tools = [];
-
-		this.contentBox = new Ui.LBox();
-		this.append(this.contentBox, true);
-
-		if('uploader' in config) {
-			this.uploader = config.uploader;
-			delete(config.uploader);
-		}
-		else if('file' in config) {
-			this.update(config.file);
-			delete(config.file);
-		}
-		if('controller' in config) {
-			this.controller = config.controller;
-			delete(config.controller);
-		}
-		this.connect(this, 'load', this.onFileViewerLoad);
-		this.connect(this, 'unload', this.onFileViewerUnload);
-	},
-	
-	setPosition: function(position) {
-		if((this.contentViewer !== undefined) && ('setPosition' in this.contentViewer))
-			this.contentViewer.setPosition(position);
+		this.fileControl = config.fileControl;
+		delete(config.fileControl);
 	},
 
-	setContentTransform: function(transform) {
-		if((this.contentViewer !== undefined) && ('setContentTransform' in this.contentViewer))
-			this.contentViewer.setContentTransform(transform);
-	},
-	
-	getDownloadUrl: function() {
-		if(this.uploader !== undefined)
-			return undefined;
-		else
-			return '/cloud/storage/'+this.storage+'/'+this.file.id+'/content?attachment=true&rev='+this.file.rev;
-	},
-	
-	update: function(file) {
-//		console.log(this+'.update('+file.id+')');
-		if((this.file === undefined) || this.updateNeeded || (this.file.rev != file.rev)) {
-			this.file = file;
-			this.updateNeeded = false;
-			if(this.getIsLoaded())
-				this.buildContent();
-		}
-	},
-
-	removeContent: function() {
-		this.contentBox.setContent();
-	},
-
-	buildContent: function() {	
-		if(this.uploader !== undefined)
-			this.contentBox.setContent(new Storage.UploaderViewer({ storage: this.storage, uploader: this.uploader, fileViewer: this }));
-		else {
-			//console.log('buildContent file: '+this.file.id+', mime: '+this.file.mimetype);
-		
-			this.tools = [];
-			this.supportProperties = true;
-
-			if(this.file.mimetype == 'image/gif')
-				this.contentViewer = new Storage.GifImageFileViewer({ storage: this.storage, file: this.file, fileViewer: this });
-			else if(this.file.mimetype.indexOf('image/') == 0)
-				this.contentViewer = new Storage.ImageFileViewer({ storage: this.storage, file: this.file, fileViewer: this });
-			else if(this.file.mimetype == 'text/uri-list')
-				this.contentViewer = new Storage.SiteFileViewer({ storage: this.storage, file: this.file, fileViewer: this });
-			else if(this.file.mimetype == 'application/x-webnapperon2-rss-item')
-				this.contentViewer = new Storage.RssItemFileViewer({ storage: this.storage, file: this.file, fileViewer: this });
-			else if((!navigator.isIE7 && !navigator.isIE8) && (this.file.mimetype.indexOf('video/') == 0))
-				this.contentViewer = new Storage.VideoFileViewer({ storage: this.storage, file: this.file, fileViewer: this });
-			else if((!navigator.isIE7 && !navigator.isIE8) && (this.file.mimetype.indexOf('audio/') == 0))
-				this.contentViewer = new Storage.AudioFileViewer({ storage: this.storage, file: this.file, fileViewer: this });
-			else if((this.file.mimetype.indexOf('text/plain') == 0) && (this.file.size < 50000))
-				this.contentViewer = new Storage.TextFileViewer({ storage: this.storage, file: this.file, fileViewer: this });
-			else if((this.file.mimetype.indexOf('application/pdf') == 0) ||
-					(this.file.mimetype.indexOf('application/vnd.oasis.opendocument.text') == 0) ||
-			        (this.file.mimetype.indexOf('application/vnd.oasis.opendocument.presentation') == 0) ||
-					(this.file.mimetype.indexOf('application/vnd.oasis.opendocument.graphics') == 0) ||
-					(this.file.mimetype.indexOf('application/vnd.sun.xml.writer') == 0) ||
-					// Microsoft PowerPoint
-					(this.file.mimetype.indexOf('application/vnd.ms-powerpoint') == 0) ||
-					// Microsoft Word
-					(this.file.mimetype.indexOf('application/msword') == 0) ||
-					// Microsoft Word 2007
-			        (this.file.mimetype.indexOf('application/vnd.openxmlformats-officedocument.wordprocessingml.document') == 0) ||
-			        // RichText
-			        (this.file.mimetype.indexOf('text/richtext') == 0))
-				this.contentViewer = new Storage.PdfFileViewer({ storage: this.storage, file: this.file, fileViewer: this });
-			else if((this.file.mimetype.indexOf('application/x-directory') == 0) && (this.file.size < 50000))
-				this.contentViewer = new Storage.DirectoryFileViewer({ storage: this.storage, file: this.file, fileViewer: this });
-			else
-				this.contentViewer = new Storage.GenericFileViewer({ storage: this.storage, file: this.file, fileViewer: this });
-
-			this.contentBox.setContent(this.contentViewer);
-			if(this.playing)
-				this.play();
-		}
-	},
-
-	getFile: function() {
-		return this.file;
-	},
-
-	getUploader: function() {
-		return this.uploader;
-	},
-
-	getTools: function() {
-		return this.tools;
-	},
-	
-	appendTool: function(tool) {
-		this.tools.push(tool);
-		this.fireEvent('toolschange', this, this.tools);
-	},
-	
 	play: function() {
-		if(this.contentViewer === undefined) {
-			this.playing = true;
-		}
-		else {
+		this.playing = true;
+		if(this.contentViewer !== undefined) {
 			if('play' in this.contentViewer) {
-				if(this.timerPlay === undefined) {
-					this.timerPlay = this.contentViewer;
-					this.connect(this.contentViewer, 'end', this.onPlayEnd);
-					this.contentViewer.play();
-				}
+				this.connect(this.contentViewer, 'end', this.onPlayEnd);
+				this.contentViewer.play();
 			}
 			else {
-				if(this.timerPlay === undefined) {
+				if(this.playTimer === undefined) {
 					var duration = 5;
-					if('duration' in this.file.meta)
-						duration = parseFloat(this.file.meta.duration);
-					this.timerPlay = new Core.DelayedTask({ scope: this, delay: duration, callback: this.onPlayEnd });
+					this.playTimer = new Core.DelayedTask({ scope: this, delay: duration, callback: this.onPlayEnd });
 				}
 			}
 		}
-	},
-	
-	pause: function() {
-/*		if(this.playing) {
-			this.playing = false;
-			if(this.contentViewer !== undefined) {
-			}
-		}*/
-	},
-
-	current: function() {
-//		console.log('FileViewer current storage: '+this.storage+', file: '+this.file.id);	
-		if((this.contentBox.getChildren().length > 0) && ('current' in this.contentBox.getChildren()[0]))
-			this.contentBox.getChildren()[0].current();
-	},
-	
-	uncurrent: function() {
-//		console.log('FileViewer uncurrent storage: '+this.storage+', file: '+this.file.id);	
-		if((this.contentBox.getChildren().length > 0) && ('uncurrent' in this.contentBox.getChildren()[0]))
-			this.contentBox.getChildren()[0].uncurrent();
 	},
 
 	onPlayEnd: function() {
-		this.timerPlay = undefined;
+		this.playTimer = undefined;
 		this.playing = false;
 		this.fireEvent('end', this);
 	},
 
-	deleteFile: function() {
-		if(this.file != undefined) {
-			var request = new Core.HttpRequest({ method: 'DELETE', url: '/cloud/storage/'+this.storage+'/'+this.file.id });
-			request.send();
-		}
-		else if(this.uploader != undefined)
-			this.uploader.abort();
-	},
-	
-	onFileViewerLoad: function() {
-		this.buildContent();
-	},
-	
-	onFileViewerUnload: function() {
-		this.removeContent();
+	onFileControlReady: function() {
+		var file = this.fileControl.getFile();
+		if(file.getMimetype().indexOf('image/') === 0)
+			this.contentViewer = new KJing.ImageFileViewer({ fileControl: this.fileControl });
+		else if((!navigator.isIE7 && !navigator.isIE8) && (file.getMimetype().indexOf('video/') === 0))
+			this.contentViewer = new KJing.VideoFileViewer({ fileControl: this.fileControl });
+		else if((!navigator.isIE7 && !navigator.isIE8) && (file.getMimetype().indexOf('audio/') === 0))
+			this.contentViewer = new KJing.AudioFileViewer({ fileControl: this.fileControl });
+		else if(file.getMimetype() == 'text/uri-list')
+			this.contentViewer = new KJing.SiteFileViewer({ fileControl: this.fileControl });
+		else if(file.getMimetype().indexOf('application/pdf') === 0)
+			this.contentViewer = new KJing.PdfFileViewer({ fileControl: this.fileControl });
+		else if(file.getMimetype().indexOf('text/plain') === 0)
+			this.contentViewer = new KJing.TextFileViewer({ fileControl: this.fileControl });
+
+		if(this.contentViewer !== undefined)
+			this.setContent(this.contentViewer);
+		if(this.playing)
+			this.play();
 	}
-});
 
-Ui.LBox.extend('Storage.UploaderViewer', {
-	storage: undefined,
-	uploader: undefined,
-	progressbar: undefined,
-	label: undefined,
-	fileViewer: undefined,
-
-	constructor: function(config) {
-		this.storage = config.storage;
-		delete(config.storage);
-		this.uploader = config.uploader;
-		delete(config.uploader);
-		this.fileViewer = config.fileViewer;
-		delete(config.fileViewer);
-
-		var vbox = new Ui.VBox({ verticalAlign: 'center', horizontalAlign: 'center' });
-		this.setContent(vbox);
-
-		vbox.append(new Ui.Icon({ icon: 'uploadfile', fill: '#3f3f3f', width: 256, height: 256, horizontalAlign: 'center' }));
-
-		this.progressbar = new Ui.ProgressBar({ width: 120, height: 10 });
-		vbox.append(this.progressbar);
-
-		if(this.uploader.getFile().getFileName() != undefined)
-			vbox.append(new Ui.CompactLabel({ width: 256, maxLine: 3, textAlign: 'center', text: this.uploader.getFile().getFileName() }));
-
-		this.connect(this.uploader, 'progress', this.onUploaderProgress);
-	},
-
-	onUploaderProgress: function(uploader, loaded, total) {
-		this.progressbar.setValue(loaded/total);
-	}
-});
-
-Ui.LBox.extend('Storage.DirectoryFileViewer', {
-	storage: undefined,
-	file: undefined,
-	image: undefined,
-	values: undefined,
-	quality: false,
-	fileViewer: undefined,
-	transBox: undefined,
-	playing: false,
-	directoryChildren: undefined,
-	position: undefined,
-
-	constructor: function(config) {
-		this.addEvents('end');
-	
-		this.storage = config.storage;
-		delete(config.storage);
-		this.file = config.file;
-		delete(config.file);
-				
-		this.fileViewer = config.fileViewer;
-		delete(config.fileViewer);
-
-		this.transBox = new Ui.TransitionBox();
-		this.setContent(this.transBox);
-
-		var request = new Core.HttpRequest({ url: '/cloud/storage/'+this.storage+'/'+this.file.id+'?depth=1' });
-		this.connect(request, 'done', function() {
-			var json = request.getResponseJSON();
-			this.directoryChildren = json.children;
-			
-			if(this.directoryChildren.length === 0) {
-				if(this.playing)
-					this.fireEvent('end', this);
-			}
-			else {
-				this.position = 0;
-				var fileViewer = new Storage.FileViewer({ storage: this.storage, file: json.children[this.position] });
-				this.connect(fileViewer, 'end', this.onFileEnd);
-				this.transBox.replaceContent(fileViewer);
-				if(this.playing)
-					fileViewer.play();
-			}
-		});
-		request.send();
-	},
-	
-	play: function() {
-		this.playing = true;
-		if((this.directoryChildren !== undefined) && (this.directoryChildren.length === 0))
-			this.fireEvent('end', this);
-		else if(this.transBox.getCurrent() !== undefined)
-			this.transBox.getCurrent().play();
-	},
-	
-	onFileEnd: function() {
-		this.disconnect(this.transBox.getCurrent(), 'end', this.onFileEnd);
-		this.position++;
-		if(this.position >= this.directoryChildren.length)
-			this.fireEvent('end', this);
-		else {
-			var fileViewer = new Storage.FileViewer({ storage: this.storage, file: this.directoryChildren[this.position] });
-			this.connect(fileViewer, 'end', this.onFileEnd);
-			this.transBox.replaceContent(fileViewer);
-			fileViewer.play();
-		}
-	}
-});
-/*
-Ui.ScrollingArea.extend('Storage.ImageFileViewer', {
-	file: undefined,
-	image: undefined,
-	values: undefined,
-	quality: false,
-	fileViewer: undefined,
-	transformable: undefined,
-	userInteraction: true,
-
-	constructor: function(config) {
-
-		this.file = config.file;
-		delete(config.file);
-				
-		this.fileViewer = config.fileViewer;
-		delete(config.fileViewer);
-
-		this.setMaxScale(4);
-
-		this.image = new KJing.ScaledImage2();
-		this.image.setSrc(this.file.getDownloadUrl());
-		//this.image.setSrc(this.file.getPreviewHighUrl());
-		this.setContent(this.image);
-	}
-});*/
-
-Ui.LBox.extend('Storage.ImageFileViewer', {
-	storage: undefined,
-	file: undefined,
-	transformable: undefined,
-	image: undefined,
-	values: undefined,
-	quality: false,
-	fileViewer: undefined,
-	userInteraction: true,
-
-	constructor: function(config) {
-		this.storage = config.storage;
-		delete(config.storage);
-		this.file = config.file;
-		delete(config.file);
-				
-		this.fileViewer = config.fileViewer;
-		delete(config.fileViewer);
-
-		this.transformable = new Ui.Transformable({ inertia: false, clipToBounds: true });
-		this.setContent(this.transformable);
-
-		// get the original full resolution image
-		this.image = new KJing.ScaledImage2();
-		this.image.setSrc('/cloud/storage/'+this.storage+'/'+this.file.id+'/content?rev='+this.file.rev);
-
-		// get the canvas scaled image
-//		this.image = new KJing.ScaledImage2();
-//		this.image.setSrc('/cloud/previewhigh/'+this.storage+'/'+this.file.id+'?rev='+this.file.rev);
-		this.transformable.setContent(this.image);
-
-		this.connect(this.transformable, 'transform', this.onTransform);
-	},
-
-	setContentTransform: function(transform) {
-		if(!this.transformable.getIsDown()) {
-			this.userInteraction = false;
-			this.transformable.setContentTransform(transform.x, transform.y, transform.scale, transform.angle);
-			this.userInteraction = true;
-		}
-	},
-
-	onTransform: function() {
-		var w = this.getLayoutWidth();
-		var h = this.getLayoutHeight();
-
-		this.disconnect(this.transformable, 'transform', this.onTransform);
-
-		var scale = this.transformable.getScale();
-		var x = this.transformable.getTranslateX();
-		var y = this.transformable.getTranslateY();
-
-		scale = Math.min(4, Math.max(1, scale));
-
-		var sw = w * scale;
-		var dw = (sw - w)/2;
-
-		var sh = h * scale;
-		var dh = (sh - h)/2;
-
-		x = Math.min(x, dw);
-		x = Math.max(x, -dw);
-
-		y = Math.min(y, dh);
-		y = Math.max(y, -dh);
-
-		this.transformable.setContentTransform(x, y, scale, 0);
-
-		this.connect(this.transformable, 'transform', this.onTransform);
-		if(this.userInteraction) {
-			var device = Ui.App.current.getDevice();
-			var clientData = device.getClientData();
-			clientData.state.transform = { angle: this.transformable.getAngle(), scale: this.transformable.getScale(), x: this.transformable.getTranslateX(), y: this.transformable.getTranslateY() };
-			device.notifyClientData();
-		}
-	}
-});
-
-Ui.LBox.extend('Storage.GifImageFileViewer', {
-	storage: undefined,
-	file: undefined,
-	image: undefined,
-	values: undefined,
-	fileViewer: undefined,
-
-	constructor: function(config) {
-		this.storage = config.storage;
-		delete(config.storage);
-		this.file = config.file;
-		delete(config.file);
-		this.fileViewer = config.fileViewer;
-		delete(config.fileViewer);
-		this.image = new KJing.ScaledImage2();
-		this.image.setSrc('/cloud/storage/'+this.storage+'/'+this.file.id+'/content?rev='+this.file.rev);
-		this.setContent(this.image);
-	}
-});
-
-Ui.LBox.extend('Storage.SiteFileViewer', {
-	storage: undefined,
-	file: undefined,
-	text: undefined,
-	fileViewer: undefined,
-	linkButton: undefined,
-
-	constructor: function(config) {
-		this.storage = config.storage;
-		delete(config.storage);
-		this.file = config.file;
-		delete(config.file);
-		this.fileViewer = config.fileViewer;
-		delete(config.fileViewer);
-
-		var request = new Core.HttpRequest({ method: 'GET', url: '/cloud/storage/'+this.storage+'/'+this.file.id+'/content?rev='+this.file.rev });
-		this.connect(request, 'done', this.onContentLoaded);
-		request.send();
-
-		var vbox = new Ui.VBox({ verticalAlign: 'center', horizontalAlign: 'center', spacing: 10 });
-		this.setContent(vbox);
-
-		var lbox = new Ui.LBox({ verticalAlign: 'bottom', horizontalAlign: 'center' });
-		vbox.append(lbox);
-		lbox.append(new Ui.Rectangle({ fill: new Ui.Color({ r: 0.7, b: 0.7, g: 0.7 }), radius: 2 }));
-		lbox.append(new Ui.Rectangle({ fill: 'white', margin: 1, radius: 2 }));
-		var image = new Ui.Image({ src: '/cloud/previewhigh/'+this.storage+'/'+this.file.id+'?rev='+this.file.rev, width: 128, margin: 3 });
-		lbox.append(image);
-		this.connect(image, 'error', function() {
-			lbox.setContent(new Ui.Image({ src: '/cloud/mimeicon?mimetype='+encodeURIComponent(this.file.mimetype), verticalAlign: 'bottom', horizontalAlign: 'center', width: 128 }));
-		});
-
-		this.text = new Ui.Text({ textAlign: 'center', text: this.file.name, fontSize: 20 });
-		vbox.append(this.text);
-
-		this.linkButton = new Ui.LinkButton({ text: 'Ouvrir le site', horizontalAlign: 'center' });
-		this.linkButton.disable();
-		vbox.append(this.linkButton);
-	},
-	
-	onContentLoaded: function(request) {
-		//console.log('iframe: '+this.file.meta.iframe);
-		
-		// embed in a iframe
-		if((this.file.meta !== undefined) && ((new Boolean(this.file.meta.iframe)).valueOf())) {
-			var iframe = new Ui.IFrame({ src: request.getResponseText() });
-			this.setContent(iframe);
-		}
-		else {
-			this.linkButton.setSrc(request.getResponseText());
-			this.linkButton.enable();
-		}
-	}
-});
-
-Ui.LBox.extend('Storage.AudioFileViewer', {
-	storage: undefined,
-	file: undefined,
-	fileViewer: undefined,
-	player: undefined,
-	request: undefined,
-	checkTask: undefined,
-	playing: false,
-
-	constructor: function(config) {
-		this.addEvents('end');
-	
-		this.storage = config.storage;
-		delete(config.storage);
-		this.file = config.file;
-		delete(config.file);
-		this.fileViewer = config.fileViewer;
-		delete(config.fileViewer);
-
-		var vbox = new Ui.VBox({ verticalAlign: 'center', spacing: 10 });
-		vbox.append(new Ui.Loading({ width: 50, height: 50, horizontalAlign: 'center' }));
-		vbox.append(new Ui.Text({ text: 'Encodage en cours... Veuillez patienter', textAlign: 'center' }));
-		
-		this.setContent(vbox);
-	},
-	
-	checkReady: function() {
-		if(this.checkTask !== undefined)
-			this.checkTask = undefined;
-		if((this.player !== undefined) || (this.request !== undefined))
-			return;
-		this.request = new Core.HttpRequest({ method: 'GET', url: '/cloud/audio/'+this.storage+'/'+this.file.id+'/info' });
-		this.connect(this.request, 'done', this.onCheckDone);
-		this.connect(this.request, 'error', this.onCheckError);
-		this.request.send();
-	},
-	
-	onCheckDone: function() {
-		var json = this.request.getResponseJSON();
-		if(json.status[json.support] == 'ready') {
-			this.player = new KJing.AudioPlayer({ src: '/cloud/audio/'+this.storage+'/'+this.file.id, text: this.file.name });
-			this.setContent(this.player);
-			this.connect(this.player, 'end', this.onMediaEnd);
-			if(this.playing)
-				this.play();
-		}
-		else if(json.status[json.support] == 'building') {
-			this.checkTask = new Core.DelayedTask({ delay: 2, scope: this, callback: this.checkReady });
-		}
-		else {
-			this.setContent(new Ui.Text({ text: 'Impossible d\'écouter ce fichier son' }));
-		}
-		this.request = undefined;
-	},
-	
-	onCheckError: function() {
-		this.setContent(new Ui.Text({ text: 'Impossible d\'écouter ce fichier son', verticalAlign: 'center' }));
-		this.request = undefined;
-	},
-	
-	uncurrent: function() {
-		if(this.player !== undefined)
-			this.player.pause();
-	},
-	
-	play: function() {
-		this.playing = true;
-		var support = !navigator.iOs && !navigator.Android;		
-		if((this.player !== undefined) && (support))
-			this.player.play();			
-	},
-	
-	onMediaEnd: function() {
-		this.fireEvent('end', this);
-	}
-	
 }, {
-	onVisible: function() {
-		if(this.player === undefined)
-			this.checkReady();
+	onLoad: function() {
+		KJing.FileViewer.base.onLoad.apply(this, arguments);
+		this.connect(this.fileControl, 'ready', this.onFileControlReady);
+		if(this.fileControl.getIsReady())
+			this.onFileControlReady();
 	},
+	
+	onUnload: function() {
+		KJing.FileViewer.base.onUnload.apply(this, arguments);
+		this.disconnect(this.fileControl, 'ready', this.onFileControlReady);
 
-	onHidden: function() {
-		if(this.checkTask !== undefined) {
-			this.checkTask.abort();
-			this.checkTask = undefined;
-		}
-		if(this.player !== undefined)
-			this.player.pause();
+		if((this.contentViewer !== undefined) && ('play' in this.contentViewer))
+			this.disconnect(this.contentViewer, 'end', this.onPlayEnd);
+		if(this.playTimer !== undefined)
+			this.playTimer.abort();
 	}
 });
 
-Ui.LBox.extend('Storage.VideoFileViewer', {
-	storage: undefined,
+//
+// Image file viewer
+//
+Ui.ScrollingArea.extend('KJing.ImageFileViewer', {
+	fileControl: undefined,
 	file: undefined,
-	fileViewer: undefined,
+	image: undefined,
+	changeLock: false,
+
+	constructor: function(config) {
+		this.fileControl = config.fileControl;
+		delete(config.fileControl);
+		this.file = this.fileControl.getFile();
+				
+		this.setMaxScale(4);
+		this.image = new KJing.ScaledImage2();
+
+		if(this.file.getMimetype() === 'image/gif')
+			this.image.setSrc(this.file.getDownloadUrl());
+		else if(this.file.getPreviewHighUrl() !== undefined)
+			this.image.setSrc(this.file.getPreviewHighUrl());
+		this.setContent(this.image);
+
+		this.connect(this, 'scroll', this.onFileTransform);
+	},
+
+	onFileTransform: function() {
+		if(this.changeLock)
+			return;
+		this.fileControl.mergeData({ transform: {
+			x: -this.getRelativeOffsetX(),
+			y: -this.getRelativeOffsetY(),
+			scale: this.getScale()
+		} });
+		this.fileControl.getDevice().notifyClientData();
+	},
+
+	onFileControlChange: function() {
+		if(this.getIsDown() || this.getIsInertia())
+			return;
+		this.changeLock = true;
+//		console.log('onFileControlChange transform: '+JSON.stringify(this.fileControl.getTransform()));
+		this.setScale(this.fileControl.getTransform().scale);
+		this.setOffset(-this.fileControl.getTransform().x, -this.fileControl.getTransform().y, false);
+		this.changeLock = false;
+	}
+}, {
+	onLoad: function() {
+		KJing.ImageFileViewer.base.onLoad.apply(this, arguments);
+		this.connect(this.fileControl, 'change', this.onFileControlChange);
+		this.onFileControlChange();
+	},
+	
+	onUnload: function() {
+		KJing.ImageFileViewer.base.onUnload.apply(this, arguments);
+		this.disconnect(this.fileControl, 'change', this.onFileControlChange);
+	}
+});
+
+//
+// Video file player
+//
+Ui.Pressable.extend('KJing.VideoFileViewer', {
+	fileControl: undefined,
+	file: undefined,
 	player: undefined,
-	request: undefined,
-	checkTask: undefined,
 	playing: false,
-	transformable: undefined,
-	pressable: undefined,
+	changeLock: false,
 
 	constructor: function(config) {
 		this.addEvents('end');
-	
-		this.storage = config.storage;
-		delete(config.storage);
-		this.file = config.file;
-		delete(config.file);
-		this.fileViewer = config.fileViewer;
-		delete(config.fileViewer);
 
-		this.transformable = new Ui.Transformable({ inertia: false, clipToBounds: true });
-		this.setContent(this.transformable);
+		this.fileControl = config.fileControl;
+		delete(config.fileControl);
+		this.file = this.fileControl.getFile();
 
-		this.pressable = new Ui.Pressable();
-		this.pressable.setLock(true);
-		this.connect(this.pressable, 'press', this.onVideoPress);
-
-		this.transformable.setContent(this.pressable);
-
-		var vbox = new Ui.VBox({ verticalAlign: 'center', spacing: 10 });
-		vbox.append(new Ui.Loading({ width: 50, height: 50, horizontalAlign: 'center' }));
-		vbox.append(new Ui.Text({ text: 'Encodage en cours... Veuillez patienter', textAlign: 'center' }));
-		
-		this.pressable.setContent(vbox);
-	},
-
-	checkReady: function() {
-		if(this.checkTask !== undefined)
-			this.checkTask = undefined;
-		if((this.player !== undefined) || (this.request !== undefined))
-			return;
-		this.request = new Core.HttpRequest({ method: 'GET', url: '/cloud/video/'+this.storage+'/'+this.file.id+'/info' });
-		this.connect(this.request, 'done', this.onCheckDone);
-		this.connect(this.request, 'error', this.onCheckError);
-		this.request.send();
-	},
-	
-	onCheckDone: function() {
-		var json = this.request.getResponseJSON();
-		if(json.status[json.support] == 'ready') {
-			this.player = new KJing.VideoPlayer({ src: '/cloud/video/'+this.storage+'/'+this.file.id, poster: '/cloud/previewhigh/'+this.storage+'/'+this.file.id+'?rev='+this.file.rev });
-			this.connect(this.player, 'statechange', this.onVideoStateChange);
-			this.connect(this.player, 'end', this.onVideoEnd);
-			this.pressable.setContent(this.player);
-			if(this.playing)
-				this.play();
-		}
-		else if(json.status[json.support] == 'building')
-			this.checkTask = new Core.DelayedTask({ delay: 2, scope: this, callback: this.checkReady });
-		else
-			this.pressable.setContent(new Ui.Text({ text: 'Impossible de lire ce fichier vidéo', verticalAlign: 'center', textAlign: 'center' }));
-		this.request = undefined;
-	},
-	
-	onCheckError: function() {
-		this.pressable.setContent(new Ui.Text({ text: 'Impossible de lire ce fichier vidéo', verticalAlign: 'center', textAlign: 'center' }));
-		this.request = undefined;
+		this.setLock(true);
+		this.connect(this, 'press', this.onVideoPress);
 	},
 
 	onVideoEnd: function(player) {
@@ -652,7 +162,14 @@ Ui.LBox.extend('Storage.VideoFileViewer', {
 	},
 
 	onVideoStateChange: function(player) {
-		this.pressable.setLock(this.player.getIsControlsVisible());
+		this.setLock(this.player.getIsControlsVisible());
+		this.fileControl.mergeData({ state: player.getState(), duration: player.getDuration() });
+		this.fileControl.getDevice().notifyClientData();
+	},
+
+	onVideoTimeUpdate: function(player, currentTime, duration) {
+		this.fileControl.mergeData({ position: currentTime/duration, duration: duration });
+		this.fileControl.getDevice().notifyClientData();
 	},
 
 	onVideoPress: function() {
@@ -670,439 +187,450 @@ Ui.LBox.extend('Storage.VideoFileViewer', {
 		var support = !navigator.iOs && !navigator.Android;		
 		if((this.player !== undefined) && (support))
 			this.player.play();
+	},
+
+	onFileTransform: function(player, transform) {
+		if(this.changeLock)
+			return;
+		this.fileControl.mergeData({ transform: transform });
+		this.fileControl.getDevice().notifyClientData();
+	},
+
+	onFileChange: function() {
+		// no MP4 video, sorry
+		if(this.file.getData().videoMp4 === undefined) {
+			this.setContent(new Ui.Text({ text: 'Impossible de lire ce fichier vidéo', verticalAlign: 'center', textAlign: 'center' }));
+		}
+		else {
+			var videoMp4 = KJing.File.create(this.file.getData().videoMp4);
+			if(videoMp4.getMimetype() === 'application/x-cache-progress') {
+				var vbox = new Ui.VBox({ verticalAlign: 'center', spacing: 10 });
+				vbox.append(new Ui.Loading({ width: 50, height: 50, horizontalAlign: 'center' }));
+				vbox.append(new Ui.Text({ text: 'Encodage en cours... Veuillez patienter', textAlign: 'center' }));
+			}
+			// rock an roll
+			else if(videoMp4.getMimetype() === 'video/mp4') {
+				this.player = new KJing.VideoPlayer({ src: videoMp4.getDownloadUrl(), poster: this.file.getPreviewHighUrl() });
+				this.connect(this.player, 'statechange', this.onVideoStateChange);
+				this.connect(this.player, 'timeupdate', this.onVideoTimeUpdate);
+				this.connect(this.player, 'end', this.onVideoEnd);
+				this.connect(this.player, 'transform', this.onFileTransform);
+				this.player.setVolume(this.fileControl.getDevice().getDeviceVolume());
+				this.setContent(this.player);
+				if(this.playing)
+					this.play();
+			}
+			// sorry no MP4
+			else
+				this.setContent(new Ui.Text({ text: 'Impossible de lire ce fichier vidéo', verticalAlign: 'center', textAlign: 'center' }));
+		}
+	},
+
+	onFileControlChange: function() {
+		if((this.player === undefined) || this.player.getIsDown() || this.player.getIsInertia())
+			return;
+		this.changeLock = true;
+		this.player.setContentTransform(this.fileControl.getTransform());
+		this.changeLock = false;
+	},
+
+	onFileControlOrder: function(fileControl, order) {
+		if(order.order === 'seek') {
+			this.player.setCurrentTime(order.time);
+		}
+		else if(order.order === 'play') {
+			this.player.play();
+		}
+		else if(order.order === 'pause') {
+			this.player.pause();
+		}
+	},
+
+	onDeviceChange: function() {
+		if(this.player !== undefined) {
+			if(this.fileControl.getDevice().getDeviceVolume() !== this.player.getVolume())
+				this.player.setVolume(this.fileControl.getDevice().getDeviceVolume());
+		}
 	}
+
 }, {
 	onVisible: function() {
-		if(this.player === undefined)
-			this.checkReady();
+		if(this.player === undefined) {
+			this.connect(this.file, 'change', this.onFileChange);
+			this.onFileChange();
+		}
 	},
 
 	onHidden: function() {
-		if(this.checkTask !== undefined) {
-			this.checkTask.abort();
-			this.checkTask = undefined;
-		}
+		this.disconnect(this.file, 'change', this.onFileChange);
 		if(this.player !== undefined)
 			this.player.pause();
+	},
+
+	onLoad: function() {
+		KJing.VideoFileViewer.base.onLoad.apply(this, arguments);
+		this.connect(this.fileControl, 'change', this.onFileControlChange);
+		this.connect(this.fileControl.getDevice(), 'change', this.onDeviceChange);
+		this.onFileControlChange();
+		this.connect(this.fileControl, 'order', this.onFileControlOrder);
+	},
+	
+	onUnload: function() {
+		KJing.VideoFileViewer.base.onUnload.apply(this, arguments);
+		this.disconnect(this.fileControl, 'change', this.onFileControlChange);
+		this.disconnect(this.fileControl.getDevice(), 'change', this.onDeviceChange);
+		this.disconnect(this.fileControl, 'order', this.onFileControlOrder);
 	}
 });
 
-Ui.LBox.extend('Storage.TextFileViewer', {
-	storage: undefined,
+Ui.LBox.extend('KJing.SiteFileViewer', {
+	fileControl: undefined,
 	file: undefined,
-	fileViewer: undefined,
 	text: undefined,
 
 	constructor: function(config) {
-		this.storage = config.storage;
-		delete(config.storage);
-		this.file = config.file;
-		delete(config.file);
-		this.fileViewer = config.fileViewer;
-		delete(config.fileViewer);
+		this.fileControl = config.fileControl;
+		delete(config.fileControl);
+		this.file = this.fileControl.getFile();
 
-		var scroll = new Ui.ScrollingArea({ directionRelease: true, scrollHorizontal: false, scrollVertical: true });
-		this.setContent(scroll);
+		var request = new Core.HttpRequest({ method: 'GET', url: this.file.getDownloadUrl() });
+		this.connect(request, 'done', this.onContentLoaded);
+		request.send();
 
-		var lbox = new Ui.LBox();
-		lbox.append(new Storage.PageBackgroundGraphic({ margin: 7 }));
-		scroll.setContent(lbox);
+		var vbox = new Ui.VBox({ verticalAlign: 'center', horizontalAlign: 'center', spacing: 10 });
+		this.setContent(vbox);
+	},
+	
+	onContentLoaded: function(request) {
+		// embed in a iframe
+		var iframe = new Ui.IFrame({ src: request.getResponseText() });
+		this.setContent(iframe);
+	}
+});
 
-		this.text = new Wn.ImproveText({ margin: 30, style: { "Wn.ImproveText": { fontSize: 20 } } });
 
-		lbox.append(this.text);
+//
+// Audio file player
+//
+Ui.LBox.extend('KJing.AudioFileViewer', {
+	fileControl: undefined,
+	file: undefined,
+	player: undefined,
+	playing: false,
+	changeLock: false,
 
-		//console.log('src: '+'/app/texteditor/?storage='+this.storage+'&file='+this.file.id);
-		var editButton = new Ui.LinkButton({ icon: 'edit', src: '/app/texteditor/?storage='+this.storage+'&file='+this.file.id });
-		this.fileViewer.appendTool(editButton);
+	constructor: function(config) {
+		this.addEvents('end');
 
-		var request = new Core.HttpRequest({ method: 'GET', url: '/cloud/storage/'+this.storage+'/'+this.file.id+'/content?rev='+this.file.rev });
+		this.fileControl = config.fileControl;
+		delete(config.fileControl);
+		this.file = this.fileControl.getFile();
+	},
+
+	onAudioEnd: function(player) {
+		this.playing = false;
+		this.fireEvent('end', this);
+	},
+
+	onAudioStateChange: function(player) {
+		this.fileControl.mergeData({ state: player.getState(), duration: player.getDuration() });
+		this.fileControl.getDevice().notifyClientData();
+	},
+
+	onAudioTimeUpdate: function(player, currentTime, duration) {
+		this.fileControl.mergeData({ position: currentTime/duration, duration: duration });
+		this.fileControl.getDevice().notifyClientData();
+	},
+
+	uncurrent: function() {
+		if(this.player !== undefined)
+			this.player.pause();
+	},
+	
+	play: function() {
+		this.playing = true;
+		var support = !navigator.iOs && !navigator.Android;		
+		if((this.player !== undefined) && (support))
+			this.player.play();
+	},
+
+	onFileChange: function() {
+		console.log(this+'.onFileChange ICI');
+
+		// no MP3 audio, sorry
+		if(this.file.getData().audioMp3 === undefined) {
+			this.setContent(new Ui.Text({ text: 'Impossible de lire ce fichier audio', verticalAlign: 'center', textAlign: 'center' }));
+		}
+		else {
+			var audioMp3 = KJing.File.create(this.file.getData().audioMp3);
+			if(audioMp3.getMimetype() === 'application/x-cache-progress') {
+				var vbox = new Ui.VBox({ verticalAlign: 'center', spacing: 10 });
+				vbox.append(new Ui.Loading({ width: 50, height: 50, horizontalAlign: 'center' }));
+				vbox.append(new Ui.Text({ text: 'Encodage en cours... Veuillez patienter', textAlign: 'center' }));
+			}
+			// rock an roll
+			else if(audioMp3.getMimetype() === 'audio/mpeg') {
+				this.player = new KJing.AudioPlayer({ src: audioMp3.getDownloadUrl(), text: this.file.getName() });
+				this.connect(this.player, 'statechange', this.onAudioStateChange);
+				this.connect(this.player, 'timeupdate', this.onAudioTimeUpdate);
+				this.connect(this.player, 'end', this.onAudioEnd);
+				this.player.setVolume(this.fileControl.getDevice().getDeviceVolume());
+				this.setContent(this.player);
+				if(this.playing)
+					this.play();
+			}
+			// sorry no MP3
+			else
+				this.setContent(new Ui.Text({ text: 'Impossible de lire ce fichier audio', verticalAlign: 'center', textAlign: 'center' }));
+		}
+	},
+
+	onFileControlChange: function() {
+//		console.log(this+'.onFileControlChange');
+	},
+
+	onFileControlOrder: function(fileControl, order) {
+		if(order.order === 'seek') {
+			this.player.setCurrentTime(order.time);
+		}
+		else if(order.order === 'play') {
+			this.player.play();
+		}
+		else if(order.order === 'pause') {
+			this.player.pause();
+		}
+	},
+
+	onDeviceChange: function() {
+		if(this.player !== undefined) {
+			if(this.fileControl.getDevice().getDeviceVolume() !== this.player.getVolume())
+				this.player.setVolume(this.fileControl.getDevice().getDeviceVolume());
+		}
+	}
+
+}, {
+	onVisible: function() {
+		if(this.player === undefined) {
+			this.connect(this.file, 'change', this.onFileChange);
+			this.onFileChange();
+		}
+	},
+
+	onHidden: function() {
+		this.disconnect(this.file, 'change', this.onFileChange);
+		if(this.player !== undefined)
+			this.player.pause();
+	},
+
+	onLoad: function() {
+		KJing.AudioFileViewer.base.onLoad.apply(this, arguments);
+		this.connect(this.fileControl, 'change', this.onFileControlChange);
+		this.connect(this.fileControl.getDevice(), 'change', this.onDeviceChange);
+		this.onFileControlChange();
+		this.connect(this.fileControl, 'order', this.onFileControlOrder);
+	},
+	
+	onUnload: function() {
+		KJing.AudioFileViewer.base.onUnload.apply(this, arguments);
+		this.disconnect(this.fileControl.getDevice(), 'change', this.onDeviceChange);
+		this.disconnect(this.fileControl, 'change', this.onFileControlChange);
+		this.disconnect(this.fileControl, 'order', this.onFileControlOrder);
+	}
+});
+
+//
+// PDF page viewer
+//
+Ui.ScrollingArea.extend('KJing.PdfPageViewer', {
+	pageControl: undefined,
+	file: undefined,
+	image: undefined,
+	changeLock: false,
+
+	constructor: function(config) {
+		this.pageControl = config.pageControl;
+		delete(config.pageControl);
+		this.file = this.pageControl.getFile();
+				
+		this.setMaxScale(4);
+		this.image = new KJing.ScaledImage2();
+
+		this.image.setSrc(this.file.getDownloadUrl());
+		this.setContent(this.image);
+
+		this.connect(this, 'scroll', this.onFileTransform);
+	},
+
+	onFileTransform: function() {
+		if(this.changeLock)
+			return;
+		this.pageControl.mergeData({ transform: {
+			x: -this.getRelativeOffsetX(),
+			y: -this.getRelativeOffsetY(),
+			scale: this.getScale()
+		} });
+		this.pageControl.getDevice().notifyClientData();
+	},
+
+	onPageControlChange: function() {
+		if(this.getIsDown() || this.getIsInertia())
+			return;
+		this.changeLock = true;
+		this.setScale(this.pageControl.getTransform().scale);
+		this.setOffset(-this.pageControl.getTransform().x, -this.pageControl.getTransform().y, false);
+		this.changeLock = false;
+	},
+
+	onFileControlMerge: function(fileControl, data) {
+		this.pageControl.mergeFileControlData(data);
+	}
+}, {
+	onLoad: function() {
+		KJing.PdfPageViewer.base.onLoad.apply(this, arguments);
+		this.connect(this.pageControl, 'change', this.onPageControlChange);
+		this.connect(this.pageControl.getFileControl(), 'merge', this.onFileControlMerge);
+		this.onPageControlChange();
+	},
+	
+	onUnload: function() {
+		KJing.PdfPageViewer.base.onUnload.apply(this, arguments);
+		this.disconnect(this.pageControl.getFileControl(), 'merge', this.onFileControlMerge);
+		this.disconnect(this.pageControl, 'change', this.onPageControlChange);
+	}
+});
+
+//
+// PDF file viewer
+//
+Ui.TransitionBox.extend('KJing.PdfFileViewer', {
+	fileControl: undefined,
+	file: undefined,
+	image: undefined,
+	pagesControl: undefined,
+	pagePosition: 0,
+	playTimer: undefined,
+	pageDuration: 5,
+
+	constructor: function(config) {
+		this.addEvents('end');
+
+		this.fileControl = config.fileControl;
+		delete(config.fileControl);
+		this.file = this.fileControl.getFile();
+
+		// generate page control
+		this.pagesControl = [];
+		var pdfPages = this.file.getData().pdfPages.cache;
+//		console.log(this.fileControl);
+		var controlData = this.fileControl.getData();
+//		console.log(controlData);
+		var pages = [];
+		controlData.pages = pages;
+		for(var i = 0; i < pdfPages.length; i++) {
+			var page = pdfPages[i];
+
+			var pageFile = KJing.File.create(page);
+			var pageControl = new KJing.PageControl({ fileControl: this.fileControl, file: pageFile, id: page.id });
+			this.pagesControl.push(pageControl);
+			pages.push(pageControl.getData());
+		}
+		var pageViewer = new KJing.PdfPageViewer({ pageControl: this.pagesControl[0] });
+		this.replaceContent(pageViewer);
+
+		controlData.position = this.pagePosition;
+		this.fileControl.notifyClientData();
+	},
+
+	play: function() {
+		if(this.playTimer === undefined) {
+			this.pageDuration = 5;
+			this.playTimer = new Core.DelayedTask({ scope: this, delay: this.pageDuration, callback: this.onPlayTimerEnd });
+		}
+	},
+
+	onPlayTimerEnd: function() {
+		this.playTimer = undefined;
+		// if the device is remote controlled, stop autoplay
+		if(this.fileControl.getDevice().getIsControlled())
+			return;
+
+		var pos = this.fileControl.getData().position;
+		if(pos === undefined)
+			pos = 0;
+		var nextPos = Math.min(this.pagesControl.length-1, Math.max(0, Math.round(pos+1)));
+		if(nextPos === pos)
+			nextPos = 0;
+
+		// go to the next page
+		if(nextPos !== pos) {
+			this.displayPage(nextPos);
+			this.fileControl.getData().position = nextPos;
+			this.fileControl.notifyClientData();
+		}
+
+		if(nextPos === 0)
+			this.fireEvent('end', this);
+		else
+			this.playTimer = new Core.DelayedTask({ scope: this, delay: this.pageDuration, callback: this.onPlayTimerEnd });
+	},
+
+	displayPage: function(pos) {
+		if(this.pagePosition !== pos) {
+			this.pagePosition = pos;
+			var pageViewer = new KJing.PdfPageViewer({ pageControl: this.pagesControl[pos] });
+			this.replaceContent(pageViewer);
+		}
+	},
+
+	onFileControlChange: function() {
+		var pos = this.fileControl.getData().position;
+		if(pos === undefined)
+			pos = 0;
+		pos = Math.min(this.pagesControl.length-1, Math.max(0, Math.round(pos)));
+
+		this.displayPage(pos);
+	}
+}, {
+	onLoad: function() {
+		KJing.PdfFileViewer.base.onLoad.apply(this, arguments);
+		this.connect(this.fileControl, 'change', this.onFileControlChange);
+		this.onFileControlChange();
+	},
+	
+	onUnload: function() {
+		KJing.PdfFileViewer.base.onUnload.apply(this, arguments);
+		this.disconnect(this.fileControl, 'change', this.onFileControlChange);
+	}
+});
+
+
+//
+// Text file viewer
+//
+Ui.ScrollingArea.extend('KJing.TextFileViewer', {
+	fileControl: undefined,
+	file: undefined,
+	text: undefined,
+
+	constructor: function(config) {
+		this.fileControl = config.fileControl;
+		delete(config.fileControl);
+		this.file = this.fileControl.getFile();
+				
+		this.setMaxScale(4);
+
+		var scalebox = new Ui.ScaleBox({ fixedWidth: 800, fixedHeight: 600 });
+		this.setContent(scalebox);
+
+		this.text = new Ui.Text({ margin: 20, fontSize: 40, color: 'white' });
+		scalebox.append(this.text);
+
+		var request = new Core.HttpRequest({ method: 'GET', url: this.file.getDownloadUrl() });
 		this.connect(request, 'done', this.onTextLoaded);
 		request.send();
 	},
 
 	onTextLoaded: function(req) {
 		this.text.setText(req.getResponseText());
-	}
-});
-
-Ui.CanvasElement.extend('Storage.PageBackgroundGraphic', {}, {
-	updateCanvas: function(ctx) {
-		var width = this.getLayoutWidth();
-		var height = this.getLayoutHeight();
-		// shadow
-		this.roundRectFilledShadow(5, 5, width-10, height-10, 2, 2, 2, 2, false, 2, new Ui.Color({ r:0, g: 0, b: 0, a: 0.5}));
-		// white bg
-		ctx.fillStyle = '#ffffff';
-		ctx.fillRect(7, 7, width-14, height-14);
-	}
-});
-
-
-Ui.LBox.extend('Storage.RssItemFileViewer', {
-	storage: undefined,
-	file: undefined,
-	fileViewer: undefined,
-	title: undefined,
-	content: undefined,
-
-	constructor: function(config) {
-		this.storage = config.storage;
-		delete(config.storage);
-		this.file = config.file;
-		delete(config.file);
-		this.fileViewer = config.fileViewer;
-		delete(config.fileViewer);
-
-		var scroll = new Ui.ScrollingArea({ directionRelease: true, scrollHorizontal: false, scrollVertical: true });
-		this.setContent(scroll);
-
-		var lbox = new Ui.LBox();
-		lbox.append(new Storage.PageBackgroundGraphic());
-		scroll.setContent(lbox);
-		
-		var vbox = new Ui.VBox({ margin: 20, spacing: 10 });
-		lbox.append(vbox);
-		
-		this.title = new Ui.Text({ text: this.file.name, fontWeight: 'bold', fontSize: 24, marginTop: 20 });
-		vbox.append(this.title);
-								
-		this.content = new Ui.Html();
-		this.connect(this.content, 'link', this.onContentLink);
-		vbox.append(this.content);
-
-		var request = new Core.HttpRequest({ method: 'GET', url: '/cloud/storage/'+this.storage+'/'+this.file.id+'/content?rev='+this.file.rev });
-		this.connect(request, 'done', this.onTextLoaded);
-		request.send();		
-	},
-
-	onTextLoaded: function(req) {
-		var html = '<div style="word-wrap: break-word; font-family: '+this.getStyleProperty('fontFamily')+';font-size: '+this.getStyleProperty('fontSize')+'px;font-weight: '+this.getStyleProperty('fontWeight')+';">';
-		html += (new Date(this.file.meta.pubDate)).toLocaleString()+'&nbsp;&nbsp;';
-		if(this.file.meta.link != undefined)
-			html += '<a href="'+this.file.meta.link+'" style="cursor: pointer; text-decoration: underline; color: #4d4d4d">article complet</a><br>';
-		html += '<br>';
-		html += req.getResponseText();
-		html += '</div>';
-		this.content.setHtml(html);
-	},
-	
-	onContentLink: function(html, url) {
-		window.open(url, '_blank');
-	}
-});
-
-Ui.LBox.extend('Storage.PdfPage', {
-	storage: undefined,
-	file: undefined,
-	page: undefined,
-	graphic: undefined,
-	transformable: undefined,
-	userInteraction: true,
-
-	constructor: function(config) {	
-
-		this.storage = config.storage;
-		delete(config.storage);
-		this.file = config.file;
-		delete(config.file);
-		this.page = config.page;
-		delete(config.page);
-
-		this.transformable = new Ui.Transformable({ inertia: false, clipToBounds: true });
-		this.setContent(this.transformable);
-
-		this.graphic = new KJing.ScaledImage2({ src: '/cloud/pdf/'+this.storage+'/'+this.file.id+'/pages/'+this.page+'/image?rev='+this.file.rev });
-		this.transformable.setContent(this.graphic);
-
-		this.connect(this.transformable, 'transform', this.onTransform);
-	},
-
-	setContentTransform: function(transform) {
-		if(!this.transformable.getIsDown()) {
-			this.userInteraction = false;
-			this.transformable.setContentTransform(transform.x, transform.y, transform.scale, transform.angle);
-			this.userInteraction = true;
-		}
-	},
-
-	onTransform: function() {
-		var w = this.getLayoutWidth();
-		var h = this.getLayoutHeight();
-
-		this.disconnect(this.transformable, 'transform', this.onTransform);
-
-		var scale = this.transformable.getScale();
-		var x = this.transformable.getTranslateX();
-		var y = this.transformable.getTranslateY();
-
-		scale = Math.min(4, Math.max(1, scale));
-
-		var sw = w * scale;
-		var dw = (sw - w)/2;
-
-		var sh = h * scale;
-		var dh = (sh - h)/2;
-
-		x = Math.min(x, dw);
-		x = Math.max(x, -dw);
-
-		y = Math.min(y, dh);
-		y = Math.max(y, -dh);
-
-		this.transformable.setContentTransform(x, y, scale, 0);
-
-		this.connect(this.transformable, 'transform', this.onTransform);
-
-		if(this.userInteraction) {
-			var device = Ui.App.current.getDevice();
-			var clientData = device.getClientData();
-			clientData.state.transform = { angle: this.transformable.getAngle(), scale: this.transformable.getScale(), x: this.transformable.getTranslateX(), y: this.transformable.getTranslateY() };
-			device.notifyClientData();
-		}
-	}
-});
-
-Ui.LBox.extend('Storage.PdfFileViewer', {
-	storage: undefined,
-	file: undefined,
-	fileViewer: undefined,
-	pages: undefined,
-	data: undefined,
-	checkTask: undefined,
-	request: undefined,
-	transBox: undefined,
-	playing: false,
-	position: 0,
-	delayTask: undefined,
-	duration: 5,
-
-	constructor: function(config) {
-		this.addEvents('end');
-		this.storage = config.storage;
-		delete(config.storage);
-		this.file = config.file;
-		delete(config.file);
-		this.fileViewer = config.fileViewer;
-		delete(config.fileViewer);
-		
-		var vbox = new Ui.VBox({ verticalAlign: 'center', spacing: 10 });
-		vbox.append(new Ui.Loading({ width: 50, height: 50, horizontalAlign: 'center' }));
-		vbox.append(new Ui.Text({ text: 'Encodage en cours... Veuillez patienter', textAlign: 'center' }));
-		this.setContent(vbox);	
-
-		this.connect(Ui.App.current.getDevice(), 'change', this.onDeviceChange);
-	},
-	
-	setPosition: function(position) {
-		if(this.pages !== undefined) {
-			this.position = Math.max(0, Math.min(this.pages.length-1, position));
-			this.transBox.replaceContent(new Storage.PdfPage({
-				storage: this.storage, file: this.file, page: this.position
-			}));
-		}
-	},
-
-	setContentTransform: function(transform) {
-		if(this.pages !== undefined) {
-			this.transBox.getCurrent().setContentTransform(transform);
-		}
-	},
-	
-	play: function() {
-		this.playing = true;
-		if((this.pages !== undefined) && (this.pages.length === 0)) {
-			this.playing = false;
-			this.fireEvent('end', this);
-		}
-		else if((this.transBox !== undefined) && this.getIsVisible()) {
-			this.duration = 5;
-			if('duration' in this.file.meta)
-				this.duration = parseFloat(this.file.meta.duration);
-			this.delayTask = new Core.DelayedTask({ scope: this, delay: this.duration, callback: this.onPageEnd });
-		}
-	},
-
-	pause: function() {
-		this.playing = false;
-		if(this.delayTask !== undefined) {
-			this.delayTask.abort();
-			this.delayTask = undefined;
-		}
-	},
-
-	onPageEnd: function() {
-		this.delayTask = undefined;
-		this.position++;
-		if(this.position >= this.pages.length) {
-			this.playing = false;
-			this.fireEvent('end', this);
-		}
-		else {
-			this.transBox.replaceContent(new Storage.PdfPage({
-				storage: this.storage, file: this.file, page: this.position
-			}));
-			if(this.getIsVisible())
-				this.delayTask = new Core.DelayedTask({ scope: this, delay: this.duration, callback: this.onPageEnd });
-		}
-	},
-	
-	checkReady: function() {
-		if(this.checkTask != undefined)
-			this.checkTask = undefined;
-		if(this.request != undefined)
-			return;
-		this.request = new Core.HttpRequest({ method: 'GET', url: '/cloud/pdf/'+this.storage+'/'+this.file.id });
-		this.connect(this.request, 'done', this.onCheckDone);
-		this.connect(this.request, 'error', this.onCheckError);
-		this.request.send();
-	},
-	
-	onCheckDone: function() {
-		var json = this.request.getResponseJSON();
-		if(json.status == 'ready') {
-			this.data = json;
-			this.pages = this.data.pages;
-			
-			this.transBox = new Ui.TransitionBox();
-			this.setContent(this.transBox);
-			this.onDataDone();
-		}
-		else if(json.status == 'building') {
-			this.checkTask = new Core.DelayedTask({ delay: 2, scope: this, callback: this.checkReady });
-		}
-		else {
-			this.setContent(new Ui.Text({ text: 'Impossible de lire ce fichier PDF', verticalAlign: 'center' }));
-		}
-		this.request = undefined;
-	},
-	
-	onCheckError: function() {
-		this.setContent(new Ui.Text({ text: 'Impossible de lire ce fichier PDF', verticalAlign: 'center' }));
-		this.request = undefined;
-	},
-	
-	onDataDone: function(req) {
-		this.transBox.replaceContent(new Storage.PdfPage({
-			storage: this.storage, file: this.file, page: this.position
-		}));
-		if(this.playing)
-			this.play();
-	},
-
-	onDeviceChange: function(device) {
-		console.log(this+'.onDeviceChange isControlled: '+device.getIsControlled());
-		if(device.getIsControlled())
-			this.pause();
-		else
-			this.play();
-	}
-}, {
-	onVisible: function() {
-		if(this.transBox === undefined)
-			this.checkReady();
-		else if(this.playing)
-			this.play();
-	},
-
-	onHidden: function() {
-		if(this.request != undefined) {
-			this.request.abort();
-			this.request = undefined;
-		}
-		if(this.checkTask !== undefined) {
-			this.checkTask.abort();
-			this.checkTask = undefined;
-		}
-		if(this.delayTask !== undefined) {
-			this.delayTask.abort();
-			this.delayTask = undefined;
-		}
-	}
-});
-
-Ui.LBox.extend('Storage.GenericFileViewer', {
-	storage: undefined,
-	file: undefined,
-	text: undefined,
-	fileViewer: undefined,
-
-	constructor: function(config) {
-		this.storage = config.storage;
-		delete(config.storage);
-		this.file = config.file;
-		delete(config.file);
-		this.fileViewer = config.fileViewer;
-		delete(config.fileViewer);
-
-		var vbox = new Ui.VBox({ verticalAlign: 'center', horizontalAlign: 'center', spacing: 10 });
-		this.setContent(vbox);
-
-		vbox.append(new Ui.Image({ src: '/cloud/mimeicon?mimetype='+encodeURIComponent(this.file.mimetype), width: 128, height: 128, horizontalAlign: 'center' }));
-
-		this.text = new Ui.Text({ textAlign: 'center', text: this.file.name, fontSize: 20 });
-		vbox.append(this.text);
-
-		var downloadButton = new Ui.DownloadButton({ text: 'Télécharger', horizontalAlign: 'center' });
-		downloadButton.setSrc('/cloud/storage/'+this.storage+'/'+this.file.id+'/content?attachment=true&rev='+this.file.rev);
-		vbox.append(downloadButton);
-	}
-});
-
-Ui.Container.extend('Storage.ScaledImage', {
-	image: undefined,
-	src: undefined,
-	ratio: 1,
-
-	constructor: function(config) {
-		this.setClipToBounds(true);
-		if('src' in config) {
-			this.src = config.src;
-			delete(config.src);
-			this.image = new Ui.Image({ src: this.src });
-		}
-		else
-			this.image = new Ui.Image();
-		this.appendChild(this.image);
-		if('ratio' in config) {
-			this.ratio = config.ratio;
-			delete(config.ratio);
-		}
-
-		this.connect(this.image, 'ready', this.onReady);
-		this.addEvents('ready');
-	},
-
-	setSrc: function(src) {
-		this.removeChild(this.image);
-		this.src = src;
-		if(this.src == undefined)
-			this.image = new Ui.Image();
-		else
-			this.image = new Ui.Image({ src: this.src });
-		this.appendChild(this.image);
-	},
-
-	getIsReady: function() {
-		return this.image.getIsReady();
-	},
-
-	onReady: function() {
-		this.invalidateMeasure();
-		this.fireEvent('ready', this);
-	}
-}, {
-	measureCore: function(width, height) {
-		if(this.getIsReady()) {
-			var nWidth = this.image.getNaturalWidth();
-			var nHeight = this.image.getNaturalHeight();
-			return { width: width, height: (nHeight * width / nWidth) };
-		}
-		else
-			return { width: width, height: width/this.ratio };
-	},
-
-	arrangeCore: function(width, height) {
-		this.image.arrange(0, 0, width, height);
 	}
 });

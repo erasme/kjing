@@ -6,16 +6,30 @@ KJing.Resource.extend('KJing.User', {
 		this.groups = [];
 	},
 
-	getFaceUrl: function() {
-		// no face defined, default image
-		if(!this.getIsReady() || (this.getData().face_rev === -1))
-			return 'img/default.png';
+	getFace: function() {
+		if(this.getIsReady() && (this.getData().face !== undefined))
+			return KJing.File.create(this.getData().face);
 		else
-			return '/cloud/user/'+this.getId()+'/face?rev='+this.getData().face_rev;
+			return undefined;
+	},
+
+	getFaceUrl: function() {
+		var file = this.getFace();
+		if((file !== undefined) && !file.getIsUploading()) {
+			return file.getDownloadUrl();
+		}
+		else
+			return 'img/default.png';
 	},
 
 	getGroups: function() {
 		return this.groups;
+	},
+
+	getUserData: function() {
+		if((!('data' in this.getData())) || (this.getData().data === null))
+			this.getData().data = {};
+		return this.getData().data;
 	},
 
 	isAdmin: function() {

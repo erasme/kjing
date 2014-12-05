@@ -13,6 +13,7 @@ Ui.App.extend('KJing.ClientApp', {
 	networkIcon: undefined,
 	resource: undefined,
 	playList: undefined,
+	isControlled: false,
 
 	constructor: function(config) {
 		this.mainBox = new Ui.LBox();
@@ -78,67 +79,84 @@ Ui.App.extend('KJing.ClientApp', {
 			this.transBox.replaceContent(new Ui.Element());
 		}
 		else {
-			console.log('setPath('+path+')');
+			//console.log('setPath('+path+')');
 
 			if((this.resource !== undefined) && !this.resource.getIsReady())
 				this.disconnect(this.resource, 'ready', this.onResourceReady);
 
-			this.resource = KJing.File.create(path, 4);
+			this.resource = KJing.Resource.create(path, 4);
 			if(this.resource.getIsReady())
 				this.onResourceReady();
 			else
 				this.connect(this.resource, 'ready', this.onResourceReady);
-
-			var pos = path.lastIndexOf(':');
-			var share = path.substring(5,pos);
-			var file = path.substring(pos+1);
-			var request = new Core.HttpRequest({ method: 'GET', url: '/cloud/storage/'+share+'/'+file+'?depth=4' });
-			this.connect(request, 'done', function() {
-				var json = request.getResponseJSON();
-				console.log(json);
-
-				this.viewer = new Storage.FileViewer({ storage: share, file: json, controller: this });
-				this.connect(this.viewer, 'end', this.onViewerPlayEnd);
-				this.viewer.play();
-				this.transBox.replaceContent(this.viewer);
-			});
-			request.send();
 		}
 	},
 
 	onResourceReady: function() {
-		console.log('onResourceReady');
-		console.log(this.resource);
-
 		this.playList = [];
 		this.generatePlayList(this.resource);
-		console.log(this.playList);
+		this.setPosition(0);
+		this.device.notifyClientData();
+	},
+
+	onItemEnd: function() {
+		// auto move to the next content is the device is not remote controlled
+		if(!this.device.getIsControlled()) {
+
+			if(this.playList.length === 1) {
+				var current = this.transBox.getCurrent();
+				if(current !== undefined)
+					current.play();
+			}
+			else {
+				var nextPos = this.state.position + 1;
+				if(nextPos >= this.playList.length)
+					nextPos = 0;
+			
+				this.setPosition(nextPos);
+				this.device.notifyClientData();
+			}
+		}
 	},
 
 	generatePlayList: function(resource) {
 		if((resource !== undefined) && (resource.getIsReady())) {
-			if(resource.getMimetype() === 'application/x-directory') {
+			if(KJing.Folder.hasInstance(resource)) {
 				if(resource.getIsChildrenReady()) {
 					for(var i = 0; i < resource.getChildren().length; i++)
 						this.generatePlayList(resource.getChildren()[i]);
 				}
 			}
 			else {
-				this.playList.push({ id: this.playList.length, file: resource, transform: { x: 0, y: 0, scale: 1 } });
+				var fileControl = new KJing.FileControl({
+					id: this.playList.length, device: this.device,
+					file: resource
+				});
+				this.playList.push(fileControl);
 			}
 		}
 		var list = [];
 		for(var i = 0; i < this.playList.length; i++) {
 			var item = this.playList[i];
-			list.push({ id: item.id, transform: item.transform, path: item.file.getId() });
+			list.push(item.getData());
 		}
 		this.state.list = list;
-		this.device.notifyClientData();
+		this.state.position = 0;
 	},
 	
 	setPosition: function(position) {
-		if(this.viewer !== undefined)
-			this.viewer.setPosition(position);
+		var current = this.transBox.getCurrent();
+		if((current !== undefined) && ('play' in current))
+			this.disconnect(current, 'end', this.onItemEnd);
+
+		this.state.position = position;
+		if(this.state.position < this.playList.length) {
+			var fileControl = this.playList[this.state.position];
+			var viewer = new KJing.FileViewer({ fileControl: fileControl });
+			this.connect(viewer, 'end', this.onItemEnd);
+			this.transBox.replaceContent(viewer);
+			viewer.play();
+		}
 	},
 
 	setContentTransform: function(transform) {
@@ -155,7 +173,7 @@ Ui.App.extend('KJing.ClientApp', {
 		this.clientData = this.device.getClientData();
 		this.clientData.capabilities = this.capabilities;
 		this.clientData.state = this.state;
-		console.log(this.clientData);
+		//console.log(this.clientData);
 
 		this.device.notifyClientData();
 
@@ -172,15 +190,17 @@ Ui.App.extend('KJing.ClientApp', {
 	},
 
 	onDeviceUnMonitor: function() {
-		this.networkIcon = new Ui.Icon({
-			icon: 'nonetwork', fill: 'red', width: 32, height: 32, opacity: 0.5,
-			verticalAlign: 'top', horizontalAlign: 'right', margin: 10
-		});
-		this.mainBox.append(this.networkIcon);
+		if(this.networkIcon === undefined) {
+			this.networkIcon = new Ui.Icon({
+				icon: 'nonetwork', fill: 'red', width: 32, height: 32, opacity: 0.5,
+				verticalAlign: 'top', horizontalAlign: 'right', margin: 10
+			});
+			this.mainBox.append(this.networkIcon);
+		}
 	},
 
 	onDeviceChange: function() {
-//		console.log(this+'.onDeviceChange connected controlleurs: '+this.device.countControllers());
+		//console.log(this+'.onDeviceChange controlled: '+this.device.getIsControlled());
 		// if the device is not controlled and a state path is set,
 		// return to the defaut content
 		if(!this.device.getIsControlled() && (this.state.path !== undefined)) {
@@ -190,33 +210,42 @@ Ui.App.extend('KJing.ClientApp', {
 		}
 		else if((this.state.path === undefined) && (this.path !== this.device.getData().path))
 			this.setPath(this.device.getData().path);
+		
+		if(this.isControlled !== this.device.getIsControlled()) {
+			this.isControlled = this.device.getIsControlled();
+			// if the device was controlled and is no more controlled,
+			// force the current content to play (migth already be stopped while controlled)
+			if(!this.isControlled && (this.transBox.getCurrent() !== undefined))
+				this.transBox.getCurrent().play();
+		}
 	},
 
 	onDeviceClientMessage: function(device, clientMessage) {
+		//console.log('onDeviceClientMessage');
+		//console.log(clientMessage);
+
 		// handle control messages
-		var notifyNeeded = false;
 		if('path' in clientMessage) {
 			this.state.path = clientMessage.path;
 			this.setPath(this.state.path);
-			notifyNeeded = true;
 		}
 		if('position' in clientMessage) {
 			this.state.position = clientMessage.position;
 			this.setPosition(clientMessage.position);
-			notifyNeeded = true;
 		}
-		if('transform' in clientMessage) {
-			this.state.transform = clientMessage.transform;
-			this.setContentTransform(this.state.transform);
-			notifyNeeded = true;
+		if('list' in clientMessage) {
+			for(var i = 0; i < clientMessage.list.length; i++) {
+				var item = clientMessage.list[i];
+				for(var i2 = 0; i2 < this.playList.length; i2++) {
+					var fileControl = this.playList[i2];
+					if(item.id === fileControl.getId())
+						fileControl.mergeData(item);
+				}
+			}
 		}
-		if('volume' in clientMessage) {
+		if('volume' in clientMessage)
 			this.state.volume = clientMessage.volume;
-			//this.setContentTransform(this.state.transform);
-			notifyNeeded = true;
-		}
-		if(notifyNeeded)
-			this.device.notifyClientData();
+		this.device.notifyClientData();
 	},
 
 	onAppResize: function(app, width, height) {
@@ -234,5 +263,186 @@ Ui.App.extend('KJing.ClientApp', {
 });
 
 new KJing.ClientApp({
-	webApp: true
+webApp: true,
+style: {
+	"Ui.Element": {
+		color: "#444444",
+		fontSize: 16,
+		interLine: 1.4
+	},
+	"Ui.MenuPopup": {
+		background: "#ffffff",
+		"Ui.Button": {
+			background: new Ui.Color({ r: 1, g: 1, b: 1, a: 0.1 }),
+			backgroundBorder: new Ui.Color({ r: 1, g: 1, b: 1, a: 0.1 }),
+			iconSize: 28,
+			textHeight: 28
+		},
+		"Ui.DefaultButton": {
+			borderWidth: 1,
+			background: "#fefefe",
+			backgroundBorder: 'black',
+			iconSize: 16,
+			textHeight: 16
+		},
+		"Ui.ActionButton": {
+			showText: false
+		},
+		"Ui.SegmentBar": {
+			spacing: 7,
+			color: "#ffffff"
+		}
+	},
+	"Ui.SegmentBar": {
+		spacing: 8,
+		color: "#ffffff"
+	},
+	"Ui.Dialog": {
+		background: "#ffffff"
+	},
+	"Ui.DialogTitle": {
+		fontSize: 20,
+		maxLine: 2,
+		interLine: 1
+	},
+	"Ui.DialogCloseButton": {
+		background: 'rgba(250,250,250,0)',
+		radius: 0,
+		borderWidth: 0
+	},
+	"Ui.ContextBarCloseButton": {
+		textWidth: 5,
+		borderWidth: 0,
+		background: "rgba(250,250,250,0)",
+		foreground: "#ffffff",
+		radius: 0
+	},
+	"Ui.Separator": {
+		color: "#999999"
+	},
+	"Ui.CheckBox": {
+		color: "#444444",
+		focusColor: new Ui.Color({ r: 0.13, g: 0.83, b: 1 }),
+		checkColor: new Ui.Color({ r: 0.03, g: 0.63, b: 0.9 })
+	},
+	"Ui.ScrollingArea": {
+		color: "#999999",
+		showScrollbar: false,
+		overScroll: true,
+		radius: 0
+	},
+	"Ui.Button": {
+		background: "#fefefe",
+		iconSize: 28,
+		textHeight: 28,
+		padding: 8,
+		spacing: 10,
+		focusBackground: new Ui.Color({ r: 0.13, g: 0.83, b: 1, a: 0.5 })
+	},
+	"Ui.TextBgGraphic": {
+		focusBackground: new Ui.Color({ r: 0.13, g: 0.83, b: 1 })
+	},
+	"Ui.ActionButton": {
+		iconSize: 28,
+		textHeight: 28,
+		background: new Ui.Color({ r: 1, g: 1, b: 1, a: 0 }),
+		backgroundBorder: new Ui.Color({ r: 1, g: 1, b: 1, a: 0 }),
+		foreground: "#ffffff",
+		radius: 0,
+		borderWidth: 0
+	},
+	"Ui.Slider": {
+		foreground: new Ui.Color({ r: 0.03, g: 0.63, b: 0.9 })
+	},
+	"Ui.Locator": {
+		color: "#eeeeee",
+		iconSize: 30,
+		spacing: 6
+	},
+	"Ui.MenuToolBarButton": {
+		color: new Ui.Color({ r: 0.8, g: 0.8, b: 0.8, a: 0.2 }),
+		iconSize: 28,
+		spacing: 0
+	},
+	"Ui.ContextBar": {
+		background: "#00b9f1",
+		"Ui.Element": {
+			color: "#ffffff"
+		}
+	},
+	"KJing.PosBar": {
+		radius: 0,
+		current: new Ui.Color({ r: 0.03, g: 0.63, b: 0.9 })
+	},
+	"KJing.OptionOpenButton": {
+		borderWidth: 0,
+		iconSize: 16,
+		radius: 0,
+		whiteSpace: 'pre-line',
+		background: 'rgba(250,250,250,0)'
+	},
+	"KJing.ItemView": {
+		orientation: 'vertical',
+		whiteSpace: 'pre-line',
+		textWidth: 100,
+		maxTextWidth: 100,
+		fontSize: 16,
+		interLine: 1,
+		textHeight: 32,
+		iconSize: 64,
+		maxLine: 2,
+		background: new Ui.Color({ r: 1, g: 1, b: 1, a: 0 }),
+		backgroundBorder: new Ui.Color({ r: 1, g: 1, b: 1, a: 0 }),
+		focusBackground: new Ui.Color({ r: 1, g: 1, b: 1, a: 0 }),
+		focusBackgroundBorder: new Ui.Color({r: 0, g: 0.72, b: 0.95 }),
+		selectCheckColor: new Ui.Color({r: 0, g: 0.72, b: 0.95 }),
+		radius: 0,
+		borderWidth: 2
+	},
+	"KJing.GroupUserItemView": {
+		roundMode: true
+	},
+	"KJing.GroupAddUserItemView": {
+		roundMode: true
+	},
+	"KJing.RightAddGroupItemView": {
+		roundMode: true
+	},
+	"KJing.RightAddUserItemView": {
+		roundMode: true
+	},
+	"KJing.RightItemView": {
+		roundMode: true
+	},
+	"KJing.MenuToolBar": {
+		background: "#6c19ab",
+		"Ui.Button": {
+			background: new Ui.Color({ r: 1, g: 1, b: 1, a: 0.2 }),
+			backgroundBorder: new Ui.Color({ r: 1, g: 1, b: 1, a: 0.3 }),
+			foreground: "#ffffff",
+			focusBackground: new Ui.Color({ r: 0.43, g: 1, b: 1, a: 0.6 }),
+			focusForeground: "#ffffff"
+		},
+		"Ui.TextBgGraphic": {
+			background: "#ffffff",
+			focusBackground: new Ui.Color({ r: 0.43, g: 1, b: 1, a: 0.6 })
+		},
+		"Ui.Entry": {
+			color: "#ffffff"
+		}
+	},
+	"KJing.NewItem": {
+		background: new Ui.Color({ r: 1, g: 1, b: 1, a: 0 }),
+		backgroundBorder: new Ui.Color({ r: 1, g: 1, b: 1, a: 0 }),
+		focusBackground: new Ui.Color({ r: 1, g: 1, b: 1, a: 0 }),
+		focusBackgroundBorder: new Ui.Color({r: 0, g: 0.72, b: 0.95 }),
+		iconSize: 48,
+		padding: 31,
+		radius: 0,
+		borderWidth: 2
+	},
+	"KJing.UserProfilButton": {
+		iconSize: 32
+	}
+}
 });

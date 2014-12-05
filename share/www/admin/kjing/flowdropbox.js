@@ -113,7 +113,7 @@ Ui.DropBox.extend('KJing.FlowDropBox', {
 			this.markerHide();
 	},
 
-	onBoxDrop: function(element, mimetype, data, x, y) {
+	onBoxDrop: function(element, data, effect, x, y) {
 //		console.log('onBoxDrop mimetype: '+mimetype+', data: '+data+' insertAt: '+this.findPosition({x: x, y: y }));
 		this.markerHide();
 		this.fireEvent('dropat', this, mimetype, data, this.findPosition({x: x, y: y }));

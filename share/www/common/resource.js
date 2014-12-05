@@ -4,6 +4,7 @@ Core.Object.extend('KJing.Resource', {
 	deleted: false,
 	id: undefined,
 	data: undefined,
+	revs: undefined,
 	request: undefined,
 	children: undefined,
 	shares: undefined,
@@ -18,6 +19,7 @@ Core.Object.extend('KJing.Resource', {
 		
 		this.children = [];
 		this.shares = [];
+		this.revs = {};
 		
 		if('data' in config) {
 			this.id = config.data.id;
@@ -27,7 +29,7 @@ Core.Object.extend('KJing.Resource', {
 		else if('id' in config) {
 			this.id = config.id;
 			delete(config.id);
-			this.data = { id: this.id };
+			this.data = { id: this.id, rev: -1 };
 			this.update();
 		}
 	},
@@ -42,6 +44,27 @@ Core.Object.extend('KJing.Resource', {
 
 	getId: function() {
 		return this.id;
+	},
+
+	getParentId: function() {
+		return this.data.parent;
+	},
+
+	getParentsIds: function() {
+		return this.data.parents;
+	},
+
+	getIsParentOf: function(child) {
+		var parents = child.getParentsIds();
+		for(var i = 0; i < parents.length; i++) {
+			if(this.id === parents[i])
+				return true;
+		}
+		return false;
+	},
+
+	getOwnerId: function() {
+		return this.data.owner;
 	},
 
 	getConnectionId: function() {
@@ -61,7 +84,11 @@ Core.Object.extend('KJing.Resource', {
 			url: '/cloud/resource/'+this.id,
 			content: JSON.stringify(diff)
 		});
+		this.connect(request, 'done', function(req) {
+			this.updateData(req.getResponseJSON());
+		});
 		request.send();
+		return request;
 	},
 
 	getData: function() {
@@ -80,9 +107,6 @@ Core.Object.extend('KJing.Resource', {
 		var request = new Core.HttpRequest({ method: 'POST',
 			url: '/cloud/resource/'+this.id+'/rights',
 			content: JSON.stringify(rights)
-		});
-		this.connect(request, 'done', function() {
-			this.update();
 		});
 		request.send();
 	},
@@ -105,6 +129,7 @@ Core.Object.extend('KJing.Resource', {
 		var url = '/cloud/resource/'+this.id+"?depth=1";
 		if(user !== undefined)
 			url += "&seenBy="+user.getId();
+		
 		this.request = new Core.HttpRequest({ url: url });
 		this.connect(this.request, 'done', this.onGetDataDone);
 		this.connect(this.request, 'error', this.onGetDataError);
@@ -112,10 +137,7 @@ Core.Object.extend('KJing.Resource', {
 	},
 
 	updateData: function(data) {
-//		console.log(this+'.updateData');
-//		console.log(data);
-
-		if((this.data === undefined) || (JSON.stringify(this.data) !== JSON.stringify(data))) {
+		if((this.data === undefined) || (JSON.stringify(data) !== JSON.stringify(this.data))) {
 			this.data = data;
 			// update children
 			if('children' in this.data) {
@@ -236,11 +258,9 @@ Core.Object.extend('KJing.Resource', {
 				this.socket = undefined;
 			}
 		}
-		else {
-			if(this.retryTask !== undefined) {
-				this.retryTask.abort();
-				this.retryTask = undefined;
-			}
+		if(this.retryTask !== undefined) {
+			this.retryTask.abort();
+			this.retryTask = undefined;
 		}
 	},
 
@@ -282,11 +302,24 @@ Core.Object.extend('KJing.Resource', {
 	
 	onSocketClose: function() {
 		this.socket = undefined;
+		if(this.connectionId !== undefined)
+			this.fireEvent('unmonitor', this);
 		this.connectionId = undefined;
 		this.connectionMessageCount = undefined;
-		this.fireEvent('unmonitor', this);
 		if(this.monitorCount > 0)
-			this.retryTask = new Core.DelayedTask({ delay: 5, scope: this, callback: this.monitor });
+			this.retryTask = new Core.DelayedTask({ delay: 5, scope: this, callback: function() {
+				this.retryTask = undefined;
+				if((this.monitorCount > 0) && (this.socket === undefined)) {
+					var url = '/cloud/resource/'+this.id;
+					var user = Ui.App.current.getUser();
+					if(user !== undefined)
+						url += '?seenBy='+user.getId();
+					this.socket = new Core.Socket({ service: url });
+					this.connect(this.socket, 'message', this.onMessageReceived);
+					this.connect(this.socket, 'error', this.onSocketError);
+					this.connect(this.socket, 'close', this.onSocketClose);
+				}
+			}});
 	}
 	
 }, {}, {
@@ -302,12 +335,10 @@ Core.Object.extend('KJing.Resource', {
 				return new KJing.Device({ id: id });
 			else if(id.indexOf('folder:') === 0)
 				return new KJing.Folder({ id: id });
-			else if(id.indexOf('share:') === 0)
-				return new KJing.Share({ id: id });
 			else if(id.indexOf('link:') === 0)
 				return new KJing.Link({ id: id });
 			else if(id.indexOf('file:') === 0)
-				return KJing.File.create(id);
+				return new KJing.File({ id: id });
 			else
 				return new KJing.Resource({ id: id });
 		}
@@ -327,12 +358,10 @@ Core.Object.extend('KJing.Resource', {
 					return new KJing.Device({ data: id });
 				else if(id.id.indexOf('folder:') === 0)
 					return new KJing.Folder({ data: id });
-				else if(id.id.indexOf('share:') === 0)
-					return new KJing.Share({ data: id });
 				else if(id.id.indexOf('link:') === 0)
 					return new KJing.Link({ data: id });
 				else if(id.id.indexOf('file:') === 0)
-					return KJing.File.create(id);
+					return new KJing.File({ data: id });
 				else
 					return new KJing.Resource({ data: id });
 			}

@@ -20,7 +20,7 @@ Ui.Image.extend('KJing.SquareImage', {
 	}
 });
 
-Ui.LBox.extend('KJing.ItemViewIcon', {
+Ui.DropBox.extend('KJing.ItemViewIcon', {
 	tagsBox: undefined,
 	tags: undefined,
 	isRound: false,
@@ -29,6 +29,7 @@ Ui.LBox.extend('KJing.ItemViewIcon', {
 	imageSrc: undefined,
 	squareSize: 48,
 	icon: undefined,
+	progressbar: undefined,
 
 	constructor: function() {
 	},
@@ -55,15 +56,31 @@ Ui.LBox.extend('KJing.ItemViewIcon', {
 			this.setImage(this.imageSrc);
 	},
 
+	setProgressBar: function(progressbar) {
+		if(this.progressbar !== undefined)
+			this.remove(this.progressbar);
+		this.progressbar = progressbar;
+		if(this.progressbar !== undefined)
+			this.append(this.progressbar);
+	},
+
 	setIcon: function(icon) {
 		this.iconName = icon;
-		this.icon = new Ui.Icon({ 
-			icon: this.iconName,
-			width: this.squareSize, height: this.squareSize
-		});
-		this.setContent(this.icon);
-		if(this.tagsBox !== undefined)
-			this.append(this.tagsBox);
+
+		if(Ui.Icon.hasInstance(this.icon)) {
+			this.icon.setIcon(this.iconName);
+		}
+		else {
+			this.icon = new Ui.Icon({ 
+				icon: this.iconName,
+				width: this.squareSize, height: this.squareSize
+			});
+			this.setContent(this.icon);
+			if(this.tagsBox !== undefined)
+				this.append(this.tagsBox);
+			if(this.progressbar !== undefined)
+				this.append(this.progressbar);
+		}
 	},
 
 	setIconImage: function(icon) {
@@ -75,6 +92,8 @@ Ui.LBox.extend('KJing.ItemViewIcon', {
 		this.setContent(this.icon);
 		if(this.tagsBox !== undefined)
 			this.append(this.tagsBox);
+		if(this.progressbar !== undefined)
+			this.append(this.progressbar);
 	},
 
 	setImage: function(image) {
@@ -92,6 +111,8 @@ Ui.LBox.extend('KJing.ItemViewIcon', {
 		}
 		if(this.tagsBox !== undefined)
 			this.append(this.tagsBox);
+		if(this.progressbar !== undefined)
+			this.append(this.progressbar);
 	},
 
 	setTags: function(tags) {
@@ -127,7 +148,6 @@ Ui.Button.extend('KJing.ItemView', {
 	view: undefined,
 	content: undefined,
 	name: undefined,
-	progressbar: undefined,
 	iconSrc: undefined,
 	iconName: undefined,
 	imageSrc: undefined,
@@ -154,12 +174,20 @@ Ui.Button.extend('KJing.ItemView', {
 		});
 	},
 
+	getItemIcon: function() {
+		return this.itemIcon;
+	},
+
 	getView: function() {
 		return this.view;
 	},
 	
-	addMimetype: function(mimetype) {
-//		this.content.addMimetype(mimetype);
+	addType: function(type, effect) {
+		this.itemIcon.addType(type, effect);
+	},
+
+	setProgressBar: function(progressbar) {
+		this.itemIcon.setProgressBar(progressbar);
 	},
 
 	setItemTags: function(tags) {

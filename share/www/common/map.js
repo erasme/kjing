@@ -3,7 +3,6 @@ KJing.Resource.extend('KJing.Map', {
 	devices: undefined,
 
 	constructor: function(config) {
-		console.log('KJing.Map new');
 		if(this.devices === undefined)
 			this.devices = [];
 		this.loadChildren();
@@ -47,8 +46,19 @@ KJing.Resource.extend('KJing.Map', {
 		return false;
 	},
 
+	getMapImage: function() {
+		if(this.getIsReady() && (this.getData().image !== undefined))
+			return KJing.File.create(this.getData().image);
+		else
+			return undefined;
+	},
+
 	getMapImageUrl: function() {
-		return '/cloud/map/'+this.getId()+'/image';
+		var file = this.getMapImage();
+		if((file !== undefined) && !file.getIsUploading())
+			return file.getDownloadUrl();
+		else
+			return undefined;
 	},
 
 	setMapImage: function(file) {

@@ -59,13 +59,23 @@ Ui.DropBox.extend('KJing.MapDevicesView', {
 		this.fixed = new Ui.Fixed();
 		this.setContent(this.fixed);
 
-		this.addMimetype('files');
-		this.addMimetype('application/x-file');
-		this.addMimetype(KJing.DeviceItemView);
+		this.addType('files', 'copy');
+		this.addType(KJing.DeviceItemView, 'link');
 		this.connect(this, 'dropfile', this.onMapDropFile);
 		this.connect(this, 'drop', this.onMapDrop);
 
-		this.image = new Ui.Image({ src: this.resource.getMapImageUrl() });
+		this.image = new Ui.Image();
+		var imageUrl = this.resource.getMapImageUrl();
+		if(imageUrl !== undefined)
+			this.image.setSrc(imageUrl);
+		if(!this.image.getIsReady())
+			this.image.hide();
+		this.connect(this.image, 'ready', function() {
+			this.image.show();
+		});
+		this.connect(this.image, 'error', function() {
+			this.image.hide();
+		});
 		this.fixed.append(this.image, 0, 0);
 
 		this.connect(this.image, 'ready', this.onReady);
@@ -90,6 +100,10 @@ Ui.DropBox.extend('KJing.MapDevicesView', {
 	updateSize: function() {
 		var nWidth = this.image.getNaturalWidth();
 		var nHeight = this.image.getNaturalHeight();
+		if(nWidth === undefined)
+			nWidth = 100;
+		if(nHeight === undefined)
+			nHeight = 100;
 
 		var lWidth = this.getLayoutWidth();
 		var lHeight = this.getLayoutHeight();
@@ -123,11 +137,13 @@ Ui.DropBox.extend('KJing.MapDevicesView', {
 			this.image.setWidth(iWidth);
 			this.image.setHeight(iHeight);
 		}
+		//console.log('updateSize '+nWidth+','+nHeight);
+
 		this.updateDevicesPositions();
 	},
 
 	updateDevicesPositions: function() {
-		console.log('updateDevicesPosition count: '+this.devices.length);
+		//console.log('updateDevicesPosition count: '+this.devices.length);
 		var w = this.mapWidth;
 		var h = this.mapHeight;
 		for(var i = 0; i < this.devices.length; i++) {
@@ -139,12 +155,12 @@ Ui.DropBox.extend('KJing.MapDevicesView', {
 		this.resource.setMapImage(file);
 	},
 
-	onMapDrop: function(dropbox, mimetype, data, x, y, effectAllowed) {
-		console.log(this+'.onDrop mimetype: '+mimetype+', pos: ('+x+','+y+'), data: '+data);
+	onMapDrop: function(dropbox, data, effect, x, y) {
+		//console.log(this+'.onDrop mimetype: '+mimetype+', pos: ('+x+','+y+'), data: '+data);
 		if(KJing.DeviceItemView.hasInstance(data)) {
 			var delta = data.getDragDelta();
-			console.log('dragDelta: '+delta.x+','+delta.y);
-			console.log('data.layout: '+data.getLayoutWidth()+'x'+data.getLayoutHeight());
+			//console.log('dragDelta: '+delta.x+','+delta.y);
+			//console.log('data.layout: '+data.getLayoutWidth()+'x'+data.getLayoutHeight());
 
 			x -= this.mapX;
 			y -= this.mapY;
@@ -158,8 +174,8 @@ Ui.DropBox.extend('KJing.MapDevicesView', {
 			y /= this.mapHeight;
 
 			// TODO: check for attach
-			console.log(device);
-			console.log(this+'.onDrop DeviceItemView isAttached: '+this.resource.isAttachedDevice(device));
+			//console.log(device);
+			//console.log(this+'.onDrop DeviceItemView isAttached: '+this.resource.isAttachedDevice(device));
 			if(!this.resource.isAttachedDevice(device)) {
 				this.resource.attachDevice(device, x, y);
 			}
@@ -174,8 +190,12 @@ Ui.DropBox.extend('KJing.MapDevicesView', {
 	},
 
 	onResourceChange: function() {
-		console.log(this+'.onResourceChange');
-		console.log(this.resource.getDevices());
+		//console.log(this+'.onResourceChange');
+
+		var imageUrl = this.resource.getMapImageUrl();
+		if((imageUrl !== undefined) && (imageUrl !== this.image.getSrc()))
+			this.image.setSrc(imageUrl);
+
 		// place devices on the map
 		var mapDevicesView = [];
 		var mapDevices = this.resource.getDevices();

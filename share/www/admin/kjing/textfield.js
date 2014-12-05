@@ -1,47 +1,25 @@
 
-Ui.VBox.extend('KJing.TextField', {
-	title: undefined,
-	field: undefined,
+KJing.Field.extend('KJing.TextField', {
 
 	constructor: function(config) {
-		this.addEvents('change');
-		
-		var title = new Ui.Text({ text: config.title });
-		delete(config.title);
-		this.append(title);
+		var field = new Ui.TextField();
+		this.connect(field, 'change', this.onFieldChange);
+		this.setField(field);
+	},
+	
+	getTextHolder: function() {
+		return this.getField().getTextHolder();
+	},
+	
+	setTextHolder: function(textHolder) {
+		this.getField().setTextHolder(textHolder);
+	},
 
-		this.field = new Ui.TextField({ marginLeft: 5 });
-		this.connect(this.field, 'change', this.onFieldChange);
-		this.append(this.field);
-
-		if(config.desc) {
-			this.append(new Ui.Text({ text: config.desc, color: '#aaaaaa' }));
-			delete(config.desc);
-		}
-	},
-	
-	getTitle: function() {
-		return this.title.getText();
-	},
-	
-	setTitle: function(title) {
-		this.title.setText(title);
-	},
-	
-	getValue: function() {
-		return this.field.getValue();
-	},
-	
-	setValue: function(value) {
-		this.field.setValue(value);
-	},
-	
 	setPasswordMode: function(passwordMode) {
-		this.field.setPasswordMode(passwordMode);
+		this.getField().setPasswordMode(passwordMode);
 	},
 	
 	onFieldChange: function(field, value) {
 		this.fireEvent('change', this, value);
 	}
 });
-

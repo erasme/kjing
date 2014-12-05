@@ -6,5 +6,5 @@ KJing.WizardItem.extend('KJing.Facebook.Wizard', {
 	}
 });
 
-KJing.LoginWizard.register('facebook', 'Facebook', 'facebook', [ KJing.Facebook.Wizard ]);
+//KJing.LoginWizard.register('facebook', 'Facebook', 'facebook', [ KJing.Facebook.Wizard ]);
 

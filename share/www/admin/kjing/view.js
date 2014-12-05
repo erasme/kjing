@@ -25,12 +25,10 @@ Ui.LBox.extend('KJing.View', {
 			return new KJing.ResourceView({ view: view, resource: resource });
 		else if(KJing.Device.hasInstance(resource))
 			return new KJing.DeviceView({ view: view, resource: resource });
-		else if(KJing.Share.hasInstance(resource))
-			return new KJing.StorageView({ view: view, resource: new KJing.File({ share: resource }) });
 		else if(KJing.Link.hasInstance(resource))
 			return new KJing.LinkView({ view: view, resource: resource });
 		else if(KJing.File.hasInstance(resource))
-			return new KJing.StorageView({ view: view, resource: resource });
+			return new KJing.FileView({ view: view, resource: resource });
 		else
 			return undefined;
 	}

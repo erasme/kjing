@@ -6,5 +6,5 @@ KJing.WizardItem.extend('KJing.Google.Wizard', {
 	}
 });
 
-KJing.LoginWizard.register('google', 'Google', 'google', [ KJing.Google.Wizard ]);
+//KJing.LoginWizard.register('google', 'Google', 'google', [ KJing.Google.Wizard ]);
 

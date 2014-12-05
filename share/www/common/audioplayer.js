@@ -364,7 +364,7 @@ Ui.LBox.extend('KJing.MediaPlayBar', {
 	updateLabels: function() {
 		// duration
 		var dur = this.media.getDuration();
-		if(dur == undefined)
+		if(dur === undefined)
 			this.totalLabel.setText('');
 		else {
 			var durSec = Math.round(dur%60);
@@ -382,7 +382,7 @@ Ui.LBox.extend('KJing.MediaPlayBar', {
 		}
 		// position
 		var cur = this.media.getCurrentTime();
-		if(cur == undefined)
+		if(cur === undefined)
 			this.posLabel.setText('');
 		else {
 			var curSec = Math.round(cur%60);
@@ -401,7 +401,7 @@ Ui.LBox.extend('KJing.MediaPlayBar', {
 	},
 
 	updatePos: function() {
-		if(this.media.getDuration() != undefined) {
+		if(this.media.getDuration() !== undefined) {
 			var currentTime = this.media.getCurrentTime();
 			if(currentTime == undefined)
 				currentTime = 0;
@@ -479,11 +479,12 @@ Ui.LBox.extend('KJing.AudioPlayer', {
 	label: undefined,
 
 	constructor: function(config) {
-		this.addEvents('end');
+		this.addEvents('statechange', 'end', 'timeupdate');
 	
 		this.media = new Ui.Audio();
 		this.append(this.media);
 		this.connect(this.media, 'statechange', this.onMediaStateChange);
+		this.connect(this.media, 'timeupdate', this.onMediaTimeUpdate);
 		this.connect(this.media, 'ended', this.onMediaEnded);
 
 		var deco = new Ui.VBox({ verticalAlign: 'center', horizontalAlign: 'center', spacing: 10 });
@@ -501,7 +502,7 @@ Ui.LBox.extend('KJing.AudioPlayer', {
 		pressable.setContent(this.playButton);
 		this.append(pressable);
 
-		this.mediaBar = new KJing.MediaPlayBar({ media: this.media, verticalAlign: 'bottom'/*, marginBottom: 20, marginLeft: 20, marginRight: 20*/ });
+		this.mediaBar = new KJing.MediaPlayBar({ media: this.media, verticalAlign: 'bottom' });
 		this.append(this.mediaBar);
 	},
 
@@ -521,6 +522,30 @@ Ui.LBox.extend('KJing.AudioPlayer', {
 		this.media.play();
 	},
 
+	getState: function() {
+		return this.media.getState();
+	},
+
+	getDuration: function() {
+		return this.media.getDuration();
+	},
+
+	getCurrentTime: function() {
+		return this.media.getCurrentTime();
+	},
+
+	setCurrentTime: function(time) {
+		this.media.setCurrentTime(time);
+	},
+
+	getVolume: function() {
+		this.media.getVolume();
+	},
+
+	setVolume: function(volume) {
+		this.media.setVolume(volume);
+	},
+
 	onMediaEnded: function(media) {
 		this.fireEvent('end', this);
 	},
@@ -532,6 +557,11 @@ Ui.LBox.extend('KJing.AudioPlayer', {
 			this.playButton.setMode('play');
 		else if(state == 'buffering')
 			this.playButton.setMode('load');
+		this.fireEvent('statechange', this, state);
+	},
+
+	onMediaTimeUpdate: function(media) {
+		this.fireEvent('timeupdate', this, media.getCurrentTime(), media.getDuration());
 	},
 
 	onPlayButtonPress: function() {

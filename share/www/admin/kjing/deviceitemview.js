@@ -61,7 +61,7 @@ Ui.CanvasElement.extend('KJing.DeviceItemGraphic', {
 		ctx.fillStyle = 'black';
 		ctx.fillRect(x, y, rw, rh);
 
-		console.log('x: '+y+', y: '+y+', rw: '+rw+', rh: '+rh+', s: '+s+', ratio: '+this.ratio);
+		//console.log('x: '+y+', y: '+y+', rw: '+rw+', rh: '+rh+', s: '+s+', ratio: '+this.ratio);
 		
 		if((this.imageSrc !== undefined) && this.image.getIsReady()) {
 			var nw = this.image.getNaturalWidth();
@@ -114,6 +114,9 @@ Ui.Selectionable.extend('KJing.DeviceItemView', {
 		this.resource = config.resource;
 		delete(config.resource);
 
+		if(!KJing.Device.hasInstance(this.resource))
+			throw('STOP HERE');
+
 		this.setDraggableData(this);
 
 		this.bg = new Ui.Rectangle({ fill: '#e0eff8' });
@@ -129,7 +132,8 @@ Ui.Selectionable.extend('KJing.DeviceItemView', {
 		this.connect(this.content, 'drop', this.onDrop);
 		this.connect(this.content, 'dropfile', this.onDropFile);
 		vbox.append(this.content);
-		this.content.addMimetype(KJing.FileItemView);
+		this.content.addType(KJing.FileItemView, 'move');
+		this.content.addType(KJing.FolderItemView, 'move');
 
 		this.label = new Ui.CompactLabel({ width: 100, maxLine: 3, textAlign: 'center' });
 		vbox.append(this.label);
@@ -173,7 +177,7 @@ Ui.Selectionable.extend('KJing.DeviceItemView', {
 		dialog.open();
 	},
 	
-	onDrop: function(dropbox, mimetype, data, x, y, effectAllowed) {
+	onDrop: function(dropbox, data, effect, x, y) {
 		if(KJing.ItemView.hasInstance(data)) {
 			this.getResource().setPath(data.getResource().getId());
 		}
@@ -187,14 +191,35 @@ Ui.Selectionable.extend('KJing.DeviceItemView', {
 
 		this.label.setText(this.resource.getName());
 		this.graphic.setOnline(this.resource.getIsConnected());
-		if(this.resource.getData().path !== null) {
-			var path = this.resource.getData().path;
-			var pos = path.lastIndexOf(':');
-			var share = path.substring(5,pos);
-			var file = path.substring(pos+1);
-			this.graphic.setImageSrc('/cloud/preview/'+share+'/'+file);
+
+		var playList = this.resource.getDevicePlayList();
+		if((playList !== undefined) && (playList.length > 0)) { 
+			var pos = this.resource.getDevicePosition();
+			var fileControl = playList[pos];
+			if(fileControl.getIsReady())
+				this.onFileControlReady(fileControl);
+			else
+				this.connect(fileControl, 'ready', this.onFileControlReady);
+		}
+		else if(this.resource.getData().path !== null) {
+			var file = KJing.Resource.create(this.resource.getData().path);
+			if(file.getIsReady())
+				this.onFileReady(file);
+			else
+				this.connect(file, 'ready', this.onFileReady);
 		}
 		this.graphic.setRatio(this.resource.getDeviceRatio());
+	},
+
+	onFileControlReady: function(fileControl) {
+		this.onFileReady(fileControl.getFile());
+	},
+
+	onFileReady: function(file) {
+		if(file.data.thumbnailLow !== undefined) {
+			var thumbnailLow = KJing.File.create(file.data.thumbnailLow);
+			this.graphic.setImageSrc(thumbnailLow.getDownloadUrl());
+		}
 	}
 	
 }, {

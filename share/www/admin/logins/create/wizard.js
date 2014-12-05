@@ -74,12 +74,12 @@ KJing.WizardItem.extend('KJing.Create.Wizard', {
 		this.connect(this.lastnameField, 'change', this.onChange);
 		flow.append(this.lastnameField);
 		
-		this.loginField = new KJing.TextField({ title: 'Identifiant', width: 200 });
+		this.loginField = new KJing.TextField({ title: 'Identifiant', width: 400 });
 		this.connect(this.loginField, 'change', this.onChange);
 		flow.append(this.loginField);	
 		
 		this.passwordField = new KJing.TextField({
-			title: 'Mot de passe', width: 200, passwordMode: true,
+			title: 'Mot de passe', width: 400, passwordMode: true,
 			desc: '8 caractères minimum avec chiffre et lettre'
 		});
 		this.connect(this.passwordField, 'change', this.onChange);
@@ -90,15 +90,15 @@ KJing.WizardItem.extend('KJing.Create.Wizard', {
 		flow.append(this.errorMessage);
 
 		var data = this.getData();
-		if(data.login != undefined)
+		if(data.login !== undefined)
 			this.loginField.setValue(data.login);
-		if(data.password != undefined)
+		if(data.password !== undefined)
 			this.passwordField.setValue(data.password);
 		this.onChange();
 	},
 
 	showError: function(message) {
-		if(this.errorTimeout != undefined)
+		if(this.errorTimeout !== undefined)
 			this.errorTimeout.abort();
 		this.errorMessage.setText(message);
 		this.errorMessage.show();

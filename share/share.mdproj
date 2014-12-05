@@ -34,7 +34,6 @@
     </CustomCommands>
   </PropertyGroup>
   <ItemGroup>
-    <Folder Include="mimeicon\" />
     <Folder Include="www\" />
     <Folder Include="www\client\" />
     <Folder Include="www\admin\" />
@@ -44,18 +43,6 @@
     <Folder Include="www\common\" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="mimeicon\application%252fmsword.png" />
-    <None Include="mimeicon\application%252fpdf.png" />
-    <None Include="mimeicon\application%252fvnd.openxmlformats-officedocument.wordprocessingml.document.png" />
-    <None Include="mimeicon\application%252fzip.png" />
-    <None Include="mimeicon\applications-internet.svg" />
-    <None Include="mimeicon\audio.png" />
-    <None Include="mimeicon\default.png" />
-    <None Include="mimeicon\image%252fjpeg.png" />
-    <None Include="mimeicon\image%252fpng.png" />
-    <None Include="mimeicon\image.png" />
-    <None Include="mimeicon\text.png" />
-    <None Include="mimeicon\video.png" />
     <None Include="www\era\era-debug.js" />
     <None Include="www\era\era.js" />
     <None Include="www\era\anim\animationmanager.js" />
@@ -175,7 +162,6 @@
     <None Include="www\era\ui\video.js" />
     <None Include="www\admin\index-debug.html" />
     <None Include="www\client\index-debug.html" />
-    <None Include="www\admin\kjing\filepreview.js" />
     <None Include="www\admin\kjing-debug.js" />
     <None Include="www\admin\main.js" />
     <None Include="www\admin\kjing\flowdropbox.js" />
@@ -203,14 +189,8 @@
     <None Include="www\admin\kjing\resourcepropertiesdialog.js" />
     <None Include="www\admin\kjing\newfiledialog.js" />
     <None Include="www\admin\kjing\view.js" />
-    <None Include="www\admin\kjing\device.js" />
     <None Include="www\admin\kjing\newitem.js" />
     <None Include="www\era\ui\menutoolbar.js" />
-    <None Include="mimeicon\application%252fvnd.ms%252dexcel.png" />
-    <None Include="mimeicon\application%252fx%252ddirectory.png" />
-    <None Include="mimeicon\application%252fx-kjing-group.png" />
-    <None Include="mimeicon\application%252fx-kjing-group.svg" />
-    <None Include="mimeicon\text%252furi%252dlist.png" />
     <None Include="www\admin\kjing.js" />
     <None Include="www\admin\img\default.png" />
     <None Include="www\client\kjing.js" />
@@ -229,8 +209,6 @@
     <None Include="www\admin\kjing\rounditemgraphic.js" />
     <None Include="www\admin\kjing\ratiobox.js" />
     <None Include="www\admin\kjing\deviceview.js" />
-    <None Include="mimeicon\application%252fx%252ddirectory.svg" />
-    <None Include="mimeicon\default.svg" />
     <None Include="www\admin\kjing\mapdevicesview.js" />
     <None Include="www\admin\kjing\deviceitemview.js" />
     <None Include="www\era\ui\button.js.sav" />
@@ -256,9 +234,29 @@
     <None Include="www\common\group.js" />
     <None Include="www\common\folder.js" />
     <None Include="www\common\map.js" />
-    <None Include="www\common\share.js" />
     <None Include="www\common\user.js" />
     <None Include="www\common\link.js" />
-    <None Include="www\admin\kjing\filecontrol.js" />
+    <None Include="www\common\filecontrol.js" />
+    <None Include="www\admin\kjing\resourceitemview.js" />
+    <None Include="www\admin\kjing\fileitemview.js" />
+    <None Include="www\admin\kjing\resourceview.js" />
+    <None Include="www\admin\kjing\groupview.js" />
+    <None Include="www\admin\kjing\mapview.js" />
+    <None Include="www\admin\kjing\field.js" />
+    <None Include="www\admin\kjing\filecontrolviewer.js" />
+    <None Include="www\common\pagecontrol.js" />
+    <None Include="www\era\ui\pointerevent.js" />
+    <None Include="www\era\ui\event.js" />
+    <None Include="www\admin\kjing\resourcenewitem.js" />
+    <None Include="www\admin\kjing\groupitemview.js" />
+    <None Include="www\admin\kjing\groupuseritemview.js" />
+    <None Include="www\admin\kjing\folderitemview.js" />
+    <None Include="www\admin\kjing\mapitemview.js" />
+    <None Include="www\admin\kjing\useritemview.js" />
+    <None Include="www\admin\kjing\linkitemview.js" />
+    <None Include="www\admin\kjing\fileview.js" />
+    <None Include="www\era\ui\dropatbox.js" />
+    <None Include="www\admin\kjing\texteditor.js" />
+    <None Include="www\era\ui\scalebox.js" />
   </ItemGroup>
 </Project>
