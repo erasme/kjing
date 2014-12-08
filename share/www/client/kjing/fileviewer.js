@@ -48,6 +48,8 @@ Ui.LBox.extend('KJing.FileViewer', {
 			this.contentViewer = new KJing.SiteFileViewer({ fileControl: this.fileControl });
 		else if(file.getMimetype().indexOf('application/pdf') === 0)
 			this.contentViewer = new KJing.PdfFileViewer({ fileControl: this.fileControl });
+		else if('pdf' in file.getData())
+			this.contentViewer = new KJing.PdfFileViewer({ fileControl: this.fileControl, file: KJing.File.create(file.getData().pdf) });
 		else if(file.getMimetype().indexOf('text/plain') === 0)
 			this.contentViewer = new KJing.TextFileViewer({ fileControl: this.fileControl });
 
@@ -516,7 +518,13 @@ Ui.TransitionBox.extend('KJing.PdfFileViewer', {
 
 		this.fileControl = config.fileControl;
 		delete(config.fileControl);
-		this.file = this.fileControl.getFile();
+
+		if('file' in config) {
+			this.file = config.file;
+			delete(config.file);
+		}
+		else
+			this.file = this.fileControl.getFile();
 
 		// generate page control
 		this.pagesControl = [];

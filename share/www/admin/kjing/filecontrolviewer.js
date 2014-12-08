@@ -23,6 +23,8 @@ Ui.LBox.extend('KJing.FileControlViewer', {
 			this.contentViewer = new KJing.SiteFileControlViewer({ fileControl: this.fileControl });
 		else if(file.getMimetype() === 'application/pdf')
 			this.contentViewer = new KJing.PdfFileControlViewer({ fileControl: this.fileControl });
+		else if('pdf' in file.getData())
+			this.contentViewer = new KJing.PdfFileControlViewer({ fileControl: this.fileControl });
 		else if(file.getMimetype().indexOf('text/plain') === 0)
 			this.contentViewer = new KJing.TextFileControlViewer({ fileControl: this.fileControl });
 

@@ -56,7 +56,7 @@ KJing.ResourceItemView.extend('KJing.FileItemView', {
 	},
 
 	onFileReady: function() {
-		console.log(this+'.onFileReady '+this.resource.getData().uploader);
+//		console.log(this+'.onFileReady '+this.resource.getData().uploader);
 
 		if(this.resource.getData().uploader !== undefined) {
 			this.setItemIcon('uploadfile');

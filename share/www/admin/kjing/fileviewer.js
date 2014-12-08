@@ -61,12 +61,13 @@ Ui.HBox.extend('Storage.FileViewer', {
 	},
 
 	buildContent: function() {	
+
 		if(this.uploader !== undefined)
-			this.contentBox.setContent(new Storage.UploaderViewer({ storage: this.storage, uploader: this.uploader, fileViewer: this }));
+			this.contentBox.setContent(new Storage.UploaderViewer({ uploader: this.uploader, fileViewer: this }));
 		else {
 //			console.log('buildContent file: '+this.file.getId()+', mime: '+this.file.getData().mimetype);
 //			console.log(this.file.getData());
-		
+
 			this.tools = [];
 			this.supportProperties = true;
 
@@ -86,23 +87,8 @@ Ui.HBox.extend('Storage.FileViewer', {
 				this.contentViewer = new Storage.TextFileViewer({ file: this.file, fileViewer: this });
 			else if(this.file.getMimetype().indexOf('application/pdf') === 0)
 				this.contentViewer = new Storage.PdfFileViewer({ file: this.file, fileViewer: this });
-
-//			else if((this.file.getMimetype().indexOf('application/pdf') == 0) ||
-//					(this.file.getMimetype().indexOf('application/vnd.oasis.opendocument.text') == 0) ||
-//			        (this.file.getMimetype().indexOf('application/vnd.oasis.opendocument.presentation') == 0) ||
-//					(this.file.getMimetype().indexOf('application/vnd.oasis.opendocument.graphics') == 0) ||
-//					(this.file.getMimetype().indexOf('application/vnd.sun.xml.writer') == 0) ||
-//					// Microsoft PowerPoint
-//					(this.file.getMimetype().indexOf('application/vnd.ms-powerpoint') == 0) ||
-//					// Microsoft Word
-//					(this.file.getMimetype().indexOf('application/msword') == 0) ||
-//					// Microsoft Word 2007
-//			        (this.file.getMimetype().indexOf('application/vnd.openxmlformats-officedocument.wordprocessingml.document') == 0) ||
-//			        // RichText
-//			        (this.file.getMimetype().indexOf('text/richtext') == 0))
-//				this.contentViewer = new Storage.PdfFileViewer({ file: this.file, fileViewer: this });
-//			else if((this.file.getMimetype().indexOf('application/x-directory') == 0) && (this.file.size < 50000))
-//				this.contentViewer = new Storage.DirectoryFileViewer({ file: this.file, fileViewer: this });
+			else if('pdf' in this.file.getData())
+				this.contentViewer = new Storage.PdfFileViewer({ file: KJing.File.create(this.file.getData().pdf), fileViewer: this });
 			else
 				this.contentViewer = new Storage.GenericFileViewer({ file: this.file, fileViewer: this });
 
@@ -196,15 +182,12 @@ Ui.HBox.extend('Storage.FileViewer', {
 });
 
 Ui.LBox.extend('Storage.UploaderViewer', {
-	storage: undefined,
 	uploader: undefined,
 	progressbar: undefined,
 	label: undefined,
 	fileViewer: undefined,
 
 	constructor: function(config) {
-		this.storage = config.storage;
-		delete(config.storage);
 		this.uploader = config.uploader;
 		delete(config.uploader);
 		this.fileViewer = config.fileViewer;
