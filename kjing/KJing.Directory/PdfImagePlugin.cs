@@ -75,7 +75,7 @@ namespace KJing.Directory
 		{
 		}
 
-		public void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceRights> parents)
+		public void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceContext> parents)
 		{
 			// contentRev == 0 => no file content
 			if(value.ContainsKey("contentRev") && ((long)value["contentRev"] == 0))
@@ -96,6 +96,8 @@ namespace KJing.Directory
 
 									// build all pages in an atomic manner
 
+									Dictionary<string,ResourceChange> changes = new Dictionary<string, ResourceChange>();
+
 									lock(fileService.Directory.DbCon) {
 
 										using(IDbTransaction transaction2 = fileService.Directory.DbCon.BeginTransaction()) {
@@ -107,7 +109,7 @@ namespace KJing.Directory
 											jsonFile["name"] = "pdfPages";
 											//jsonFile = fileService.Directory.CreateResource(jsonFile);
 											//string pagesId = jsonFile["id"];
-											string pagesId = fileService.Directory.CreateResource(fileService.Directory.DbCon, transaction2, jsonFile);
+											string pagesId = fileService.Directory.CreateResource(fileService.Directory.DbCon, transaction2, jsonFile, changes);
 
 											for(int i = 0; i < count; i++) {
 												JsonValue jsonPage = new JsonObject();
@@ -117,7 +119,7 @@ namespace KJing.Directory
 												jsonPage["cache"] = true;
 												jsonPage["mimetype"] = "image/jpeg";
 												jsonPage["name"] = i.ToString();
-												fileService.CreateFile(fileService.Directory.DbCon, transaction2, jsonPage, Path.Combine(destDir, i.ToString()));
+												fileService.CreateFile(fileService.Directory.DbCon, transaction2, jsonPage, Path.Combine(destDir, i.ToString()), changes);
 												//fileService.CreateFile(jsonPage, Path.Combine(destDir, i.ToString()));
 											}
 											transaction2.Commit();
