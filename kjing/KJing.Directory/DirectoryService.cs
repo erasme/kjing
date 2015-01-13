@@ -189,9 +189,9 @@ namespace KJing.Directory
 			return resourceService.CreateResource(data);
 		}
 
-		public string CreateResource(IDbConnection dbcon, IDbTransaction transaction, JsonValue data)
+		public JsonValue CreateResource(IDbConnection dbcon, IDbTransaction transaction, JsonValue data, Dictionary<string,ResourceChange> changes)
 		{
-			return resourceService.CreateResource(dbcon, transaction, data);
+			return resourceService.CreateResource(dbcon, transaction, data, changes);
 		}
 
 		public JsonValue GetResource(string id, string filterBy, int depth)
@@ -209,7 +209,7 @@ namespace KJing.Directory
 			return GetChildResourceByName(dbcon, transaction, parent, name);
 		}
 
-		public JsonValue GetChildResourceByName(IDbConnection dbcon, IDbTransaction transaction, string parent, string name, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceRights> parents, bool cache)
+		public JsonValue GetChildResourceByName(IDbConnection dbcon, IDbTransaction transaction, string parent, string name, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceContext> parents, bool cache)
 		{
 			return resourceService.GetChildResourceByName(dbcon, transaction, parent, name, filterBy, depth, groups, heritedRights, parents, cache);
 		}
@@ -219,9 +219,9 @@ namespace KJing.Directory
 			return resourceService.ChangeResource(id, diff);
 		}
 
-		public void ChangeResource(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff)
+		public JsonValue ChangeResource(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue diff, Dictionary<string,ResourceChange> changes)
 		{
-			resourceService.ChangeResource(dbcon, transaction, id, data, diff);
+			return resourceService.ChangeResource(dbcon, transaction, id, diff, changes);
 		}
 
 		public void DeleteResource(string id)
@@ -229,9 +229,9 @@ namespace KJing.Directory
 			resourceService.DeleteResource(id);
 		}
 
-		public void DeleteResource(IDbConnection dbcon, IDbTransaction transaction, string id)
+		public void DeleteResource(IDbConnection dbcon, IDbTransaction transaction, string id, Dictionary<string,ResourceChange> changes)
 		{
-			resourceService.DeleteResource(dbcon, transaction, id);
+			resourceService.DeleteResource(dbcon, transaction, id, changes);
 		}
 
 		public Task<FileDefinition> GetFilePostAsync(HttpContext context)

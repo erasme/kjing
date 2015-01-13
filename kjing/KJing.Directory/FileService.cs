@@ -105,6 +105,7 @@ namespace KJing.Directory
 			bool uniqueName = data.ContainsKey("uniqueName") && (bool)data["uniqueName"];
 
 			JsonValue json = null;
+			Dictionary<string,ResourceChange> changes = new Dictionary<string, ResourceChange>();
 
 			// handle plugins
 			if(mimePlugins.ContainsKey("*/*")) {
@@ -120,20 +121,20 @@ namespace KJing.Directory
 				using(IDbTransaction transaction = Directory.DbCon.BeginTransaction()) {
 					if(uniqueName)
 						removeResource = GetChildResourceByName(Directory.DbCon, transaction, parent, name, null, 0, null, new Rights(), null, cache);
-					string id = CreateFile(Directory.DbCon, transaction, data, contentFilePath);
-					json = Directory.GetResource(Directory.DbCon, transaction, id, null, 0);
+					json = CreateFile(Directory.DbCon, transaction, data, contentFilePath, changes);
 					if(removeResource != null)
-						DeleteResource(Directory.DbCon, transaction, removeResource["id"]);
+						DeleteResource(Directory.DbCon, transaction, removeResource["id"], changes);
 					transaction.Commit();
 				}
 			}
-			Directory.NotifyChange(null, json);
-			if(removeResource != null)
-				Directory.NotifyChange(removeResource, null);
+			// notify the changes
+			foreach(string resourceId in changes.Keys) {
+				Directory.NotifyChange(changes[resourceId].Before, changes[resourceId].After);
+			}
 			return json;
 		}
 
-		public string CreateFile(IDbConnection dbcon, IDbTransaction transaction, JsonValue data, string contentFilePath)
+		public JsonValue CreateFile(IDbConnection dbcon, IDbTransaction transaction, JsonValue data, string contentFilePath, Dictionary<string,ResourceChange> changes)
 		{
 			long size = 0;
 			if(contentFilePath != null) {
@@ -143,13 +144,16 @@ namespace KJing.Directory
 			else
 				data["contentRev"] = 0;
 			data["size"] = size;
+			if(!data.ContainsKey("cache") || !(bool)data["cache"])
+				data["quotaBytesUsed"] = size;
 			data["uploader"] = null;
-			string id = Directory.CreateResource(dbcon, transaction, data);
+			JsonValue res = Directory.CreateResource(dbcon, transaction, data, changes);
+			string id = res["id"];
 			// store the file content
 			if(contentFilePath != null)
 				storage.Add(TypeFreeId(id), contentFilePath);
 
-			return id;
+			return res;
 		}
 
 		public JsonValue CreateFile(JsonValue data, UploaderService.Uploader uploader)
@@ -171,20 +175,23 @@ namespace KJing.Directory
 				cache = data["cache"];
 			bool uniqueName = data.ContainsKey("uniqueName") && (bool)data["uniqueName"];
 
+			Dictionary<string,ResourceChange> changes = new Dictionary<string, ResourceChange>();
+
 			lock(Directory.DbCon) {
 				using(IDbTransaction transaction = Directory.DbCon.BeginTransaction()) {
 					if(uniqueName)
 						removeResource = GetChildResourceByName(Directory.DbCon, transaction, parent, name, cache);
-					string id = Directory.CreateResource(Directory.DbCon, transaction, data);
-					json = Directory.GetResource(Directory.DbCon, transaction, id, null, 0);
+					json = Directory.CreateResource(Directory.DbCon, transaction, data, changes);
 					if(removeResource != null)
-						DeleteResource(Directory.DbCon, transaction, removeResource["id"]);
+						DeleteResource(Directory.DbCon, transaction, removeResource["id"], changes);
 					transaction.Commit();
 				}
 			}
-			Directory.NotifyChange(null, json);
-			if(removeResource != null)
-				Directory.NotifyChange(removeResource, null);
+			// notify the changes
+			foreach(string resourceId in changes.Keys) {
+				Directory.NotifyChange(changes[resourceId].Before, changes[resourceId].After);
+			}
+
 			return json;
 		}
 
@@ -278,14 +285,14 @@ namespace KJing.Directory
 							processContent(data, tmpFile);
 						json = ChangeFile(fileId, new JsonObject(), tmpFile);
 					}
-					catch(Exception e) {
+					catch(Exception) {
 						try {
 							Directory.DeleteResource(fileId);
 						}
 						finally {
 							File.Delete(tmpFile);
 						}
-						throw new WebException(500, 0, "File upload fails", e);
+						throw;
 					}
 				}
 			}
@@ -346,26 +353,29 @@ namespace KJing.Directory
 					foreach(IFilePlugin plugin in mimePlugins[data["mimetype"]])
 						plugin.ProcessContent(diff, contentFilePath);
 				}
-
 			}
 			diff["size"] = size;
 
 			JsonValue jsonOld;
 			JsonValue jsonNew;
+			Dictionary<string,ResourceChange> changes = new Dictionary<string, ResourceChange>();
 
 			lock(Directory.DbCon) {
 				using(IDbTransaction transaction = Directory.DbCon.BeginTransaction()) {
 					jsonOld = Directory.GetResource(Directory.DbCon, transaction, id, null, 0);
-					ChangeFile(Directory.DbCon, transaction, id, jsonOld, diff, contentFilePath);
-					jsonNew = Directory.GetResource(Directory.DbCon, transaction, id, null, 0);
+					jsonNew = ChangeFile(Directory.DbCon, transaction, id, jsonOld, diff, changes, contentFilePath);
 					transaction.Commit();
 				}
 			}
-			Directory.NotifyChange(jsonOld, jsonNew);
+
+			foreach(string resourceId in changes.Keys) {
+				Directory.NotifyChange(changes[resourceId].Before, changes[resourceId].After);
+			}
+
 			return jsonNew;
 		}
 
-		public void ChangeFile(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff, string contentFilePath)
+		public JsonValue ChangeFile(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff, Dictionary<string,ResourceChange> changes, string contentFilePath)
 		{
 			// if the file content is changed, update the content revision
 			if(contentFilePath != null) {
@@ -373,33 +383,48 @@ namespace KJing.Directory
 				if(data.ContainsKey("contentRev"))
 					contentRev = (long)data["contentRev"];
 				diff["contentRev"] = contentRev + 1;
+
+				if(!data.ContainsKey("cache") || !(bool)data["cache"])
+					diff["quotaBytesUsed"] = (long)diff["size"];
+				else
+					diff["quotaBytesUsed"] = 0;
 			}
-			Directory.ChangeResource(dbcon, transaction, id, data, diff);
 			// store the file content
 			if(contentFilePath != null)
 				storage.Replace(TypeFreeId(id), contentFilePath);
+			JsonValue res;
+			try {
+				res = Directory.ChangeResource(dbcon, transaction, id, diff, changes);
+			}
+			catch(Exception) {
+				if(contentFilePath != null)
+					storage.Remove(TypeFreeId(id));
+				throw;
+			}
+			return res;
 		}
 
 		public JsonValue ChangeFile(string id, JsonValue diff, UploaderService.Uploader uploader)
 		{
 			diff["uploader"] = uploader.Id;
-
-			JsonValue jsonOld;
-			JsonValue jsonNew;
+			JsonValue res;
+			Dictionary<string,ResourceChange> changes = new Dictionary<string, ResourceChange>();
 
 			lock(Directory.DbCon) {
 				using(IDbTransaction transaction = Directory.DbCon.BeginTransaction()) {
-					jsonOld = Directory.GetResource(Directory.DbCon, transaction, id, null, 0);
-					Directory.ChangeResource(Directory.DbCon, transaction, id, jsonOld, diff);
-					jsonNew = Directory.GetResource(Directory.DbCon, transaction, id, null, 0);
+					res = Directory.ChangeResource(Directory.DbCon, transaction, id, diff, changes);
 					transaction.Commit();
 				}
 			}
-			Directory.NotifyChange(jsonOld, jsonNew);
-			return jsonNew;
+
+			foreach(string resourceId in changes.Keys) {
+				Directory.NotifyChange(changes[resourceId].Before, changes[resourceId].After);
+			}
+
+			return res;
 		}
 
-		public override void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceRights> parents)
+		public override void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceContext> parents)
 		{
 			// select from the file table
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {

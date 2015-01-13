@@ -93,18 +93,17 @@ namespace KJing.Directory
 				string sql = "CREATE TABLE user (id VARCHAR PRIMARY KEY,"+
 					"firstname VARCHAR DEFAULT NULL, lastname VARCHAR DEFAULT NULL,"+
 					"email VARCHAR DEFAULT NULL, description VARCHAR DEFAULT NULL,"+
-					"quota INTEGER DEFAULT 0, used INTEGER DEFAULT 0,"+
 					"admin INTEGER(1) DEFAULT 0, "+
 					"login VARCHAR DEFAULT NULL, password VARCHAR DEFAULT NULL, "+
 					"googleid VARCHAR DEFAULT NULL,"+
 					"facebookid VARCHAR DEFAULT NULL,"+
-					"data VARCHAR DEFAULT NULL)";
+					"data VARCHAR DEFAULT NULL, quotaBytesMax INTEGER DEFAULT NULL)";
 				dbcmd.CommandText = sql;
 				dbcmd.ExecuteNonQuery();
 			}
 		}
 
-		public override void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceRights> parents)
+		public override void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceContext> parents)
 		{
 			// get the face image
 			JsonValue faceJson = directory.GetChildResourceByName(dbcon, transaction, id, "face", filterBy, 0, groups, heritedRights, parents, true);
@@ -113,7 +112,7 @@ namespace KJing.Directory
 
 			// select from the user table
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
-				dbcmd.CommandText = "SELECT firstname,lastname,login,email,googleid,facebookid,description,quota,used,admin,data FROM user WHERE id=@id";
+				dbcmd.CommandText = "SELECT firstname,lastname,login,email,googleid,facebookid,description,quotaBytesMax,admin,data FROM user WHERE id=@id";
 				dbcmd.Parameters.Add(new SqliteParameter("id", id));
 				dbcmd.Transaction = transaction;
 				using (IDataReader reader = dbcmd.ExecuteReader()) {
@@ -149,13 +148,15 @@ namespace KJing.Directory
 							value["facebookid"] = null;
 						else
 							value["facebookid"] = reader.GetString(5);
-						value["quota"] = reader.GetInt64(7);
-						value["used"] = reader.GetInt64(8);
-						value["admin"] = reader.GetBoolean(9);
-						if(reader.IsDBNull(10))
+						if(reader.IsDBNull(7))
+							value["quotaBytesMax"] = null;
+						else
+							value["quotaBytesMax"] = reader.GetInt64(7);
+						value["admin"] = reader.GetBoolean(8);
+						if(reader.IsDBNull(9))
 							value["data"] = null;
 						else
-							value["data"] = JsonValue.Parse(reader.GetString(10));
+							value["data"] = JsonValue.Parse(reader.GetString(9));
 					}
 				}
 			}
@@ -385,6 +386,11 @@ namespace KJing.Directory
 				}
 			}
 
+			// test if the user is over quota
+			if(diff.ContainsKey("quotaBytesUsed") && (data["quotaBytesMax"] != null) &&
+			   ((long)diff["quotaBytesUsed"] > (long)data["quotaBytesMax"]))
+				throw new WebException(403, 3, "User is over quota");
+
 			// update the user table
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 				bool first = true;
@@ -405,7 +411,7 @@ namespace KJing.Directory
 					}
 				}
 				// handle integer
-				foreach(string key in new string[]{ "quota", "used" }) {
+				foreach(string key in new string[]{ "quotaBytesMax" }) {
 					if(diff.ContainsKey(key)) {
 						if(first)
 							first = false;
