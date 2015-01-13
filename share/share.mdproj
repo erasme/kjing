@@ -258,5 +258,7 @@
     <None Include="www\era\ui\dropatbox.js" />
     <None Include="www\admin\kjing\texteditor.js" />
     <None Include="www\era\ui\scalebox.js" />
+    <None Include="www\common\search.js" />
+    <None Include="www\admin\kjing\searchview.js" />
   </ItemGroup>
 </Project>

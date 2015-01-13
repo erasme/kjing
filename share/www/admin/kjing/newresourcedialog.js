@@ -214,7 +214,7 @@ Ui.SFlow.extend('KJing.NewResourceSelector', {
 			groupuser: { icon: 'person', text: 'Utilisateur', creator: KJing.NewGroupUserCreator },
 			groupgroup: { icon: 'group', text: 'Groupe de personne', creator: KJing.NewGroupGroupCreator },
 			rightuser: { icon: 'person', text: 'Utilisateur', creator: KJing.NewRightUserCreator },
-			rightgroup: { icon: 'group', text: 'Group de personne', creator: KJing.NewRightGroupCreator },
+			rightgroup: { icon: 'group', text: 'Groupe de personne', creator: KJing.NewRightGroupCreator },
 			device: { icon: 'eye', text: 'Client de diffusion', creator: KJing.NewDeviceCreator }
 		};
 		for(var type in types) {

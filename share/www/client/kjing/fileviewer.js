@@ -528,7 +528,7 @@ Ui.TransitionBox.extend('KJing.PdfFileViewer', {
 
 		// generate page control
 		this.pagesControl = [];
-		var pdfPages = this.file.getData().pdfPages.cache;
+		var pdfPages = this.file.getData().pdfPages.cacheChildren;
 //		console.log(this.fileControl);
 		var controlData = this.fileControl.getData();
 //		console.log(controlData);

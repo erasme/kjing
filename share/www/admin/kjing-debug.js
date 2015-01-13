@@ -38,6 +38,7 @@ Core.Util.include(appBase+'kjing/deviceview.js');
 Core.Util.include(appBase+'kjing/mapdevicesview.js');
 Core.Util.include(appBase+'kjing/fileview.js');
 Core.Util.include(appBase+'kjing/linkview.js');
+Core.Util.include(appBase+'kjing/searchview.js');
 
 // include login methods
 Core.Util.include(appBase+'logins/wizarditem.js');

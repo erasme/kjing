@@ -718,7 +718,7 @@ Ui.CarouselableLoader.extend('Storage.PdfPagesLoader', {
 
 		console.log(this.file);
 
-		this.pages = this.file.getData().pdfPages.cache;
+		this.pages = this.file.getData().pdfPages.cacheChildren;
 	}
 }, {
 	getMin: function() {

@@ -77,6 +77,8 @@ Ui.Dialog.extend('KJing.UserProfil', {
 	saveButton: undefined,
 	sflow: undefined,
 	webSection: undefined,
+	descField: undefined,
+	quotaField: undefined,
 
 	constructor: function(config) {
 		this.user = config.user;
@@ -92,6 +94,19 @@ Ui.Dialog.extend('KJing.UserProfil', {
 			this.onUserReady();
 		else
 			this.connect(this.user, 'ready', this.onUserReady);
+	},
+
+	formatSize: function(size) {
+		var res;
+		if(size > 1000000000)
+			res = (size/1000000000).toFixed(2)+' Go';
+		else if(size > 1000000)
+			res = (size/1000000).toFixed(2)+' Mo';
+		else if(size > 1000)
+			res = (size/1000).toFixed(2)+' ko';
+		else
+			res = size+' octets';
+		return res;
 	},
 
 	onUserReady: function() {	
@@ -147,6 +162,14 @@ Ui.Dialog.extend('KJing.UserProfil', {
 		this.descField = new KJing.TextAreaField({ title: 'Description', width: 250 });
 		this.sflow.append(this.descField);
 
+		this.quotaField = new KJing.TextField({ title: 'Quota', width: 250, enable: false });
+		this.sflow.append(this.quotaField);
+
+		if(this.user.getData().quotaBytesMax === null)
+			this.quotaField.setValue(this.formatSize(this.user.getData().quotaBytesUsed) + ' / infini');
+		else
+			this.quotaField.setValue(this.formatSize(this.user.getData().quotaBytesUsed) + ' / '+ this.formatSize(this.user.getData().quotaBytesMax));
+		
 		if(KJing.User.hasInstance(this.user)) {
 			// admin flags
 			if(Ui.App.current.getUser().isAdmin()) {

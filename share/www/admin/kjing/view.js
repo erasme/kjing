@@ -29,6 +29,8 @@ Ui.LBox.extend('KJing.View', {
 			return new KJing.LinkView({ view: view, resource: resource });
 		else if(KJing.File.hasInstance(resource))
 			return new KJing.FileView({ view: view, resource: resource });
+		else if(KJing.Search.hasInstance(resource))
+			return new KJing.SearchView({ view: view, resource: resource });
 		else
 			return undefined;
 	}

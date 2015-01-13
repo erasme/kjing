@@ -167,6 +167,9 @@ Ui.Dialog.extend('KJing.ResourcePropertiesDialog', {
 			title: 'Modification', value: this.formatDate(new Date(this.resource.getData().mtime)), width: 200,
 			enable: false }));
 
+		sflow.append(new KJing.TextField({ title: 'Stockage utilisé',
+			value: this.formatSize(this.resource.getData().quotaBytesUsed), width: 200, enable: false }));
+
 		// handle specific fields
 		if(KJing.Device.hasInstance(this.resource)) {
 			var deviceUrlField = new KJing.TextField({ title: 'URL du client Web', width: 300 });

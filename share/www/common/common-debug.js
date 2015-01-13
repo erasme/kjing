@@ -13,6 +13,7 @@ Core.Util.include(appBase+'group.js');
 Core.Util.include(appBase+'map.js');
 Core.Util.include(appBase+'folder.js');
 Core.Util.include(appBase+'link.js');
+Core.Util.include(appBase+'search.js');
 Core.Util.include(appBase+'scaledimage.js');
 Core.Util.include(appBase+'scaledimage2.js');
 Core.Util.include(appBase+'audioplayer.js');

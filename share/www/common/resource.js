@@ -123,7 +123,7 @@ Core.Object.extend('KJing.Resource', {
 	},
 
 	update: function() {
-		if(this.request != undefined)
+		if(this.request !== undefined)
 			return;
 		var user = Ui.App.current.getUser();
 		var url = '/cloud/resource/'+this.id+"?depth=1";
@@ -287,6 +287,8 @@ Core.Object.extend('KJing.Resource', {
 				this.fireEvent('monitor', this);
 			}
 			else if(json.type === 'change') {
+				console.log('test resource id:'+this.data.id+', rev: '+this.data.rev+', change id: '+json.id+', rev: '+json.rev);
+
 				this.update();
 			}
 			else if(json.type === 'clientmessage') {
@@ -339,6 +341,8 @@ Core.Object.extend('KJing.Resource', {
 				return new KJing.Link({ id: id });
 			else if(id.indexOf('file:') === 0)
 				return new KJing.File({ id: id });
+			else if(id.indexOf('search:') === 0)
+				return new KJing.Search({ id: id });
 			else
 				return new KJing.Resource({ id: id });
 		}
@@ -346,6 +350,8 @@ Core.Object.extend('KJing.Resource', {
 			if(KJing.Resource.hasInstance(id))
 				return id;
 			else if(KJing.File.hasInstance(id))
+				return id;
+			else if(KJing.Search.hasInstance(id))
 				return id;
 			else if('id' in id) {
 				if(id.id.indexOf('user:') === 0)
@@ -362,6 +368,8 @@ Core.Object.extend('KJing.Resource', {
 					return new KJing.Link({ data: id });
 				else if(id.id.indexOf('file:') === 0)
 					return new KJing.File({ data: id });
+				else if(id.id.indexOf('search:') === 0)
+					return new KJing.Search({ data: id });
 				else
 					return new KJing.Resource({ data: id });
 			}

@@ -365,8 +365,9 @@ Ui.App.extend('KJing.AdminApp', {
 		this.uploadProgressbar.hide();
 		lbox.append(this.uploadProgressbar);
 
-//		this.actionBox.append(new Ui.TextButtonField({ buttonIcon: 'search' }), true);
-		this.actionBox.append(new Ui.Element(), true);
+		this.searchField = new Ui.TextButtonField({ buttonIcon: 'search' });
+		this.connect(this.searchField, 'validate', this.onSearchValidate);
+		this.actionBox.append(this.searchField, true);
 
 		var displayButton = new Ui.Button({ icon: 'eye' });
 		this.connect(displayButton, 'press', this.onDisplayPress);
@@ -393,7 +394,19 @@ Ui.App.extend('KJing.AdminApp', {
 		this.paned.setContent1(new KJing.PartView({ user: this.user }));
 		this.paned.setContent2(new KJing.PartView({ user: this.user }));
 	},
-	
+
+	onSearchValidate: function(field, value) {
+		console.log('searchField validate: ' + value);
+		// TODO: DO SOME THING ;)
+
+		var newStack = [];
+		newStack.push(this.paned.getContent2().getStack()[0]);
+		newStack.push({ text: 'Recherche: '+value, resource: new KJing.Search({ id: 'search:'+value }) });
+
+		this.paned.getContent2().setStack(newStack);
+
+	},
+
 	onProfilPress: function(button) {
 		var popup = new Ui.MenuPopup();
 		var vbox = new Ui.VBox();
@@ -726,6 +739,9 @@ style: {
 		selectCheckColor: new Ui.Color({r: 0, g: 0.72, b: 0.95 }),
 		radius: 0,
 		borderWidth: 2
+	},
+	"KJing.UserItemView": {
+		roundMode: true
 	},
 	"KJing.GroupUserItemView": {
 		roundMode: true
