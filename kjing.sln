@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestAirPlay", "TestAirPlay\
 EndProject
 Project("{9344BDBB-3E7F-41FC-A0DD-8665D75EE146}") = "debian", "debian\debian.mdproj", "{F74CC7A8-3DC5-4032-A3E9-007A55CB3E4F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestKJing", "TestKJing\TestKJing.csproj", "{F535F13C-8097-405D-B5AB-57C6CF01D0C6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Default|Any CPU = Default|Any CPU
@@ -26,6 +28,12 @@ Global
 		{F1847742-3D53-43F4-B19D-9DFAD199744F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F1847742-3D53-43F4-B19D-9DFAD199744F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F1847742-3D53-43F4-B19D-9DFAD199744F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F535F13C-8097-405D-B5AB-57C6CF01D0C6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F535F13C-8097-405D-B5AB-57C6CF01D0C6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F535F13C-8097-405D-B5AB-57C6CF01D0C6}.Default|Any CPU.ActiveCfg = Release|Any CPU
+		{F535F13C-8097-405D-B5AB-57C6CF01D0C6}.Default|Any CPU.Build.0 = Release|Any CPU
+		{F535F13C-8097-405D-B5AB-57C6CF01D0C6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F535F13C-8097-405D-B5AB-57C6CF01D0C6}.Release|Any CPU.Build.0 = Release|Any CPU
 		{F74CC7A8-3DC5-4032-A3E9-007A55CB3E4F}.Debug|Any CPU.ActiveCfg = Default|Any CPU
 		{F74CC7A8-3DC5-4032-A3E9-007A55CB3E4F}.Debug|Any CPU.Build.0 = Default|Any CPU
 		{F74CC7A8-3DC5-4032-A3E9-007A55CB3E4F}.Default|Any CPU.ActiveCfg = Default|Any CPU
