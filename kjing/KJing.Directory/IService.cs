@@ -40,7 +40,7 @@ namespace KJing.Directory
 
 		void Init(IDbConnection dbcon);
 
-		void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceRights> parents);
+		void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceContext> parents);
 
 		void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data);
 

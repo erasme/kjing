@@ -66,7 +66,7 @@ namespace KJing.Directory
 			}
 		}
 
-		public override void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceRights> parentsr)
+		public override void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceContext> parentsr)
 		{
 			// get device in the group
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {

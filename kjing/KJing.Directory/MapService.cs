@@ -66,7 +66,7 @@ namespace KJing.Directory
 			}
 		}
 			
-		public override void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceRights> parents)
+		public override void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceContext> parents)
 		{
 			JsonValue imageJson = directory.GetChildResourceByName(dbcon, transaction, id, "image", filterBy, 0, groups, heritedRights, parents, false);
 			if(imageJson != null)

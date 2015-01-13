@@ -5,7 +5,7 @@
 // Author(s):
 //  Daniel Lacroix <dlacroix@erasme.org>
 // 
-// Copyright (c) 2014 Departement du Rhone
+// Copyright (c) 2014-2015 Departement du Rhone
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -79,7 +79,7 @@ namespace KJing.Directory
 		{
 		}
 
-		public void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceRights> parents)
+		public void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceContext> parents)
 		{
 			// contentRev == 0 => no file content
 			if(value.ContainsKey("contentRev") && ((long)value["contentRev"] == 0))
@@ -104,6 +104,7 @@ namespace KJing.Directory
 								string error;
 
 								string localFile = fileService.GetLocalFile(id);
+
 								JsonValue jsonFile = new JsonObject();
 								jsonFile["type"] = "file";
 								jsonFile["cache"] = true;
