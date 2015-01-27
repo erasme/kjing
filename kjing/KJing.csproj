@@ -65,12 +65,17 @@
     <Compile Include="KJing.Directory\VideoPlugin.cs" />
     <Compile Include="KJing.Directory\PdfPlugin.cs" />
     <Compile Include="KJing.Manage\ManageRights.cs" />
+    <Compile Include="KJing.FileIndexing\FileIndexingPlugin.cs" />
+    <Compile Include="KJing.FileIndexing\PdfExtractor.cs" />
+    <Compile Include="KJing.Message\MessageRights.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
     <Folder Include="KJing.Directory\" />
     <Folder Include="KJing.Storage\" />
     <Folder Include="KJing.Manage\" />
+    <Folder Include="KJing.FileIndexing\" />
+    <Folder Include="KJing.Message\" />
   </ItemGroup>
   <ProjectExtensions>
     <MonoDevelop>

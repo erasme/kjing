@@ -5,7 +5,7 @@
 // Author(s):
 //  Daniel Lacroix <dlacroix@erasme.org>
 // 
-// Copyright (c) 2013-2014 Departement du Rhone
+// Copyright (c) 2013-2015 Departement du Rhone - Metropole de Lyon
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -101,14 +101,19 @@ namespace KJing.Directory
 
 		public void GroupRemoveUsers(string id, JsonValue data)
 		{
+			Dictionary<string,ResourceChange> changes = new Dictionary<string, ResourceChange>();
+
 			lock(dbcon) {
 				using(IDbTransaction transaction = dbcon.BeginTransaction()) {
+
+					JsonValue before = GetResource(dbcon, transaction, id, null, 0);
+
 					if(data is JsonArray) {
-						foreach(JsonValue item in (JsonArray)data) {
+						foreach(string user in (JsonArray)data) {
 							using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 								dbcmd.CommandText = "DELETE FROM ugroup_user WHERE ugroup=@id AND user=@user";
 								dbcmd.Parameters.Add(new SqliteParameter("id", id));
-								dbcmd.Parameters.Add(new SqliteParameter("user", (string)item["id"]));
+								dbcmd.Parameters.Add(new SqliteParameter("user", user));
 								dbcmd.ExecuteNonQuery();
 							}
 						}
@@ -117,31 +122,41 @@ namespace KJing.Directory
 						using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 							dbcmd.CommandText = "DELETE FROM ugroup_user WHERE ugroup=@id AND user=@user";
 							dbcmd.Parameters.Add(new SqliteParameter("ugroup", id));
-							dbcmd.Parameters.Add(new SqliteParameter("user", (string)data["id"]));
+							dbcmd.Parameters.Add(new SqliteParameter("user", (string)data));
 							dbcmd.ExecuteNonQuery();
 						}
 					}
+
+					JsonValue after = Directory.ChangeResource(dbcon, transaction, id, null, changes);
+
+					changes[id] = new ResourceChange {
+						Before = before,
+						After = after
+					};
+
 					transaction.Commit();
 				}
+			}
+			// notify the changes
+			foreach(string resourceId in changes.Keys) {
+				Directory.NotifyChange(changes[resourceId].Before, changes[resourceId].After);
 			}
 		}
 
 		public void GroupRemoveUser(string id, string user)
 		{
-			lock(dbcon) {
-				using(IDbCommand dbcmd = dbcon.CreateCommand()) {
-					dbcmd.CommandText = "DELETE FROM ugroup_user WHERE ugroup=@id AND user=@user";
-					dbcmd.Parameters.Add(new SqliteParameter("id", id));
-					dbcmd.Parameters.Add(new SqliteParameter("user", user));
-					dbcmd.ExecuteNonQuery();
-				}
-			}
+			GroupRemoveUsers(id, user);
 		}
 
 		public void GroupAddUsers(string id, JsonValue data)
 		{
+			Dictionary<string,ResourceChange> changes = new Dictionary<string, ResourceChange>();
+
 			lock(dbcon) {
 				using(IDbTransaction transaction = dbcon.BeginTransaction()) {
+
+					JsonValue before = GetResource(dbcon, transaction, id, null, 0);
+
 					JsonArray users;
 					if(data is JsonArray)
 						users = (JsonArray)data;
@@ -149,14 +164,14 @@ namespace KJing.Directory
 						users = new JsonArray();
 						users.Add(data);
 					}
-					foreach(JsonValue item in (JsonArray)data) {
+					foreach(string user in (JsonArray)data) {
 						bool exists = false;
 						// test if the user is not already in the group
 						using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 							dbcmd.Transaction = transaction;
 							dbcmd.CommandText = "SELECT COUNT(*) FROM ugroup_user WHERE ugroup=@ugroup AND user=@user";
 							dbcmd.Parameters.Add(new SqliteParameter("ugroup", id));
-							dbcmd.Parameters.Add(new SqliteParameter("user", (string)item["id"]));
+							dbcmd.Parameters.Add(new SqliteParameter("user", user));
 							object res = dbcmd.ExecuteScalar();
 							if(res != null)
 								exists = (Convert.ToInt64(res) > 0);
@@ -167,13 +182,25 @@ namespace KJing.Directory
 								dbcmd.Transaction = transaction;
 								dbcmd.CommandText = "INSERT INTO ugroup_user (ugroup,user) VALUES (@ugroup,@user)";
 								dbcmd.Parameters.Add(new SqliteParameter("ugroup", id));
-								dbcmd.Parameters.Add(new SqliteParameter("user", (string)item["id"]));
+								dbcmd.Parameters.Add(new SqliteParameter("user", user));
 								dbcmd.ExecuteNonQuery();
 							}
 						}
 					}
+
+					JsonValue after = Directory.ChangeResource(dbcon, transaction, id, null, changes);
+
+					changes[id] = new ResourceChange {
+						Before = before,
+						After = after
+					};
+
 					transaction.Commit();
 				}
+			}
+			// notify the changes
+			foreach(string resourceId in changes.Keys) {
+				Directory.NotifyChange(changes[resourceId].Before, changes[resourceId].After);
 			}
 		}
 

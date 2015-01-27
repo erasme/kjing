@@ -5,7 +5,7 @@
 // Author(s):
 //  Daniel Lacroix <dlacroix@erasme.org>
 // 
-// Copyright (c) 2014 Departement du Rhone
+// Copyright (c) 2014-2015 Departement du Rhone - Metropole de Lyon
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -110,11 +110,11 @@ namespace KJing.Directory
 			// handle plugins
 			if(mimePlugins.ContainsKey("*/*")) {
 				foreach(IFilePlugin plugin in mimePlugins["*/*"])
-					plugin.ProcessContent(data, contentFilePath);
+					plugin.ProcessContent(data, data, contentFilePath);
 			}
 			if(data.ContainsKey("mimetype") && mimePlugins.ContainsKey(data["mimetype"])) {
 				foreach(IFilePlugin plugin in mimePlugins[data["mimetype"]])
-					plugin.ProcessContent(data, contentFilePath);
+					plugin.ProcessContent(data, data, contentFilePath);
 			}
 
 			lock(Directory.DbCon) {
@@ -339,22 +339,28 @@ namespace KJing.Directory
 					
 		public JsonValue ChangeFile(string id, JsonValue diff, string contentFilePath)
 		{
-			long size = 0;
+			Console.WriteLine("FileService.ChangeFile id: "+id+", diff: "+diff);
+
 			if(contentFilePath != null) {
-				size = (new FileInfo(contentFilePath)).Length;
+				diff["size"] = (new FileInfo(contentFilePath)).Length;
 				diff["uploader"] = null;
+
+				Console.WriteLine("FileService.ChangeFile contains */*: " + mimePlugins.ContainsKey("*/*"));
+
+				JsonValue data = Directory.GetResource(id, null, 0);
 				// handle plugins
 				if(mimePlugins.ContainsKey("*/*")) {
 					foreach(IFilePlugin plugin in mimePlugins["*/*"])
-						plugin.ProcessContent(diff, contentFilePath);
+						plugin.ProcessContent(data, diff, contentFilePath);
 				}
-				JsonValue data = Directory.GetResource(id, null, 0);
 				if(data.ContainsKey("mimetype") && mimePlugins.ContainsKey(data["mimetype"])) {
 					foreach(IFilePlugin plugin in mimePlugins[data["mimetype"]])
-						plugin.ProcessContent(diff, contentFilePath);
+						plugin.ProcessContent(data, diff, contentFilePath);
 				}
 			}
-			diff["size"] = size;
+			else {
+				diff["size"] = 0;
+			}
 
 			JsonValue jsonOld;
 			JsonValue jsonNew;
@@ -589,7 +595,7 @@ namespace KJing.Directory
 					throw new WebException(400, 0, "Resource that are not users need a parent resource");
 				if((fileDefinition.Stream != null) && (fileDefinition.Define == null))
 					throw new WebException(400, 0, "File resource POST request MUST provide a \"define\" part first and the \"file\" part last");
-
+					
 				// check rights on the parent
 				Directory.EnsureRights(context, (string)fileDefinition.Define["parent"], false, true, false);
 
@@ -602,6 +608,38 @@ namespace KJing.Directory
 //				else {
 //					file = CreateFile(storage, parent, filename, mimetype, tmpFile, define, true);
 //				}
+
+				JsonValue jsonFile = await CreateFileAsync(fileDefinition);
+
+				context.Response.StatusCode = 200;
+				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
+				context.Response.Content = new JsonContent(jsonFile);
+			}
+			// POST /[file]/copy create a copy of a given file
+			else if((context.Request.Method == "POST") && (parts.Length == 2) && (parts[1] == "copy") && IsValidId(parts[0])) {
+
+				FileDefinition fileDefinition = await GetFilePostAsync(context);
+
+				// check that the definition is correct
+				if(fileDefinition.Define.ContainsKey("type") && ((string)fileDefinition.Define["type"] != "file"))
+					throw new WebException(400, 0, "A file copy is of type \"file\"");
+				fileDefinition.Define["type"] = "file";
+				if(!fileDefinition.Define.ContainsKey("parent"))
+					throw new WebException(400, 0, "Resource that are not users need a parent resource");
+				if(fileDefinition.Stream != null)
+					throw new WebException(400, 0, "A file copy can\'t provide a file stream");
+
+				// check rights on the parent
+				Directory.EnsureRights(context, (string)fileDefinition.Define["parent"], false, true, false);
+				// check rights for the source of the copy
+				Directory.EnsureRights(context, parts[0], true, false, false);
+
+				// fill the file missing parts for the source file
+				JsonValue sourceResource = Directory.GetResource(parts[0], null, 0);
+				fileDefinition.Define["mimetype"] = (string)sourceResource["mimetype"];
+				if(!fileDefinition.Define.ContainsKey("name") || ((string)fileDefinition.Define["name"] == "unknown"))
+					fileDefinition.Define["name"] = (string)sourceResource["name"];
+				fileDefinition.Stream = storage.Get(TypeFreeId(parts[0]));
 
 				JsonValue jsonFile = await CreateFileAsync(fileDefinition);
 

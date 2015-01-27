@@ -5,7 +5,7 @@
 // Author(s):
 //  Daniel Lacroix <dlacroix@erasme.org>
 // 
-// Copyright (c) 2013-2014 Departement du Rhone
+// Copyright (c) 2013-2015 Departement du Rhone - Metropole de Lyon
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -40,6 +40,7 @@ using Erasme.Json;
 using Erasme.Cloud.Logger;
 using Erasme.Cloud.Authentication;
 using Erasme.Cloud.Utils;
+using Erasme.Cloud.Message;
 
 namespace KJing.Directory
 {
@@ -59,10 +60,11 @@ namespace KJing.Directory
 		UserService userService;
 		ResourceService resourceService;
 		FileService fileService;
+		public MessageService MessageService { get; set; }
 
 		public DirectoryService(
 			string basepath, AuthSessionService authSessionService, string authHeader, string authCookie,
-			string temporaryDirectory, int cacheDuration, ILogger logger,
+			long defaultUserBytesQuota, string temporaryDirectory, int cacheDuration, ILogger logger,
 			PriorityTaskScheduler longRunningTaskScheduler)
 		{
 			this.basePath = basepath;
@@ -85,7 +87,7 @@ namespace KJing.Directory
 			resourceService = new ResourceService(this);
 			ResourceTypes[resourceService.Name] = resourceService;
 
-			userService = new UserService(this);
+			userService = new UserService(this, defaultUserBytesQuota);
 			ResourceTypes[userService.Name] = userService;
 
 			GroupService groupService = new GroupService(this);
@@ -112,6 +114,7 @@ namespace KJing.Directory
 			fileService.AddPlugin(new VideoPlugin(fileService));
 			fileService.AddPlugin(new PdfPlugin(fileService));
 			fileService.AddPlugin(new PdfImagePlugin(fileService));
+			fileService.AddPlugin(new KJing.FileIndexing.FileIndexingPlugin());
 			ResourceTypes[fileService.Name] = fileService;
 
 			if(createNeeded) {
@@ -234,6 +237,16 @@ namespace KJing.Directory
 			resourceService.DeleteResource(dbcon, transaction, id, changes);
 		}
 
+		public List<string> GetGroupUsers(string group)
+		{
+			return resourceService.GetGroupUsers(group);
+		}
+
+		public JsonArray GetUserShares(string user, int depth)
+		{
+			return resourceService.GetUserShares(user, depth);
+		}
+
 		public Task<FileDefinition> GetFilePostAsync(HttpContext context)
 		{
 			return fileService.GetFilePostAsync(context);
@@ -252,6 +265,72 @@ namespace KJing.Directory
 		public void NotifyChange(JsonValue oldValues, JsonValue newValues)
 		{
 			resourceService.NotifyChange(oldValues, newValues);
+
+			// check for new sharing
+			if((oldValues != null) && (newValues != null)) {
+			
+				// test if some rights have been added
+				JsonArray oldRights = (JsonArray)oldValues["rights"];
+				JsonArray newRights = (JsonArray)newValues["rights"];
+
+				foreach(JsonValue right in newRights) {
+					JsonValue oldRight = null;
+					foreach(JsonValue r in oldRights) {
+						if((string)r["user"] == (string)right["user"]) {
+							oldRight = r;
+							break;
+						}
+					}
+					if(oldRight == null) {
+						// find all concerned final users
+						List<string> users = GetGroupUsers(right["user"]);
+						foreach(string user in users)
+							NotifyShare(newValues, user, right["user"]);
+					}
+				}
+
+				// test if user added in a group
+				if(newValues["type"] == "group") {
+					foreach(string user in (JsonArray)newValues["users"]) {
+						string oldUser = null;
+						foreach(string u in (JsonArray)oldValues["users"]) {
+							if(u == user) {
+								oldUser = u;
+								break;
+							}
+						}
+						if(oldUser == null) {
+							// find all concerned final users
+							List<string> users = GetGroupUsers(user);
+							// find all shared resources
+							JsonArray shares = GetUserShares(user, 0);
+							foreach(string u in users) {
+								foreach(JsonValue resource in shares)
+									NotifyShare(resource, u, user);
+							}
+						}
+					}
+				}
+
+			}
+		}
+
+		void NotifyShare(JsonValue resource, string userId, string sharedBy)
+		{
+			// TODO
+			Console.WriteLine("NotifyShare resource: " + resource["id"] + ", for user: " + userId);
+			if(MessageService != null) {
+				JsonValue message = new JsonObject();
+				message["origin"] = resource["owner"];
+				message["destination"] = userId;
+				message["type"] = "resource";
+				JsonValue content = new JsonObject();
+				content["id"] = resource["id"];
+				content["name"] = resource["name"];
+				content["sharedBy"] = sharedBy;
+				message["content"] = content;
+				MessageService.SendMessage(message);
+			}
 		}
 
 		////////////////////////////////////////////////////////////////////////////////
@@ -302,8 +381,12 @@ namespace KJing.Directory
 			// user are the roots of the system. They are always "readable"
 			if(resource.StartsWith("user:"))
 				ownRight.Read = true;
-			if(!((!read || ownRight.Read) && (!write || ownRight.Write) && (!admin || ownRight.Admin)))
-				throw new WebException(403, 0, "Logged user has no sufficient credentials");
+			if(!((!read || ownRight.Read) && (!write || ownRight.Write) && (!admin || ownRight.Admin))) {
+				// last chance, check if the connected user is not an admin
+				JsonValue user = resourceService.GetResource(context.User, null, 0);
+				if(!user.ContainsKey("admin") || !(bool)user["admin"])
+					throw new WebException(403, 0, "Logged user has no sufficient credentials");
+			}
 		}
 
 		public async Task ProcessRequestAsync(HttpContext context)

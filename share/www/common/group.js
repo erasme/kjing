@@ -14,7 +14,7 @@ KJing.Resource.extend('KJing.Group', {
 	addUsers: function(users) {
 		var json = [];
 		for(var i = 0; i < users.length; i++)
-			json.push({ id: users[i].getId() });
+			json.push(users[i].getId());
 		var request = new Core.HttpRequest({ method: 'POST',
 			url: '/cloud/group/'+this.getId()+'/users',
 			content: JSON.stringify(json)
@@ -32,7 +32,7 @@ KJing.Resource.extend('KJing.Group', {
 	removeUsers: function(users) {
 		var json = [];
 		for(var i = 0; i < users.length; i++)
-			json.push({ id: users[i].getId() });
+			json.push(users[i].getId());
 		var request = new Core.HttpRequest({ method: 'DELETE',
 			url: '/cloud/group/'+this.getId()+'/users',
 			content: JSON.stringify(json)

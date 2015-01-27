@@ -20,6 +20,7 @@ Ui.FlowDropBox.extend('KJing.ResourceView', {
 		this.addType(KJing.GroupItemView, bindedItemEffect);
 		this.addType(KJing.UserItemView, bindedItemEffect);
 		this.addType(KJing.MapItemView, bindedItemEffect);
+		this.addType(KJing.LinkItemView, bindedItemEffect);
 
 		this.addType('files', 'copy');
 		this.connect(this, 'dropat', this.onItemDropAt);
@@ -61,7 +62,7 @@ Ui.FlowDropBox.extend('KJing.ResourceView', {
 			else
 				return 'move';
 		}
-		// if we resources have the same owner => move
+		// if the resources have the same owner => move
 		else if(item.getResource().getOwnerId() === this.resource.getOwnerId()) {
 			// is the resource is a sub folder of the item, move is not possible
 			if((item.getResource().getId() === this.resource.getId()) || item.getResource().getIsParentOf(this.resource))
@@ -69,7 +70,10 @@ Ui.FlowDropBox.extend('KJing.ResourceView', {
 			else
 				return 'move';
 		}
-		// else link the shared resource
+		// else copy the shared resource
+		else if(item.getResource().getType() === 'file')
+			return 'copy';
+		// else link the shared resource (like a folder, map...)
 		else
 			return 'link';
 	},
@@ -88,8 +92,19 @@ Ui.FlowDropBox.extend('KJing.ResourceView', {
 					method: 'POST',
 					url: '/cloud/link',
 					content: JSON.stringify({
-						type: 'link', parent: this.resource.getId(), pos: pos,
+						type: 'link', parent: this.resource.getId(), position: pos,
 						link: data.getResource().getId()
+					})
+				})
+				request.send();
+			}
+			else if(effect === 'copy') {
+				// copy the file
+				var request = new Core.HttpRequest({
+					method: 'POST',
+					url: '/cloud/file/'+encodeURIComponent(data.getResource().getId())+'/copy',
+					content: JSON.stringify({
+						type: 'file', parent: this.resource.getId(), position: pos
 					})
 				})
 				request.send();

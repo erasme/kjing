@@ -71,7 +71,7 @@ namespace KJing.Directory
 		{
 		}
 
-		public void ProcessContent(JsonValue data, string contentFilePath)
+		public void ProcessContent(JsonValue data, JsonValue diff, string contentFilePath)
 		{
 		}
 
@@ -86,6 +86,8 @@ namespace KJing.Directory
 				lock(instanceLock) {
 					if(!runningTasks.ContainsKey(id+":pdfPages")) {
 						LongTask task = new LongTask(delegate {
+							Console.WriteLine("PdfImagePlugin running task for "+id);
+
 							string destDir = Path.Combine(fileService.Directory.TemporaryDirectory, Guid.NewGuid().ToString());
 							try {
 								string localFile = fileService.GetLocalFile(id);
@@ -93,6 +95,9 @@ namespace KJing.Directory
 								JsonValue jsonFile;
 								int count;
 								if(BuildPages(localFile, destDir, out count)) {
+
+									Console.WriteLine("PdfImagePlugin BuildPages for "+id+", count: "+count+", destDir: "+destDir);
+
 
 									// build all pages in an atomic manner
 
@@ -109,7 +114,7 @@ namespace KJing.Directory
 											jsonFile["name"] = "pdfPages";
 											//jsonFile = fileService.Directory.CreateResource(jsonFile);
 											//string pagesId = jsonFile["id"];
-											string pagesId = fileService.Directory.CreateResource(fileService.Directory.DbCon, transaction2, jsonFile, changes);
+											string pagesId = fileService.Directory.CreateResource(fileService.Directory.DbCon, transaction2, jsonFile, changes)["id"];
 
 											for(int i = 0; i < count; i++) {
 												JsonValue jsonPage = new JsonObject();

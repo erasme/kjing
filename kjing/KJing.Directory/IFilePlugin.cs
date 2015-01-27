@@ -4,7 +4,7 @@
 // Author:
 //       Daniel Lacroix <dlacroix@erasme.org>
 //
-// Copyright (c) 2014 Departement du Rhone
+// Copyright (c) 2014-2015 Departement du Rhone
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -35,7 +35,7 @@ namespace KJing.Directory
 	{
 		string[] MimeTypes { get; }
 
-		void ProcessContent(JsonValue data, string contentFilePath);
+		void ProcessContent(JsonValue data, JsonValue diff, string contentFilePath);
 	}
 }
 

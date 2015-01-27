@@ -41,6 +41,7 @@
     <Folder Include="www\admin\logins\" />
     <Folder Include="www\client\kjing\" />
     <Folder Include="www\common\" />
+    <Folder Include="www\room\" />
   </ItemGroup>
   <ItemGroup>
     <None Include="www\era\era-debug.js" />
@@ -260,5 +261,16 @@
     <None Include="www\era\ui\scalebox.js" />
     <None Include="www\common\search.js" />
     <None Include="www\admin\kjing\searchview.js" />
+    <None Include="www\admin\kjing\historymessages.js" />
+    <None Include="www\admin\kjing\messageview.js" />
+    <None Include="www\admin\kjing\message.js" />
+    <None Include="www\admin\kjing\messages.js" />
+    <None Include="www\room\index.html" />
+    <None Include="www\room\index-debug.html" />
+    <None Include="www\room\Makefile" />
+    <None Include="www\room\main.js" />
+    <None Include="www\room\kjing-debug.js" />
+    <None Include="www\index.html" />
+    <None Include="www\admin\kjing\contactmessagesdialog.js" />
   </ItemGroup>
 </Project>

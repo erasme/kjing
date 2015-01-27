@@ -39,6 +39,11 @@ Core.Util.include(appBase+'kjing/mapdevicesview.js');
 Core.Util.include(appBase+'kjing/fileview.js');
 Core.Util.include(appBase+'kjing/linkview.js');
 Core.Util.include(appBase+'kjing/searchview.js');
+Core.Util.include(appBase+'kjing/message.js');
+Core.Util.include(appBase+'kjing/messages.js');
+Core.Util.include(appBase+'kjing/messageview.js');
+Core.Util.include(appBase+'kjing/contactmessagesdialog.js');
+Core.Util.include(appBase+'kjing/historymessages.js');
 
 // include login methods
 Core.Util.include(appBase+'logins/wizarditem.js');

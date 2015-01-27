@@ -5,7 +5,7 @@
 // Author(s):
 //  Daniel Lacroix <dlacroix@erasme.org>
 // 
-// Copyright (c) 2013-2014 Departement du Rhone
+// Copyright (c) 2013-2015 Departement du Rhone - Metropole de Lyon
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -45,10 +45,12 @@ namespace KJing.Directory
 		DirectoryService directory;
 		IDbConnection dbcon;
 		ILogger logger;
+		long defaultUserBytesQuota;
 
-		public UserService(DirectoryService directory): base(directory)
+		public UserService(DirectoryService directory, long defaultUserBytesQuota): base(directory)
 		{
 			this.directory = directory;
+			this.defaultUserBytesQuota = defaultUserBytesQuota;
 			this.dbcon = directory.DbCon;
 			this.logger = directory.Logger;
 		}
@@ -298,14 +300,18 @@ namespace KJing.Directory
 				}
 
 				dbcmd.Transaction = transaction;
-				dbcmd.CommandText = "INSERT INTO user (id,"+sbKeys.ToString()+") VALUES (@id,"+sbValues.ToString()+")";
+				dbcmd.CommandText = "INSERT INTO user (id,"+sbKeys.ToString()+",quotaBytesMax) VALUES (@id,"+sbValues.ToString()+",@quotaBytesMax)";
 				dbcmd.Parameters.Add(new SqliteParameter("id", user));
+				if(defaultUserBytesQuota < 0)
+					dbcmd.Parameters.Add(new SqliteParameter("quotaBytesMax", null));
+				else
+					dbcmd.Parameters.Add(new SqliteParameter("quotaBytesMax", defaultUserBytesQuota));
 
 				if(dbcmd.ExecuteNonQuery() != 1)
 					throw new Exception("User create fails");
 			}
 
-			// if first created user, set the admin flags
+			// if first created user, set the admin flags, set quota to infinite
 			bool firstUser = false;
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 				dbcmd.Transaction = transaction;
@@ -315,11 +321,26 @@ namespace KJing.Directory
 			if(firstUser) {
 				using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 					dbcmd.Transaction = transaction;
-					dbcmd.CommandText = "UPDATE user SET admin=1 WHERE id=@id";
+					dbcmd.CommandText = "UPDATE user SET admin=1, quotaBytesMax=NULL WHERE id=@id";
 					dbcmd.Parameters.Add(new SqliteParameter("id", user));
 					dbcmd.ExecuteNonQuery();
 				}
 			}
+
+			// update the name build with firstname and lastname
+			if((data.ContainsKey("firstname") || data.ContainsKey("lastname")) && !data.ContainsKey("name")) {
+				string name = "";
+				if(data.ContainsKey("firstname") && (data["firstname"] != null))
+					name += data["firstname"]+" ";
+				if(data.ContainsKey("lastname") && (data["lastname"] != null))
+					name += data["lastname"];
+				data["name"] = name;
+			}
+			// index the description if any
+			if(data.ContainsKey("description")) {
+				data["indexingContent"] = data["description"];
+			}
+
 		}
 
 		public override void Change(IDbConnection dbcon, IDbTransaction transaction, string user, JsonValue data, JsonValue diff)
@@ -451,6 +472,24 @@ namespace KJing.Directory
 					int count = dbcmd.ExecuteNonQuery();
 					if(count != 1)
 						throw new Exception("User update fails");
+				}
+				// update the name build with firstname and lastname
+				if((diff.ContainsKey("firstname") || diff.ContainsKey("lastname")) && !diff.ContainsKey("name")) {
+					string name = "";
+					if(diff.ContainsKey("firstname") && (diff["firstname"] != null))
+						name += diff["firstname"]+" ";
+					else if(data.ContainsKey("firstname") && (data["firstname"] != null))
+						name += data["firstname"]+" ";
+
+					if(diff.ContainsKey("lastname") && (diff["lastname"] != null))
+						name += diff["lastname"];
+					else if(data.ContainsKey("lastname") && (data["lastname"] != null))
+						name += data["lastname"];
+					diff["name"] = name;
+				}
+				// index the description if any
+				if(diff.ContainsKey("description")) {
+					diff["indexingContent"] = diff["description"];
 				}
 			}
 		}

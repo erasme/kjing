@@ -258,6 +258,8 @@ Ui.App.extend('KJing.AdminApp', {
 	paned: undefined,
 	uploadProgressbar: undefined,
 	uploaders: undefined,
+	messageButton: undefined,
+	messages: undefined,
 
 	constructor: function(config) {
 		this.addEvents('bookmarkschange');
@@ -302,10 +304,12 @@ Ui.App.extend('KJing.AdminApp', {
 			if(localStorage.getItem('authsession') != res.id)
 				localStorage.setItem('authsession', res.id);
 		}
-		// if we connect with an argument session, use the session HTTP header
-		if((this.getArguments()['authsession'] != undefined) && (this.getArguments()['authsession'] == res.id))
-			Core.HttpRequest.setRequestHeader('X-KJing-Authentication', res.id);
+
 		var userId = res.user;
+		// we are an admin and want to connect to as a given user
+		if(this.getArguments()['user'] != undefined)
+			userId = this.getArguments()['user'];
+
 		var request = new Core.HttpRequest({ url: '/cloud/resource/'+userId });
 		this.connect(request, 'done', this.onGetUserDone);
 		this.connect(request, 'error', this.onGetUserError);
@@ -328,6 +332,10 @@ Ui.App.extend('KJing.AdminApp', {
 		return this.user;
 	},
 
+	getMessages: function() {
+		return this.messages;
+	},
+
 	basicLogin: function() {
 		this.loginDialog = new KJing.LoginWizard();
 		this.connect(this.loginDialog, 'done', this.onBasicLoginDone);
@@ -342,6 +350,10 @@ Ui.App.extend('KJing.AdminApp', {
 	onLoginDone: function(user) {
 		this.user = KJing.Resource.create(user);
 		this.user.monitor();
+
+		this.messages = new KJing.Messages({ user: this.user });
+		this.connect(this.messages, 'change', this.onMessagesChange);
+		this.messages.monitor();
 
 		var vbox = new Ui.VBox();
 		this.setContent(vbox);
@@ -373,9 +385,9 @@ Ui.App.extend('KJing.AdminApp', {
 		this.connect(displayButton, 'press', this.onDisplayPress);
 		this.actionBox.append(displayButton);
 		
-//		var messageButton = new Ui.Button({ icon: 'bell' });
-//		this.connect(messageButton, 'press', this.onMessagePress);
-//		this.actionBox.append(messageButton);
+		this.messageButton = new Ui.Button({ icon: 'bell' });
+		this.connect(this.messageButton, 'press', this.onMessagePress);
+		this.actionBox.append(this.messageButton);
 		
 		var profilButton = new Ui.Button({ icon: 'person' });
 		this.connect(profilButton, 'press', this.onProfilPress);
@@ -395,6 +407,26 @@ Ui.App.extend('KJing.AdminApp', {
 		this.paned.setContent2(new KJing.PartView({ user: this.user }));
 	},
 
+	onMessagesChange: function() {
+		var all = this.messages.getMessages();
+		var count = 0;
+
+		for(var i = 0; i < all.length; i++) {
+			if(all[i].getSeen())
+				continue;
+			if(all[i].getOrigin() === this.user.getId())
+				continue;
+			count++;
+		}
+
+		console.log('onMessagesChange count: '+count);
+
+		if(count > 0)
+			this.messageButton.setBadge(count);
+		else
+			this.messageButton.setBadge(undefined);
+	},
+
 	onSearchValidate: function(field, value) {
 		console.log('searchField validate: ' + value);
 		// TODO: DO SOME THING ;)
@@ -403,8 +435,12 @@ Ui.App.extend('KJing.AdminApp', {
 		newStack.push(this.paned.getContent2().getStack()[0]);
 		newStack.push({ text: 'Recherche: '+value, resource: new KJing.Search({ id: 'search:'+value }) });
 
-		this.paned.getContent2().setStack(newStack);
+		this.setMainStack(newStack);
 
+	},
+
+	setMainStack: function(stack) {
+		this.paned.getContent2().setStack(stack);
 	},
 
 	onProfilPress: function(button) {
@@ -430,8 +466,7 @@ Ui.App.extend('KJing.AdminApp', {
 	},
 	
 	onMessagePress: function(button) {
-		var popup = new Ui.MenuPopup();
-		popup.setContent(new Ui.Text({ text: 'TODO', verticalAlign: 'center', width: 150, height: 200, margin: 10 }));
+		var popup = new KJing.HistoryMessagesPopup({ messages: this.messages });
 		popup.show(button, 'bottom');
 	},
 
@@ -672,6 +707,12 @@ style: {
 		overScroll: true,
 		radius: 0
 	},
+	"Ui.VBoxScrollingArea": {
+		color: "#999999",
+		showScrollbar: false,
+		overScroll: true,
+		radius: 0
+	},
 	"Ui.Button": {
 		background: "#fefefe",
 		iconSize: 28,
@@ -787,6 +828,9 @@ style: {
 	},
 	"KJing.UserProfilButton": {
 		iconSize: 32
+	},
+	"KJing.UserNotifyView": {
+		background: Ui.Color.create("rgba(150,150,255,0.1)")
 	}
 }
 });

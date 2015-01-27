@@ -6,7 +6,7 @@
 // Author(s):
 //  Daniel Lacroix <dlacroix@erasme.org>
 // 
-// Copyright (c) 2013-2014 Departement du Rhone
+// Copyright (c) 2013-2015 Departement du Rhone - Metropole de Lyon
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -40,6 +40,7 @@ using Erasme.Cloud.Facebook;
 using Erasme.Cloud.Preview;
 using Erasme.Cloud.Manage;
 using Erasme.Cloud.StaticFiles;
+using Erasme.Cloud.Message;
 using Erasme.Cloud.Utils;
 using KJing.Directory;
 using KJing.Manage;
@@ -77,7 +78,14 @@ namespace KJing
 			// directory service
 			DirectoryService directoryService = new DirectoryService(
 				Setup.Storage + "/directory", authSessionService, Setup.AuthHeader, Setup.AuthCookie,
-				Setup.TemporaryDirectory, Setup.DefaultCacheDuration, Logger, LongRunningTaskScheduler);
+				Setup.DefaultBytesQuota, Setup.TemporaryDirectory, Setup.DefaultCacheDuration,
+				Logger, LongRunningTaskScheduler);
+
+			// messagerie
+			MessageService messageService = new MessageService(Setup.Storage+"/message/");
+			messageService.Rights = new KJing.Message.MessageRights(directoryService);
+			directoryService.MessageService = messageService;
+			mapper.Add(Setup.Path+"/message", messageService);
 
 			// management
 			ManageService manageService = new ManageService(LongRunningTaskScheduler);
@@ -169,6 +177,9 @@ namespace KJing
 		protected override void OnProcessRequestError(HttpContext context, Exception exception)
 		{
 			base.OnProcessRequestError(context, exception);
+
+			string detail = null;
+
 			// handle web exceptions
 			if((exception is WebException) && (context.WebSocket == null)) {
 				WebException webException = (WebException)exception;
@@ -176,6 +187,7 @@ namespace KJing
 				JsonValue json = new JsonObject();
 				json["code"] = webException.Code;
 				json["detail"] = webException.Detail;
+				detail = webException.Detail;
 				context.Response.Content = new JsonContent(json);
 				if(webException.Exception != null)
 					exception = webException.Exception;
@@ -224,6 +236,10 @@ namespace KJing
 			log.Append(Math.Round((DateTime.Now - context.Request.StartTime).TotalMilliseconds).ToString(CultureInfo.InvariantCulture));
 			log.Append("ms\n");
 			// exception details
+			if(detail != null) {
+				log.Append(detail);
+				log.Append("\n");
+			}
 			log.Append(exception.ToString());
 
 			// write the log

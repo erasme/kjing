@@ -56,7 +56,7 @@ namespace KJing.Directory
 			}
 		}
 
-		public void ProcessContent(JsonValue data, string contentFilePath)
+		public void ProcessContent(JsonValue data, JsonValue diff, string contentFilePath)
 		{
 			if(contentFilePath == null)
 				return;
@@ -81,7 +81,7 @@ namespace KJing.Directory
 			}
 
 			JsonValue videoMediaInfo = new JsonObject();
-			data["videoMediaInfo"] = videoMediaInfo;
+			diff["videoMediaInfo"] = videoMediaInfo;
 			videoMediaInfo["width"] = width;
 			videoMediaInfo["height"] = height;
 			videoMediaInfo["durationMilliseconds"] = durationMilliseconds;
@@ -128,7 +128,7 @@ namespace KJing.Directory
 						LongTask task = new LongTask(delegate {
 							try {
 								JsonValue diff = new JsonObject();
-								ProcessContent(diff, fileService.GetLocalFile(id));
+								ProcessContent(value, diff, fileService.GetLocalFile(id));
 								fileService.Directory.ChangeResource(id, diff);
 							}
 							finally {

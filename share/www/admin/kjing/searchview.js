@@ -14,10 +14,16 @@ Ui.Flow.extend('KJing.SearchView', {
 
 		console.log('search string: '+this.resource.getQueryString());
 
+		var filters = this.resource.getFilters();
+		var filtersArgs = '';
+		for(var key in filters) {
+			filtersArgs += '&'+encodeURIComponent(key)+'='+encodeURIComponent(filters[key]);
+		}
+
 		var request = new Core.HttpRequest({
 			method: 'GET',
 			url: '/cloud/resource?seenBy='+Ui.App.current.getUser().getId()+
-			'&query='+encodeURIComponent(this.resource.getQueryString()) });
+			'&query='+encodeURIComponent(this.resource.getQueryString())+filtersArgs });
 
 		this.connect(request, 'done', this.onSearchDone);
 		this.connect(request, 'error', this.onSearchError);
@@ -55,6 +61,8 @@ Ui.Flow.extend('KJing.SearchView', {
 			item = new KJing.LinkItemView({ resource: resource, view: this.view, share: share });
 		else if(resource.getType() == 'file')
 			item = new KJing.FileItemView({ resource: resource, view: this.view, share: share });
+		else if(resource.getType() == 'device')
+			item = new KJing.DeviceItemView({ resource: resource, view: this.view });
 		if(item !== undefined)
 			this.append(item);
 	},

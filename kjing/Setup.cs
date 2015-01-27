@@ -161,6 +161,12 @@ namespace KJing
 		[XmlAttribute]
 		public bool AllowGZip = false;
 
+		/// <summary>
+		/// The default quota in bytes for a newly created user account.
+		/// -1 = infinite
+		/// </summary>
+		[XmlAttribute]
+		public long DefaultBytesQuota = -1;
 	}
 }
 

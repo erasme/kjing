@@ -81,7 +81,7 @@ namespace KJing.Directory
 		{
 		}
 
-		public void ProcessContent(JsonValue data, string contentFilePath)
+		public void ProcessContent(JsonValue data, JsonValue diff, string contentFilePath)
 		{
 		}
 

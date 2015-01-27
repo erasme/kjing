@@ -5,7 +5,7 @@
 // Author(s):
 //  Daniel Lacroix <dlacroix@erasme.org>
 // 
-// Copyright (c) 2013-2014 Departement du Rhone
+// Copyright (c) 2013-2015 Departement du Rhone - Metropole de Lyon
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -142,7 +142,7 @@ namespace KJing.Directory
 				}
 				JsonValue newResource = Service.GetResource(Resource, null, 0);
 				// notify change
-				Service.NotifyChange(oldResource, newResource);
+				Service.Directory.NotifyChange(oldResource, newResource);
 			}
 
 			public override void OnMessage(string message)
@@ -157,7 +157,7 @@ namespace KJing.Directory
 						}
 						JsonValue newResource = Service.GetResource(Resource, null, 0);
 						// notify change
-						Service.NotifyChange(oldResource, newResource);
+						Service.Directory.NotifyChange(oldResource, newResource);
 					}
 					else if((type == "clientmessage") && (json.ContainsKey("message")) && (json.ContainsKey("destination"))) {
 						Service.SendMessage(Resource, Id, json["destination"], json["message"]);
@@ -183,7 +183,7 @@ namespace KJing.Directory
 				JsonValue newResource = Service.GetResource(Resource, null, 0);
 				//				Console.WriteLine("OnClose for " + Resource + ": " + newResource.ToString());
 				// notify change
-				Service.NotifyChange(oldResource, newResource);
+				Service.Directory.NotifyChange(oldResource, newResource);
 			}
 		}
 
@@ -217,11 +217,18 @@ namespace KJing.Directory
 			// create resource table
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 				string sql = "CREATE TABLE resource ("+
-					"id VARCHAR PRIMARY KEY, type VARCHAR NOT NULL, parent VARCHAR DEFAULT NULL,"+
+					"id VARCHAR PRIMARY KEY, type VARCHAR NOT NULL, parent VARCHAR DEFAULT NULL, "+
+					"parents VARCHAR DEFAULT NULL, "+
 					"name VARCHAR DEFAULT NULL, ctime INTEGER, mtime INTEGER, rev INTEGER DEFAULT 0, "+
 					"cache INTEGER(1) DEFAULT 0, publicRead INTEGER(1) DEFAULT 0, "+
 					"publicWrite INTEGER(1) DEFAULT 0, publicAdmin INTEGER(1) DEFAULT 0, "+
 					"position INTEGER DEFAULT 0, quotaBytesUsed INTEGER DEFAULT 0)";
+				dbcmd.CommandText = sql;
+				dbcmd.ExecuteNonQuery();
+			}
+			// create the resource full text virtual table
+			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+				string sql = "CREATE VIRTUAL TABLE resource_fts USING fts4(id,name,content,tokenize=unicode61)";
 				dbcmd.CommandText = sql;
 				dbcmd.ExecuteNonQuery();
 			}
@@ -374,7 +381,7 @@ namespace KJing.Directory
 					dbcmd.Parameters.Add(new SqliteParameter("id", current));
 					using(IDataReader reader = dbcmd.ExecuteReader()) {
 						if(!reader.Read())
-							throw new WebException(404, 0, "Resource not found");
+							throw new WebException(404, 0, "Resource '"+id+"' not found");
 						ResourceContext resourceContext = new ResourceContext();
 						resourceContext.Id = current;
 						resourceContext.PublicRead = reader.GetBoolean(1);
@@ -749,6 +756,51 @@ namespace KJing.Directory
 			}
 		}
 
+		void GetGroupUsers(IDbConnection dbcon, IDbTransaction transaction, string id, List<string> users)
+		{
+			// select from the user table
+			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+				dbcmd.CommandText = "SELECT user FROM ugroup_user WHERE ugroup=@id";
+				dbcmd.Parameters.Add(new SqliteParameter("id", id));
+				dbcmd.Transaction = transaction;
+				using(IDataReader reader = dbcmd.ExecuteReader()) {
+					while(reader.Read()) {
+						if(!reader.IsDBNull(0)) {
+							string u = reader.GetString(0);
+							if(!users.Contains(u)) {
+								users.Add(u);
+								GetGroupUsers(dbcon, transaction, u, users);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		/// <summary>
+		/// Gets users present in a group or its sub-groups
+		/// </summary>
+		/// <returns>The users.</returns>
+		/// <param name="group">The group id</param>
+		public List<string> GetGroupUsers(string group)
+		{
+			List<string> users = new List<string>();
+			users.Add(group);
+			lock(dbcon) {
+				using(IDbTransaction transaction = dbcon.BeginTransaction()) {
+					GetGroupUsers(dbcon, transaction, group, users);
+					transaction.Commit();
+				}
+			}
+			// filter to keep only final users not groups
+			List<string> res = new List<string>();
+			foreach(string user in users) {
+				if(user.StartsWith("user:"))
+					res.Add(user);
+			}
+			return res;
+		}
+
 		public JsonArray GetUserShares(IDbConnection dbcon, IDbTransaction transaction, string user, int depth, List<string> groups)
 		{
 			JsonArray shares = new JsonArray();
@@ -776,7 +828,7 @@ namespace KJing.Directory
 			return shares;
 		}
 
-		JsonArray GetUserShares(string user, int depth)
+		public JsonArray GetUserShares(string user, int depth)
 		{
 			JsonArray res;
 			lock(dbcon) {
@@ -854,6 +906,83 @@ namespace KJing.Directory
 			return result;
 		}
 
+		// TODO: test with FTS
+		JsonArray SearchResources2(string query, Dictionary<string,string> filters, string seenBy)
+		{
+			string user = seenBy;
+			JsonArray result = new JsonArray();
+
+			lock(dbcon) {
+				using(IDbTransaction transaction = dbcon.BeginTransaction()) {
+					// find the use groups
+					List<string> groups = new List<string>();
+					GetUserGroups(dbcon, transaction, user, groups);
+
+					// find all shared root for this user
+					StringBuilder sb = new StringBuilder();
+					sb.Append("'"); sb.Append(user.Replace("'", "''")); sb.Append("'");
+					foreach(string g in groups) {
+						sb.Append(",'"); sb.Append(g.Replace("'", "''")); sb.Append("'");
+					}
+					StringBuilder sharesSb = new StringBuilder();
+					sharesSb.Append("resource.id IN ('"); sharesSb.Append(user); sharesSb.Append("'");
+					StringBuilder rootsSb = new StringBuilder();
+					rootsSb.Append("(");
+					rootsSb.Append("resource.parents LIKE '"); rootsSb.Append(user); rootsSb.Append("/%'");
+					using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+						dbcmd.Transaction = transaction;
+						dbcmd.CommandText = "SELECT right.resource,(resource.parents || resource.id || '/') FROM right,resource "+
+							"WHERE right.user IN ("+sb.ToString()+") AND right.resource=resource.id";
+						using(IDataReader reader = dbcmd.ExecuteReader()) {
+							while(reader.Read()) {
+								sharesSb.Append(",'"); sharesSb.Append(reader.GetString(0)); sharesSb.Append("'");
+								if(!reader.IsDBNull(1)) {
+									rootsSb.Append(" OR resource.parents LIKE '"); rootsSb.Append(reader.GetString(1)); rootsSb.Append("%'");
+								}
+							}
+						}
+					}
+					sharesSb.Append(") ");
+					rootsSb.Append(") ");
+
+					using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+						dbcmd.Transaction = transaction;
+						sb = new StringBuilder();
+						sb.Append("SELECT resource_fts.id FROM resource_fts,resource ");
+						sb.Append("WHERE resource_fts MATCH @query AND resource_fts.id=resource.id ");
+
+						if(filters.ContainsKey("type")) {
+							sb.Append("AND resource.type=@type ");
+							dbcmd.Parameters.Add(new SqliteParameter("type", (string)filters["type"]));
+						}
+						if(filters.ContainsKey("parent")) {
+							sb.Append("AND resource.parent=@parent ");
+							dbcmd.Parameters.Add(new SqliteParameter("parent", (string)filters["parent"]));
+						}
+						// limit to what the given user can sees
+						sb.Append(" AND (");
+						sb.Append(sharesSb.ToString());
+						sb.Append(" OR ");
+						sb.Append(rootsSb.ToString());
+						sb.Append(" OR type='user') ");
+
+						sb.Append("LIMIT 500");
+						dbcmd.CommandText = sb.ToString();
+						dbcmd.Parameters.Add(new SqliteParameter("query", query));
+						using(IDataReader reader = dbcmd.ExecuteReader()) {
+							while(reader.Read()) {
+								string resourceId = reader.GetString(0);
+								JsonValue json = GetResource(dbcon, transaction, resourceId, seenBy, 0);
+								result.Add(json);
+							}
+						}
+					}
+					transaction.Commit();
+				}
+			}
+			return result;
+		}
+
 
 		bool CleanPositions(IDbConnection dbcon, IDbTransaction transaction, string parent)
 		{
@@ -919,7 +1048,7 @@ namespace KJing.Directory
 			}
 			// notify the changes
 			foreach(string resourceId in changes.Keys) {
-				NotifyChange(changes[resourceId].Before, changes[resourceId].After);
+				Directory.NotifyChange(changes[resourceId].Before, changes[resourceId].After);
 			}
 
 			return json;
@@ -949,6 +1078,36 @@ namespace KJing.Directory
 			string parent = null;
 			if(data.ContainsKey("parent"))
 				parent = (string)data["parent"];
+			// build the parents string
+			string parents = null;
+			if(parent != null) {
+				List<string> list = new List<string>();
+				string current = parent;
+				do {
+					using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+						dbcmd.CommandText = "SELECT parent FROM resource WHERE id=@id";
+						dbcmd.Transaction = transaction;
+						dbcmd.Parameters.Add(new SqliteParameter("id", current));
+						using(IDataReader reader = dbcmd.ExecuteReader()) {
+							if(!reader.Read())
+								throw new WebException(404, 0, "Resource not found");
+							list.Add(current);
+							if(reader.IsDBNull(0))
+								current = null;
+							else
+								current = reader.GetString(0);
+						}
+					}
+				} while(current != null);
+				list.Reverse();
+				StringBuilder sb = new StringBuilder();
+				foreach(string p in list) {
+					sb.Append(p);
+					sb.Append("/");
+				}
+				parents = sb.ToString();
+			}
+
 			string name = null;
 			if(data.ContainsKey("name"))
 				name = (string)data["name"];
@@ -977,13 +1136,14 @@ namespace KJing.Directory
 			// insert into resource table
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 				dbcmd.Transaction = transaction;
-				dbcmd.CommandText = "INSERT INTO resource (id,type,ctime,mtime,parent,name,rev,cache,publicRead,publicWrite,publicAdmin,position,quotaBytesUsed) "+
-					"VALUES (@id,@type,@ctime,@mtime,@parent,@name,0,@cache,@publicRead,@publicWrite,@publicAdmin,@position,@quotaBytesUsed)";
+				dbcmd.CommandText = "INSERT INTO resource (id,type,ctime,mtime,parent,parents,name,rev,cache,publicRead,publicWrite,publicAdmin,position,quotaBytesUsed) "+
+					"VALUES (@id,@type,@ctime,@mtime,@parent,@parents,@name,0,@cache,@publicRead,@publicWrite,@publicAdmin,@position,@quotaBytesUsed)";
 				dbcmd.Parameters.Add(new SqliteParameter("id", id));
 				dbcmd.Parameters.Add(new SqliteParameter("type", type));
 				dbcmd.Parameters.Add(new SqliteParameter("ctime", now));
 				dbcmd.Parameters.Add(new SqliteParameter("mtime", now));
 				dbcmd.Parameters.Add(new SqliteParameter("parent", parent));
+				dbcmd.Parameters.Add(new SqliteParameter("parents", parents));
 				dbcmd.Parameters.Add(new SqliteParameter("name", name));
 				dbcmd.Parameters.Add(new SqliteParameter("cache", cache));
 				dbcmd.Parameters.Add(new SqliteParameter("publicRead", publicRead));
@@ -1007,6 +1167,32 @@ namespace KJing.Directory
 				}
 				else {
 					ChangeResource(dbcon, transaction, parent, null, changes);
+				}
+			}
+
+			// handle full text indexing
+			if(!cache && (data.ContainsKey("indexingContent") || data.ContainsKey("name"))) {
+
+				using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+					dbcmd.Transaction = transaction;
+					dbcmd.Parameters.Add(new SqliteParameter("id", id));
+
+					if(data.ContainsKey("indexingContent")) {
+						if(data.ContainsKey("name")) {
+							dbcmd.CommandText = "INSERT INTO resource_fts (id,name,content) VALUES (@id,@name,@content)";
+							dbcmd.Parameters.Add(new SqliteParameter("name", (string)data["name"]));
+							dbcmd.Parameters.Add(new SqliteParameter("content", (string)data["indexingContent"]));
+						}
+						else {
+							dbcmd.CommandText = "INSERT INTO resource_fts (id,content) VALUES (@id,@content)";
+							dbcmd.Parameters.Add(new SqliteParameter("content", (string)data["indexingContent"]));
+						}
+					}
+					else {
+						dbcmd.CommandText = "INSERT INTO resource_fts (id,name) VALUES (@id,@name)";
+						dbcmd.Parameters.Add(new SqliteParameter("name", (string)data["name"]));
+					}
+					dbcmd.ExecuteNonQuery();
 				}
 			}
 
@@ -1039,7 +1225,7 @@ namespace KJing.Directory
 			}
 			// notify the changes
 			foreach(string resourceId in changes.Keys) {
-				NotifyChange(changes[resourceId].Before, changes[resourceId].After);
+				Directory.NotifyChange(changes[resourceId].Before, changes[resourceId].After);
 			}
 
 			return res;
@@ -1057,6 +1243,10 @@ namespace KJing.Directory
 			string type = (string)data["type"];
 
 			if(diff != null) {
+
+				if(ResourceTypes.ContainsKey(type))
+					ResourceTypes[type].Change(dbcon, transaction, id, data, diff);
+
 				// handle name resource field
 				if(diff.ContainsKey("name")) {
 					using(IDbCommand dbcmd = dbcon.CreateCommand()) {
@@ -1130,14 +1320,37 @@ namespace KJing.Directory
 							throw new WebException(409, 0, "Cant move a resource to one of its sub-resource");
 					}
 
-					// change the parent
+					string oldParentsString = "";
+					foreach(string p in oldParents) {
+						oldParentsString += p + "/";
+					}
+					string newParentsString = "";
+					foreach(string p in newParentParents) {
+						newParentsString += p + "/";
+					}
+					newParentsString += newParentId + "/";
+
+					// change the parent and the full path parents
 					using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 						dbcmd.Transaction = transaction;
-						dbcmd.CommandText = "UPDATE resource SET parent=@parent WHERE id=@id";
+						dbcmd.CommandText = "UPDATE resource SET parent=@parent, parents=@parents WHERE id=@id";
 						dbcmd.Parameters.Add(new SqliteParameter("parent", (string)diff["parent"]));
+						dbcmd.Parameters.Add(new SqliteParameter("parents", newParentsString));
 						dbcmd.Parameters.Add(new SqliteParameter("id", id));
 						dbcmd.ExecuteNonQuery();
 					}
+					// change the full path parents for all sub-resources
+					string subParentString = newParentsString + id + "/";
+					using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+						dbcmd.Transaction = transaction;
+						dbcmd.CommandText = "UPDATE resource SET parents=('"+subParentString+"' || SUBSTR(parents,"+(subParentString.Length+1)+")) WHERE parents LIKE '"+oldParentsString+"%'";
+						dbcmd.ExecuteNonQuery();
+					}
+
+					// TODO: change the parents field
+					Console.WriteLine("Change parents for resource : " + id +", old: "+oldParentsString+", new: " + newParentsString);
+
+					// TODO: change the parents field for sub-resources
 
 					long quotaBytesUsed = (long)data["quotaBytesUsed"];
 
@@ -1201,6 +1414,67 @@ namespace KJing.Directory
 					}
 				}
 
+				// handle full text indexing
+				if(!((bool)data["cache"]) && (diff.ContainsKey("indexingContent") || diff.ContainsKey("name"))) {
+
+					bool exists = false;
+					// test FTS already exists for the resource
+					using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+						dbcmd.Transaction = transaction;
+						dbcmd.CommandText = "SELECT COUNT(*) FROM resource_fts WHERE id=@id";
+						dbcmd.Parameters.Add(new SqliteParameter("id", id));
+						object res = dbcmd.ExecuteScalar();
+						if(res != null)
+							exists = (Convert.ToInt64(res) > 0);
+					}
+
+					if(exists) {
+						using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+							dbcmd.Transaction = transaction;
+							dbcmd.Parameters.Add(new SqliteParameter("id", id));
+							if(diff.ContainsKey("indexingContent")) {
+								if(diff.ContainsKey("name")) {
+									dbcmd.CommandText = "UPDATE resource_fts SET name=@name, content=@content WHERE id=@id";
+									dbcmd.Parameters.Add(new SqliteParameter("name", (string)diff["name"]));
+									dbcmd.Parameters.Add(new SqliteParameter("content", (string)diff["indexingContent"]));
+								}
+								else {
+									dbcmd.CommandText = "UPDATE resource_fts SET content=@content WHERE id=@id";
+									dbcmd.Parameters.Add(new SqliteParameter("content", (string)diff["indexingContent"]));
+								}
+							}
+							else {
+								dbcmd.CommandText = "UPDATE resource_fts SET name=@name WHERE id=@id";
+								dbcmd.Parameters.Add(new SqliteParameter("name", (string)diff["name"]));
+							}
+							dbcmd.ExecuteNonQuery();
+						}
+					}
+					else {
+						using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+							dbcmd.Transaction = transaction;
+							dbcmd.Parameters.Add(new SqliteParameter("id", id));
+
+							if(diff.ContainsKey("indexingContent")) {
+								if(diff.ContainsKey("name")) {
+									dbcmd.CommandText = "INSERT INTO resource_fts (id,name,content) VALUES (@id,@name,@content)";
+									dbcmd.Parameters.Add(new SqliteParameter("name", (string)diff["name"]));
+									dbcmd.Parameters.Add(new SqliteParameter("content", (string)diff["indexingContent"]));
+								}
+								else {
+									dbcmd.CommandText = "INSERT INTO resource_fts (id,content) VALUES (@id,@content)";
+									dbcmd.Parameters.Add(new SqliteParameter("content", (string)diff["indexingContent"]));
+								}
+							}
+							else {
+								dbcmd.CommandText = "INSERT INTO resource_fts (id,name) VALUES (@id,@name)";
+								dbcmd.Parameters.Add(new SqliteParameter("name", (string)diff["name"]));
+							}
+							dbcmd.ExecuteNonQuery();
+						}
+					}
+				}
+
 				// clean parents childs positions if needed (parent change or/and new position)
 				if((newParentId != oldParentId) || (newPosition != oldPosition))
 					CleanPositions(dbcon, transaction, newParentId);
@@ -1210,9 +1484,6 @@ namespace KJing.Directory
 					ChangeResource(dbcon, transaction, oldParentId, oldParentDiff, changes);
 				if(newParentDiff != null)
 					ChangeResource(dbcon, transaction, newParentId, newParentDiff, changes);
-
-				if(ResourceTypes.ContainsKey(type))
-					ResourceTypes[type].Change(dbcon, transaction, id, data, diff);
 			}
 
 			long now = DateTime.Now.ToEpoch();
@@ -1253,7 +1524,7 @@ namespace KJing.Directory
 			}
 			// notify the changes
 			foreach(string resourceId in changes.Keys) {
-				NotifyChange(changes[resourceId].Before, changes[resourceId].After);
+				Directory.NotifyChange(changes[resourceId].Before, changes[resourceId].After);
 			}
 		}
 
@@ -1272,8 +1543,13 @@ namespace KJing.Directory
 				dbcmd.Transaction = transaction;
 				using(IDataReader reader = dbcmd.ExecuteReader()) {
 					while(reader.Read()) {
-						if(!reader.IsDBNull(0))
-							DeleteResource(dbcon, transaction, reader.GetString(0), changes);
+						if(!reader.IsDBNull(0)) {
+							string childId = reader.GetString(0);
+							JsonValue jsonResource = GetResource(dbcon, transaction, childId, null, 0);
+							// detach the parent
+							jsonResource["parent"] = null;
+							DeleteResource(dbcon, transaction, childId, jsonResource, changes);
+						}
 					}
 				}
 			}
@@ -1291,6 +1567,14 @@ namespace KJing.Directory
 				dbcmd.Parameters.Add(new SqliteParameter("id", id));
 				if(dbcmd.ExecuteNonQuery() != 1)
 					throw new Exception("Resource delete fails");
+			}
+
+			// delete from the resource full text indexing table
+			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+				dbcmd.Transaction = transaction;
+				dbcmd.CommandText = "DELETE FROM resource_fts WHERE id=@id";
+				dbcmd.Parameters.Add(new SqliteParameter("id", id));
+				dbcmd.ExecuteNonQuery();
 			}
 
 			// clean the parent childs positions
@@ -1326,15 +1610,21 @@ namespace KJing.Directory
 
 		public void AddResourceRights(string id, JsonValue rights)
 		{
+			Dictionary<string,ResourceChange> changes = new Dictionary<string, ResourceChange>();
 			lock(dbcon) {
 				using(IDbTransaction transaction = dbcon.BeginTransaction()) {
-					AddResourceRights(dbcon, transaction, id, rights);
+					JsonValue data = GetResource(dbcon, transaction, id, null, 0);
+					AddResourceRights(dbcon, transaction, id, data, rights, changes);
 					transaction.Commit();
 				}
 			}
+			// notify the changes
+			foreach(string resourceId in changes.Keys) {
+				Directory.NotifyChange(changes[resourceId].Before, changes[resourceId].After);
+			}
 		}
 
-		void AddResourceRights(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue rights)
+		void AddResourceRights(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue rights, Dictionary<string,ResourceChange> changes)
 		{
 			// get old rights
 			JsonArray resourceRights = GetResourceRights(dbcon, transaction, id);
@@ -1399,6 +1689,19 @@ namespace KJing.Directory
 					}
 				}
 			}
+
+			JsonValue before;
+			if(changes.ContainsKey(id))
+				before = changes[id].Before;
+			else
+				before = data;
+
+			JsonValue after = ChangeResource(dbcon, transaction, id, null, changes);
+
+			changes[id] = new ResourceChange {
+				Before = before,
+				After = after
+			};
 		}
 
 		public virtual async Task ProcessRequestAsync(HttpContext context)
@@ -1439,7 +1742,8 @@ namespace KJing.Directory
 
 				context.Response.StatusCode = 200;
 				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
-				context.Response.Content = new JsonContent(SearchResources(query, filters, seenBy));
+				//context.Response.Content = new JsonContent(SearchResources(query, filters, seenBy));
+				context.Response.Content = new JsonContent(SearchResources2(query, filters, seenBy));
 			}
 			// POST / create a resource
 			else if((context.Request.Method == "POST") && (parts.Length == 0)) {
