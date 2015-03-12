@@ -727,8 +727,8 @@ namespace KJing.Directory
 						Rights ownRights;
 						JsonValue json = GetResource(dbcon, transaction, reader.GetString(0), filterBy, depth, groups, heritedRights, out ownRights, parents);
 						// filter the resource by what the filterBy user can view
-						if((filterBy == null) || ((bool)json["ownRights"]["read"]))
-							resource = json;
+//						if((filterBy == null) || ((bool)json["ownRights"]["read"]))
+						resource = json;
 					}
 				}
 			}
@@ -806,7 +806,11 @@ namespace KJing.Directory
 			JsonArray shares = new JsonArray();
 
 			StringBuilder sb = new StringBuilder();
-			sb.Append("'"); sb.Append(user.Replace("'", "''")); sb.Append("'");
+			if(user != null) {
+				sb.Append("'");
+				sb.Append(user.Replace("'", "''"));
+				sb.Append("'");
+			}
 			foreach(string g in groups) {
 				sb.Append(",'"); sb.Append(g.Replace("'", "''")); sb.Append("'");
 			}
@@ -842,6 +846,40 @@ namespace KJing.Directory
 			return res;
 		}
 
+		public JsonArray GetGroupShares(IDbConnection dbcon, IDbTransaction transaction, string group, string seenBy, int depth)
+		{
+			JsonArray shares = new JsonArray();
+
+			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+				dbcmd.Transaction = transaction;
+				dbcmd.CommandText = "SELECT resource FROM right WHERE user=@group";
+				dbcmd.Parameters.Add(new SqliteParameter("group", group));
+				using(IDataReader reader = dbcmd.ExecuteReader()) {
+					while(reader.Read()) {
+						try {
+							shares.Add(GetResource(dbcon, transaction, reader.GetString(0), seenBy, depth-1));
+						}
+						catch(WebException e) {
+							logger.Log(LogLevel.Error, "Error while getting shared resource '" + reader.GetString(0) + "' by user '" + seenBy + "' (" + e.ToString() + ")");
+						}
+					}
+				}
+			}
+			return shares;
+		}
+
+		public JsonArray GetGroupShares(string group, string seenBy, int depth)
+		{
+			JsonArray res;
+			lock(dbcon) {
+				using(IDbTransaction transaction = dbcon.BeginTransaction()) {
+					res = GetGroupShares(dbcon, transaction, group, seenBy, depth);
+					transaction.Commit();
+				}
+			}
+			return res;
+		}
+
 		bool TestResource(JsonValue resource, string word)
 		{
 			foreach(string key in resource.Keys) {
@@ -867,7 +905,7 @@ namespace KJing.Directory
 			return true;
 		}
 
-		void SearchResources(JsonValue resource, string[] words, Dictionary<string,string> filters, JsonArray result)
+		/*void SearchResources(JsonValue resource, string[] words, Dictionary<string,string> filters, JsonArray result)
 		{
 			// first check if the resource is not already in the result
 			foreach(JsonValue tmp in result) {
@@ -904,10 +942,10 @@ namespace KJing.Directory
 				SearchResources(share, words, filters, result);
 
 			return result;
-		}
+		}*/
 
 		// TODO: test with FTS
-		JsonArray SearchResources2(string query, Dictionary<string,string> filters, string seenBy)
+		JsonArray SearchResources(string query, Dictionary<string,string> filters, string seenBy)
 		{
 			string user = seenBy;
 			JsonArray result = new JsonArray();
@@ -948,8 +986,14 @@ namespace KJing.Directory
 					using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 						dbcmd.Transaction = transaction;
 						sb = new StringBuilder();
-						sb.Append("SELECT resource_fts.id FROM resource_fts,resource ");
-						sb.Append("WHERE resource_fts MATCH @query AND resource_fts.id=resource.id ");
+
+						if(query == "") {
+							sb.Append("SELECT resource.id FROM resource WHERE resource.cache=0 ");
+						}
+						else {
+							sb.Append("SELECT resource_fts.id FROM resource_fts,resource ");
+							sb.Append("WHERE resource_fts MATCH @query AND resource_fts.id=resource.id ");
+						}
 
 						if(filters.ContainsKey("type")) {
 							sb.Append("AND resource.type=@type ");
@@ -1242,6 +1286,8 @@ namespace KJing.Directory
 			// get the resource type
 			string type = (string)data["type"];
 
+			//Console.WriteLine("ChangeResource " + id + ", diff: " + ((diff == null) ? "null" : diff.ToString()));
+
 			if(diff != null) {
 
 				if(ResourceTypes.ContainsKey(type))
@@ -1311,7 +1357,7 @@ namespace KJing.Directory
 					JsonArray newParentParents = (JsonArray)newParent["parents"];
 
 					// check if the new parent has the same root (owner) than the new one
-					if((string)newParentParents[0] != (string)oldParents[0])
+					if(((newParentParents.Count > 0)?((string)newParentParents[0]):newParentId) != (string)oldParents[0])
 						throw new WebException(409, 0, "Moving from one user to another is not allowed. Copy must be used");
 
 					// check if the new parent is not a child of the current resource
@@ -1728,7 +1774,7 @@ namespace KJing.Directory
 				context.Response.StatusCode = 200;
 				context.Response.Content = new JsonContent(GetResource(parts[0], seenBy, depth));
 			}
-			// GET /?query=[words]&seenBy=[user]
+			// GET /?query=[words]&seenBy=[user][&type=[user|group...]]
 			else if((context.Request.Method == "GET") && (parts.Length == 0) && context.Request.QueryString.ContainsKey("seenBy")) {
 				string seenBy = context.Request.QueryString["seenBy"];
 				string query = "";
@@ -1742,8 +1788,7 @@ namespace KJing.Directory
 
 				context.Response.StatusCode = 200;
 				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
-				//context.Response.Content = new JsonContent(SearchResources(query, filters, seenBy));
-				context.Response.Content = new JsonContent(SearchResources2(query, filters, seenBy));
+				context.Response.Content = new JsonContent(SearchResources(query, filters, seenBy));
 			}
 			// POST / create a resource
 			else if((context.Request.Method == "POST") && (parts.Length == 0)) {
