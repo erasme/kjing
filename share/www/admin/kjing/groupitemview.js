@@ -5,9 +5,8 @@ KJing.ResourceItemView.extend('KJing.GroupItemView', {
 		this.setItemIcon('group');
 	
 		var bindedIconEffect = this.onIconEffect.bind(this);
-		this.getItemIcon().addType(KJing.GroupUserItemView, bindedIconEffect);
-		this.getItemIcon().addType(KJing.GroupItemView, bindedIconEffect);
-		this.getItemIcon().addType(KJing.UserItemView, bindedIconEffect);
+		this.getItemIcon().addType(KJing.Group, bindedIconEffect);
+		this.getItemIcon().addType(KJing.User, bindedIconEffect);
 
 		this.connect(this.getItemIcon(), 'drop', this.onIconDrop);
 		this.connect(this.getItemIcon(), 'dragenter', this.onIconDragEnter);
@@ -15,22 +14,22 @@ KJing.ResourceItemView.extend('KJing.GroupItemView', {
 	},
 
 	onIconEffect: function(data) {
-		if(data.getResource().getId() === this.getResource().getId())
-			return 'none';
+		if(data.getId() === this.getId())
+			return [];
 		else {
 			// if the user/group is already in the group, drop is not possible
 			var users = this.getResource().getUsers();
 			for(var i = 0; i < users.length; i++) {
-				if(users[i] === data.getResource().getId())
-					return 'none';
+				if(users[i] === data.getId())
+					return [];
 			}
-			return 'link';
+			return [ 'link' ];
 		}
 	},
 
 	onIconDrop: function(dropbox, data, effect, x, y) {
 		// add the group/user in this group
-		this.getResource().addUser(data.getResource());
+		this.getResource().addUser(data);
 	},
 
 	onIconDragEnter: function() {

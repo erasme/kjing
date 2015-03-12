@@ -11,7 +11,7 @@ Ui.Image.extend('KJing.SquareImage', {
 		if(this.getIsReady()) {
 			var ratio = this.getNaturalWidth() / this.getNaturalHeight();
 			if(ratio > 1)
-				return { width: this.squareSize, height: this.squareSize/ratio };	
+				return { width: this.squareSize, height: this.squareSize/ratio };
 			else
 				return { width: this.squareSize*ratio, height: this.squareSize };	
 		}
@@ -27,6 +27,7 @@ Ui.DropBox.extend('KJing.ItemViewIcon', {
 	iconName: undefined,
 	iconSrc: undefined,
 	imageSrc: undefined,
+	ownerImageSrc: undefined,
 	squareSize: 48,
 	icon: undefined,
 	progressbar: undefined,
@@ -36,7 +37,7 @@ Ui.DropBox.extend('KJing.ItemViewIcon', {
 
 	setSquareSize: function(squareSize) {
 		this.squareSize = squareSize;
-		if(this.tags !== undefined) {
+		if(this.tagsBox !== undefined) {
 			this.tagsBox.setWidth(this.squareSize);
 			this.tagsBox.setHeight(this.squareSize);
 		}
@@ -87,7 +88,8 @@ Ui.DropBox.extend('KJing.ItemViewIcon', {
 		this.iconSrc = icon;
 		this.icon = new KJing.SquareImage({
 			src: this.iconSrc,
-			squareSize: this.squareSize
+			squareSize: this.squareSize,
+			horizontalAlign: 'center', verticalAlign: 'bottom'
 		});
 		this.setContent(this.icon);
 		if(this.tagsBox !== undefined)
@@ -105,7 +107,10 @@ Ui.DropBox.extend('KJing.ItemViewIcon', {
 			this.setContent(this.icon);
 		}
 		else {
-			this.icon = new KJing.SquareImage({ src: this.imageSrc, squareSize: this.squareSize });
+			this.icon = new KJing.SquareImage({
+				src: this.imageSrc, squareSize: this.squareSize,
+				horizontalAlign: 'center', verticalAlign: 'bottom'
+			});
 			this.connect(this.icon, 'error', this.onImageError);
 			this.setContent(this.icon);
 		}
@@ -117,15 +122,28 @@ Ui.DropBox.extend('KJing.ItemViewIcon', {
 
 	setTags: function(tags) {
 		this.tags = tags;
-		if(this.tags !== undefined) {
+		this.updateTags();
+	},
+
+	setOwnerImage: function(src) {
+		this.ownerImageSrc = src;
+		this.updateTags();
+	},
+
+	updateTags: function() {
+		if((this.tags !== undefined) || (this.ownerImageSrc !== undefined)) {
 			if(this.tagsBox === undefined) {
-				this.tagsBox = new Ui.LBox({ width: this.squareSize, height: this.squareSize, verticalAlign: 'bottom', horizontalAlign: 'center' });
+				this.tagsBox = new Ui.LBox({ width: this.squareSize, height: this.squareSize });
 				this.append(this.tagsBox);
 			}
 			var flow = new Ui.Flow({ itemAlign: 'right', verticalAlign: 'bottom' });
 			this.tagsBox.setContent(flow);
-			for(var i = 0; i < tags.length; i++)
-				flow.append(new Ui.Icon({ icon: tags[i], width: 24, height: 24, fill: '#00c3ff' }));
+			if(this.tags !== undefined) {
+				for(var i = 0; i < this.tags.length; i++)
+					flow.append(new Ui.Icon({ icon: this.tags[i], width: 24, height: 24, fill: '#00c3ff' }));
+			}
+			if(this.ownerImageSrc !== undefined)
+				flow.append(new KJing.RoundItemGraphic({ width: 24, height: 24, imageSrc: this.ownerImageSrc }));
 		}
 		else {
 			if(this.tagsBox !== undefined) {
@@ -157,21 +175,29 @@ Ui.Button.extend('KJing.ItemView', {
 	isRound: false,
 	itemIcon: undefined,
 	selectedIcon: undefined,
+	allowSelect: true,
 
 	constructor: function(config) {					
 		this.view = config.view;
 		delete(config.view);
 
 		this.setDraggableData(this);
+		//this.setAllowedMode([ 'move', 'copy', 'run', 'play', 'link' ]);
 		this.itemIcon = new KJing.ItemViewIcon({ verticalAlign: 'bottom', horizontalAlign: 'center' });
 		this.setIcon(this.itemIcon);
 
 		this.connect(this, 'press', function() {
-			if(this.getIsSelected())
-				this.unselect();
-			else
-				this.select();
+			if(this.allowSelect) {
+				if(this.getIsSelected())
+					this.unselect();
+				else
+					this.select();
+			}
 		});
+	},
+
+	setAllowSelect: function(allowSelect) {
+		this.allowSelect = allowSelect;
 	},
 
 	getItemIcon: function() {
@@ -192,6 +218,10 @@ Ui.Button.extend('KJing.ItemView', {
 
 	setItemTags: function(tags) {
 		this.itemIcon.setTags(tags);
+	},
+
+	setItemOwnerImage: function(src) {
+		this.itemIcon.setOwnerImage(src);
 	},
 
 	setItemIcon: function(icon) {

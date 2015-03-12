@@ -106,6 +106,76 @@ Ui.SFlow.extend('KJing.NewTextFileCreator', {
 	}
 });
 
+Ui.SFlow.extend('KJing.NewStateFileCreator', {
+	resource: undefined,
+	nameField: undefined,
+	valid: false,
+
+	constructor: function(config) {
+		this.addEvents('done', 'valid', 'notvalid');
+		
+		this.resource = config.resource;
+		delete(config.resource);
+
+		this.setItemAlign('stretch');
+		this.setStretchMaxRatio(5);
+
+		this.nameField = new KJing.TextField({ title: 'Nom', width: 150 });
+		this.connect(this.nameField, 'change', this.checkValid);
+		this.append(this.nameField);
+	},
+
+	create: function() {
+		var boundary = '----';
+		var characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+		for(var i = 0; i < 16; i++)
+			boundary += characters[Math.floor(Math.random()*characters.length)];
+		boundary += '----';
+
+		var request = new Core.HttpRequest({
+			method: 'POST',
+			url: '/cloud/file'
+		});
+		request.setRequestHeader("Content-Type", "multipart/form-data; boundary="+boundary);
+		request.setContent(
+			'--'+boundary+'\r\n'+
+			'Content-Disposition: form-data; name="define"\r\n'+
+			'Content-Type: application/x-kjing-state; charset=UTF-8\r\n\r\n'+
+			JSON.stringify({ parent: this.resource.getId(), name: this.nameField.getValue(), mimetype: 'application/x-kjing-state', position: 0 })+'\r\n'+
+			'--'+boundary+'\r\n'+
+			'Content-Disposition: form-data; name="file"; filename="noname"\r\n'+
+			'Content-Type: application/x-kjing-state; charset=UTF-8\r\n\r\n'+
+			'[]'+
+			'\r\n'+
+			'--'+boundary+'--\r\n'
+		);
+		this.connect(request, 'done', this.onRequestDone);
+		this.connect(request, 'done', this.onRequestFail);
+		request.send();
+	},
+
+	checkValid: function() {
+		var valid = (this.nameField.getValue() !== '');
+	
+		if(this.valid !== valid) {
+			this.valid = valid;
+			if(this.valid)
+				this.fireEvent('valid', this);
+			else
+				this.fireEvent('notvalid', this);
+		}
+	},
+
+	onRequestFail: function() {
+		this.valid = true;
+		this.fireEvent('valid', this);
+	},
+	
+	onRequestDone: function(req) {
+		this.fireEvent('done', this);
+	}
+});
+
 Ui.SFlow.extend('KJing.NewUrlFileCreator', {
 	resource: undefined,
 	nameField: undefined,

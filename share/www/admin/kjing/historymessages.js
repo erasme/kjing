@@ -289,7 +289,7 @@ Ui.MenuPopup.extend('KJing.HistoryMessagesPopup', {
 	},
 
 	onMorePress: function() {
-		this.hide();
+		this.close();
 		var dialog = new KJing.HistoryMessagesDialog({ messages: this.messages });
 		dialog.open();
 	}

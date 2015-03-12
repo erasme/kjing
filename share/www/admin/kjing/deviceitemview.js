@@ -114,10 +114,7 @@ Ui.Selectionable.extend('KJing.DeviceItemView', {
 		this.resource = config.resource;
 		delete(config.resource);
 
-		if(!KJing.Device.hasInstance(this.resource))
-			throw('STOP HERE');
-
-		this.setDraggableData(this);
+		this.setDraggableData(this.resource);
 
 		this.bg = new Ui.Rectangle({ fill: '#e0eff8' });
 		this.bg.hide();
@@ -132,8 +129,8 @@ Ui.Selectionable.extend('KJing.DeviceItemView', {
 		this.connect(this.content, 'drop', this.onDrop);
 		this.connect(this.content, 'dropfile', this.onDropFile);
 		vbox.append(this.content);
-		this.content.addType(KJing.FileItemView, 'move');
-		this.content.addType(KJing.FolderItemView, 'move');
+		this.content.addType(KJing.File, [ 'play' ]);
+		this.content.addType(KJing.Folder, [ 'play' ]);
 
 		this.label = new Ui.CompactLabel({ width: 100, maxLine: 3, textAlign: 'center' });
 		vbox.append(this.label);
@@ -178,8 +175,8 @@ Ui.Selectionable.extend('KJing.DeviceItemView', {
 	},
 	
 	onDrop: function(dropbox, data, effect, x, y) {
-		if(KJing.ItemView.hasInstance(data)) {
-			this.getResource().setPath(data.getResource().getId());
+		if(KJing.Resource.hasInstance(data)) {
+			this.getResource().setPath(data.getId());
 		}
 	},
 	

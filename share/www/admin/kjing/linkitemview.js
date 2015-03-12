@@ -15,7 +15,15 @@ KJing.ResourceItemView.extend('KJing.LinkItemView', {
 	},
 
 	onLinkedResourceReady: function() {
-		this.setItemName(this.linkedResource.getName());
+		console.log('onLinkedResourceReady name: '+this.getResource().getName()+', linkedName: '+this.linkedResource.getName());
+	
+		this.setItemName(this.getResource().getName());
+
+		var owner = KJing.Resource.create(this.linkedResource.getOwnerId());
+		if(owner.getIsReady())
+			this.onLinkedOwnerReady(owner);
+		else
+			this.connect(owner, 'ready', this.onLinkedOwnerReady);
 
 		if(KJing.User.hasInstance(this.linkedResource))
 			this.setItemIcon('person');
@@ -29,6 +37,13 @@ KJing.ResourceItemView.extend('KJing.LinkItemView', {
 			this.setItemIcon('folder');
 		else if(KJing.File.hasInstance(this.linkedResource))
 			this.setItemIcon('file');
+	},
+
+	onLinkedOwnerReady: function(owner) {
+		if(owner.getId() !== Ui.App.current.getUser().getId())
+			this.setItemOwnerImage(owner.getFaceUrl());
+		else
+			this.setItemOwnerImage(undefined);
 	}
 
 }, {

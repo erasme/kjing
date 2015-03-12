@@ -9,7 +9,9 @@ KJing.Resource.extend('KJing.Link', {
 	}
 }, {
 	getName: function() {
-		if((this.linkedResource !== undefined) && this.linkedResource.getIsReady())
+		if((this.data.name !== undefined) && (this.data.name !== null))
+			return this.data.name;
+		else if((this.linkedResource !== undefined) && this.linkedResource.getIsReady())
 			return this.linkedResource.getName();
 		else
 			return 'Lien';

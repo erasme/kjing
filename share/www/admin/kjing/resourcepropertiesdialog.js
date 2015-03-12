@@ -11,8 +11,10 @@ KJing.ItemView.extend('KJing.RightItemView', {
 		delete(config.right);
 		
 		this.user = KJing.Resource.create(this.right.user);
-		if(KJing.Group.hasInstance(this.user))
+		if(KJing.Group.hasInstance(this.user)) {
 			this.setItemIcon('group');
+			this.setItemName(this.user.getName());
+		}
 		else {
 			this.setItemImage(this.user.getFaceUrl());
 			this.setItemName(this.user.getName());
@@ -87,7 +89,7 @@ KJing.NewItem.extend('KJing.RightNewItem', {
 	},
 	
 	onNewPress: function() {
-		var dialog = new KJing.NewResourceDialog({ resource: this.resource, types: [ 'rightuser', 'rightgroup' ] });
+		var dialog = new KJing.NewResourceDialog({ title: 'Ajouter un droit', resource: this.resource, types: [ 'rightuser', 'rightgroup' ] });
 		dialog.open();
 	}
 });
@@ -139,6 +141,7 @@ Ui.Dialog.extend('KJing.ResourcePropertiesDialog', {
 	resource: undefined,
 	nameField: undefined,
 	positionField: undefined,
+	mapPublicNameField: undefined,
 	
 	constructor: function(config) {
 		this.setFullScrolling(true);
@@ -183,8 +186,10 @@ Ui.Dialog.extend('KJing.ResourcePropertiesDialog', {
 			mapUrlField.disable();
 			sflow.append(mapUrlField);
 
-//			var mapShortUrlField = new KJing.TextField({ title: 'URL courte des clients Web', width: 300 });
-//			sflow.append(mapShortUrlField);
+			this.mapPublicNameField = new KJing.TextField({ title: 'Nom publique de la salle', width: 300 });
+			if(this.resource.getData().publicName !== null)
+				this.mapPublicNameField.setValue(this.resource.getData().publicName);
+			sflow.append(this.mapPublicNameField);
 		}
 		else if(KJing.File.hasInstance(this.resource)) {
 		}
@@ -201,7 +206,7 @@ Ui.Dialog.extend('KJing.ResourcePropertiesDialog', {
 			var deleteButton = new Ui.Button({ text: 'Supprimer', style: { "Ui.Button": { color: '#fa4141' } } });
 			this.connect(deleteButton, 'press', this.onDeletePress);
 
-			var saveButton = new Ui.Button({ text: 'Enregistrer' });
+			var saveButton = new Ui.DefaultButton({ text: 'Enregistrer' });
 			this.connect(saveButton, 'press', this.onSavePress);
 
 			this.setActionButtons([ deleteButton, saveButton ]);
@@ -262,6 +267,14 @@ Ui.Dialog.extend('KJing.ResourcePropertiesDialog', {
 			name: this.nameField.getValue(),
 			position: parseInt(this.positionField.getValue())
 		};
+
+		if(KJing.Map.hasInstance(this.resource)) {
+			var publicName = this.mapPublicNameField.getValue();
+			if(publicName === '')
+				publicName = null;
+			json.publicName = publicName;
+		}
+
 		this.resource.changeData(json);
 		this.close();
 	}

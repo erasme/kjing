@@ -18,7 +18,7 @@ KJing.View.extend('KJing.LinkView', {
 		 if((this.linkedView !== undefined) && ('getSetupPopup' in this.linkedView))
 		 	return this.linkedView.getSetupPopup();
 		 else
-			return new Ui.MenuPopup({ preferredWidth: 200 });
+			return new Ui.MenuPopup();
 	},
 
 	onResourceReady: function() {

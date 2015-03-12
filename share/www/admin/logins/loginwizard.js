@@ -51,7 +51,7 @@ Ui.Dialog.extend('KJing.LoginWizard', {
 		this.previousButton = new Ui.Button({ text: 'Précédent' });
 		this.previousButton.hide();
 		this.connect(this.previousButton, 'press', this.onPreviousPress);
-		this.nextButton = new Ui.Button({ text: 'Suivant' });
+		this.nextButton = new Ui.DefaultButton({ text: 'Suivant' });
 		this.connect(this.nextButton, 'press', this.onNextPress);
 
 		this.transBox = new Ui.TransitionBox();

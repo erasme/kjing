@@ -123,7 +123,6 @@
     <None Include="www\era\ui\monthcalendar.js" />
     <None Include="www\era\ui\movable.js" />
     <None Include="www\era\ui\movablebase.js" />
-    <None Include="www\era\ui\notebook.js" />
     <None Include="www\era\ui\paned.js" />
     <None Include="www\era\ui\point.js" />
     <None Include="www\era\ui\popup.js" />
@@ -143,7 +142,6 @@
     <None Include="www\era\ui\slide.js" />
     <None Include="www\era\ui\slider.js" />
     <None Include="www\era\ui\spacer.js" />
-    <None Include="www\era\ui\styles.js" />
     <None Include="www\era\ui\svgelement.js" />
     <None Include="www\era\ui\svgparser.js" />
     <None Include="www\era\ui\switch.js" />
@@ -272,5 +270,9 @@
     <None Include="www\room\kjing-debug.js" />
     <None Include="www\index.html" />
     <None Include="www\admin\kjing\contactmessagesdialog.js" />
+    <None Include="www\admin\kjing\statefileviewer.js" />
+    <None Include="www\era\core\doublelinkedlist.js" />
+    <None Include="www\era\ui\toast.js" />
+    <None Include="www\era\ui\vboxscrollable.js" />
   </ItemGroup>
 </Project>

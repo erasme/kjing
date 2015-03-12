@@ -137,8 +137,8 @@ KJing.View.extend('KJing.DeviceView', {
 		vbox.append(hbox, true);
 	
 		var dropbox = new Ui.DropBox();
-		dropbox.addType(KJing.FileItemView, 'link');
-		dropbox.addType(KJing.FolderItemView, 'link');
+		dropbox.addType(KJing.File, [ 'play' ]);
+		dropbox.addType(KJing.Folder, [ 'play' ]);
 		hbox.append(dropbox, true);
 		this.connect(dropbox, 'drop', this.onDrop);
 
@@ -249,8 +249,8 @@ KJing.View.extend('KJing.DeviceView', {
 	},
 
 	onDrop: function(element, data, effect, x, y) {
-		if(KJing.FileItemView.hasInstance(data) || KJing.FolderItemView.hasInstance(data))
-			this.resource.setPath(data.getResource().getId());
+		if(KJing.File.hasInstance(data) || KJing.Folder.hasInstance(data))
+			this.resource.setPath(data.getId());
 //			this.resource.setDevicePath(data.getResource().getId());
 	},
 
@@ -265,7 +265,7 @@ KJing.View.extend('KJing.DeviceView', {
 
 }, {
 	getSetupPopup: function() {
-		var popup = new Ui.MenuPopup({ preferredWidth: 200 });
+		var popup = new Ui.MenuPopup();
 		var vbox = new Ui.VBox({ spacing: 10 });
 		popup.setContent(vbox);
 
@@ -273,7 +273,7 @@ KJing.View.extend('KJing.DeviceView', {
 		this.connect(button, 'press', function() {
 			var dialog = new KJing.ResourcePropertiesDialog({ resource: this.resource });
 			dialog.open();
-			popup.hide();
+			popup.close();
 		});
 		vbox.append(button);
 		return popup;

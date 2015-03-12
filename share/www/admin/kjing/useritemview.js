@@ -52,7 +52,7 @@ KJing.ResourceItemView.extend('KJing.UserItemView', {
 				text: 'Messages', icon: 'bubble',
 				scope: this, callback: this.onMessages, multiple: false
 			},
-			switch: {
+			switchOrder: {
 				text: 'Commuter', icon: 'switch',
 				testRight: this.testAdminRight,
 				scope: this, callback: this.onSwitch, multiple: false

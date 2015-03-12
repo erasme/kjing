@@ -12,9 +12,7 @@ Ui.Flow.extend('KJing.SearchView', {
 
 		this.setUniform(true);
 
-		console.log('search string: '+this.resource.getQueryString());
-
-		var filters = this.resource.getFilters();
+/*		var filters = this.resource.getFilters();
 		var filtersArgs = '';
 		for(var key in filters) {
 			filtersArgs += '&'+encodeURIComponent(key)+'='+encodeURIComponent(filters[key]);
@@ -27,23 +25,23 @@ Ui.Flow.extend('KJing.SearchView', {
 
 		this.connect(request, 'done', this.onSearchDone);
 		this.connect(request, 'error', this.onSearchError);
-		request.send();
+		request.send();*/
 	},
 	
 	getResource: function() {
 		return this.resource;
 	},
 
-	onSearchError: function() {
+	onResourceError: function() {
 		this.clear();
 	},
-				
-	onSearchDone: function(req) {
+
+	onResourceChange: function() {
+		console.log('onResourceChange');
 		this.clear();
-		var json = req.getResponseJSON();
-		for(var i = 0; i < json.length; i++) {
-			var resource = KJing.Resource.create(json[i]);
-			this.addResource(resource, false);
+		var resources = this.getResource().getResources();
+		for(var i = 0; i < resources.length; i++) {
+			this.addResource(resources[i], false);
 		}
 	},
 
@@ -67,30 +65,53 @@ Ui.Flow.extend('KJing.SearchView', {
 			this.append(item);
 	},
 
+	onTypeFilterChange: function(combo, value, position) {
+		console.log('type filter change: '+value.type);
+		this.getResource().setFilter('type', value.type);
+	},
+
 	getSetupPopup: function() {
-		var popup = new Ui.MenuPopup({ preferredWidth: 200 });
+		var popup = new Ui.MenuPopup();
 		var vbox = new Ui.VBox({ spacing: 10 });
 		popup.setContent(vbox);
 
-		var button = new Ui.CheckBox({ text: 'Personnes', value: true });
-		vbox.append(button);
+		var data = [
+			{ text: 'Tous types', type: undefined },
+			{ text: 'Personnes', type: 'user' },
+			{ text: 'Groupes', type: 'group' },
+			{ text: 'Fichiers', type: 'file' },
+			{ text: 'Dossiers', type: 'folder' },
+			{ text: 'Liens', type: 'link' },
+			{ text: 'Salles de diffusion', type: 'map' },
+			{ text: 'Clients', type: 'device' }
+		];
 
-		var button = new Ui.CheckBox({ text: 'Groupes', value: true });
-		vbox.append(button);
-
-		var button = new Ui.CheckBox({ text: 'Fichiers', value: true });
-		vbox.append(button);
-
-		var button = new Ui.CheckBox({ text: 'Dossiers', value: true });
-		vbox.append(button);
-
-		var button = new Ui.CheckBox({ text: 'Salles de diffusion', value: true });
-		vbox.append(button);
-
-		var button = new Ui.CheckBox({ text: 'Clients', value: true });
-		vbox.append(button);
-
+		var combo = new Ui.Combo({ field: 'text', placeHolder: 'choice...', data: data });
+		vbox.append(combo);
+		var pos = 0;
+		for(var i = 0; i < data.length; i++) {
+			if(data[i].type === this.getResource().getFilter('type')) {
+				pos = i;
+				break;
+			}
+		}
+		combo.setCurrentAt(pos);
+		this.connect(combo, 'change', this.onTypeFilterChange);
 		return popup;
+	}
+}, {
+	onLoad: function() {
+		KJing.SearchView.base.onLoad.apply(this, arguments);
+		this.connect(this.resource, 'change', this.onResourceChange);
+		this.connect(this.resource, 'error', this.onResourceError);
+		if(this.resource.getIsReady())
+			this.onResourceChange();
+	},
+	
+	onUnload: function() {
+		KJing.SearchView.base.onUnload.apply(this, arguments);
+		this.disconnect(this.resource, 'change', this.onResourceChange);
+		this.disconnect(this.resource, 'error', this.onResourceError);
 	}
 });
 

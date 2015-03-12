@@ -31,6 +31,7 @@ Core.Util.include(appBase+'kjing/resourceview.js');
 Core.Util.include(appBase+'kjing/groupview.js');
 Core.Util.include(appBase+'kjing/mapview.js');
 Core.Util.include(appBase+'kjing/texteditor.js');
+Core.Util.include(appBase+'kjing/statefileviewer.js');
 Core.Util.include(appBase+'kjing/fileviewer.js');
 Core.Util.include(appBase+'kjing/filecontrolviewer.js');
 Core.Util.include(appBase+'kjing/deviceitemview.js');

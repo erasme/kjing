@@ -1,5 +1,5 @@
 ﻿
-Ui.DropBox.extend('KJing.MapProvisioningView', {
+Ui.LBox.extend('KJing.MapProvisioningView', {
 	resource: undefined,
 	view: undefined,
 	flow: undefined,
@@ -181,7 +181,7 @@ Ui.VBox.extend('KJing.MapMapView', {
 	}
 });
 	
-Ui.DropBox.extend('KJing.MapView', {
+Ui.LBox.extend('KJing.MapView', {
 	resource: undefined,
 	view: undefined,
 	viewMode: 'map',
@@ -200,7 +200,7 @@ Ui.DropBox.extend('KJing.MapView', {
 	},
 
 	getSetupPopup: function() {
-		var popup = new Ui.MenuPopup({ preferredWidth: 200 });
+		var popup = new Ui.MenuPopup();
 		var vbox = new Ui.VBox({ spacing: 10 });
 		popup.setContent(vbox);
 
@@ -215,7 +215,7 @@ Ui.DropBox.extend('KJing.MapView', {
 			segmentbar.setCurrentPosition(1);
 		else
 			segmentbar.setCurrentPosition(0);
-
+		
 		this.connect(segmentbar, 'change', function(seg, data) {
 			if(data.value !== this.viewMode) {
 				this.viewMode = data.value;
@@ -224,19 +224,86 @@ Ui.DropBox.extend('KJing.MapView', {
 				else
 					this.setContent(new KJing.MapMapView({ resource: this.resource, view: this.view }));
 			}
-			popup.hide();
+			popup.close();
 		});
 
-		var button = new Ui.Button({	text: 'Propriétés', icon: 'edit' });
+		var saveButton = new Ui.Button({ text: 'Enregistrer l\'état', icon: 'savecloud'  });
+		this.connect(saveButton, 'press', this.onSaveState);
+		vbox.append(saveButton);
+
+		var button = new Ui.Button({ text: 'Propriétés', icon: 'edit' });
 		this.connect(button, 'press', function() {
 			var dialog = new KJing.ResourcePropertiesDialog({ resource: this.resource });
 			dialog.open();
-			popup.hide();
+			popup.close();
 		});
 		vbox.append(button);
 
-
 		return popup;
+	},
+
+	onSaveState: function() {
+		var dialog = new Ui.Dialog({ preferredWidth: 350 });
+		dialog.setTitle('Nom de l\'état');
+		dialog.setCancelButton(new Ui.DialogCloseButton());
+
+		var saveButton = new Ui.Button({ text: 'Enregistrer', disabled: true });
+		dialog.setActionButtons([ saveButton ]);
+
+		var nameField = new Ui.TextField();
+		dialog.setContent(nameField);
+		this.connect(nameField, 'change', function() {
+			if(nameField.getValue() === '')
+				saveButton.disable();
+			else
+				saveButton.enable();
+		});
+		dialog.setContent(nameField);
+
+		this.connect(saveButton, 'press', function() {
+			var state = [];
+			var devices = this.resource.getDevices();
+			for(var i = 0; i < devices.length; i++) {
+				state.push({ device: devices[i].device.getId(), path: devices[i].device.getPath() });
+			}
+
+			var resource1 = Ui.App.current.paned.getContent1().getContentView().getResource();
+			var resource2 = Ui.App.current.paned.getContent2().getContentView().getResource();
+			var parentResource = null;
+			if((resource1.getId() !== this.resource.getId()) && resource1.canWrite())
+				parentResource = resource1;
+			else if((resource2.getId() !== this.resource.getId()) && resource2.canWrite())
+				parentResource = resource2;
+			else 
+				parentResource = Ui.App.current.getUser();
+			
+			var boundary = '----';
+			var characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+			for(var i = 0; i < 16; i++)
+				boundary += characters[Math.floor(Math.random()*characters.length)];
+			boundary += '----';
+
+			var request = new Core.HttpRequest({
+				method: 'POST',
+				url: '/cloud/file'
+			});
+			request.setRequestHeader("Content-Type", "multipart/form-data; boundary="+boundary);
+			request.setContent(
+				'--'+boundary+'\r\n'+
+				'Content-Disposition: form-data; name="define"\r\n'+
+				'Content-Type: application/json; charset=UTF-8\r\n\r\n'+
+				JSON.stringify({ parent: parentResource.getId(), name: nameField.getValue(), mimetype: 'application/x-kjing-state', position: 0 })+'\r\n'+
+				'--'+boundary+'\r\n'+
+				'Content-Disposition: form-data; name="file"; filename="noname"\r\n'+
+				'Content-Type: application/x-kjing-state; charset=UTF-8\r\n\r\n'+
+				JSON.stringify(state)+
+				'\r\n'+
+				'--'+boundary+'--\r\n'
+			);
+			request.send();
+		});
+
+		dialog.open();
 	}
 });
 

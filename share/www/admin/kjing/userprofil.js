@@ -1,59 +1,32 @@
 
-Ui.DropBox.extend('KJing.UploadFaceButton', {
+Ui.UploadButton.extend('KJing.UploadFaceButton', {
 	user: undefined,
-	graphic: undefined,
-	uploadable: undefined,
-	lbox: undefined,
 	image: undefined,
-	icon: undefined,
 
 	constructor: function(config) {
 		this.user = config.user;
 		delete(config.user);
-			
-		this.addType('files', 'copy');
-	
-		this.uploadable = new Ui.Uploadable();
-		this.setContent(this.uploadable);
-	
-		this.lbox = new Ui.LBox();
-		this.uploadable.setContent(this.lbox);
-	
-		this.graphic = new Ui.ButtonGraphic();
-		this.lbox.append(this.graphic);
-		
-		this.image = new Ui.Image({ width: 64, height: 64, margin: 10 });
-		this.lbox.append(this.image);
-		
-		this.connect(this.uploadable, 'down', function() { this.graphic.setIsDown(true); });
-		this.connect(this.uploadable, 'up', function() { this.graphic.setIsDown(false); });
-		this.connect(this.uploadable, 'focus', function() { this.graphic.setHasFocus(true); });
-		this.connect(this.uploadable, 'blur', function() { this.graphic.setHasFocus(false); });
-		this.connect(this, 'dropfile', this.onUploadFile);
-		this.connect(this.uploadable, 'file', this.onUploadFile);
-	},
-	
-	onUploadFile: function(element, file) {
-		var uploader = new Core.FilePostUploader({ file: file, service: '/cloud/user/'+this.user.getId()+'/face' });
-		this.connect(uploader, 'progress', this.onUploadProgress);
-		this.connect(uploader, 'complete', this.onUploadComplete);
-		uploader.send();
-		Ui.App.current.addUploader(uploader);
-	},
 
-	onUploadProgress: function(uploader) {
+		this.image = new Ui.Image({ width: 64, height: 64, margin: 10 });
+		this.setIcon(this.image);
 	},
 
 	onUploadComplete: function(uploader) {
-//		this.image.setSrc('/cloud/user/'+this.user.getId()+'/face');
 		this.user.update();
 	},
-	
+
 	onUserChange: function() {
 		this.image.setSrc(this.user.getFaceUrl());
 	}
-}, 
-{
+}, {
+	onFile: function(button, file) {
+		KJing.UploadFaceButton.base.onFile.apply(this, arguments);
+		var uploader = new Core.FilePostUploader({ file: file, service: '/cloud/user/'+this.user.getId()+'/face' });
+		this.connect(uploader, 'complete', this.onUploadComplete);
+		Ui.App.current.addUploader(uploader);
+		uploader.send();
+	},
+
 	onLoad: function() {
 		KJing.UploadFaceButton.base.onLoad.call(this);
 		this.connect(this.user, 'change', this.onUserChange);
@@ -131,7 +104,7 @@ Ui.Dialog.extend('KJing.UserProfil', {
 		}
 				
 		if(KJing.User.hasInstance(this.user)) {
-			this.saveButton = new Ui.Button({ text: 'Enregistrer' });
+			this.saveButton = new Ui.DefaultButton({ text: 'Enregistrer' });
 			this.connect(this.saveButton, 'press', this.onSavePress);
 			actionButtons.push(this.saveButton);
 		}

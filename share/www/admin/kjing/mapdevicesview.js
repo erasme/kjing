@@ -59,8 +59,15 @@ Ui.DropBox.extend('KJing.MapDevicesView', {
 		this.fixed = new Ui.Fixed();
 		this.setContent(this.fixed);
 
-		this.addType('files', 'copy');
-		this.addType(KJing.DeviceItemView, 'link');
+		this.addType('files', [ 'copy' ]);
+		this.addType(KJing.Device, [ 'move' ]);
+		this.addType(KJing.Folder, [
+			{ action: 'playall', text: 'Envoyer à tous', dragicon: 'dragplay' },
+			{ action: 'playlinear', text: 'Répartir sur tous', dragicon: 'dragplay' },
+			{ action: 'playrandom', text: 'Répartir aléatoirement', dragicon: 'dragplay' }
+		]);
+		this.addType(KJing.File, [ 'play' ]);
+
 		this.connect(this, 'dropfile', this.onMapDropFile);
 		this.connect(this, 'drop', this.onMapDrop);
 
@@ -155,10 +162,12 @@ Ui.DropBox.extend('KJing.MapDevicesView', {
 		this.resource.setMapImage(file);
 	},
 
-	onMapDrop: function(dropbox, data, effect, x, y) {
+	onMapDrop: function(dropbox, data, effect, x, y, dataTransfer) {
 		//console.log(this+'.onDrop mimetype: '+mimetype+', pos: ('+x+','+y+'), data: '+data);
-		if(KJing.DeviceItemView.hasInstance(data)) {
-			var delta = data.getDragDelta();
+		if(KJing.Device.hasInstance(data)) {
+			var delta = dataTransfer.getDragDelta();
+
+			//var delta = data.getDragDelta();
 			//console.log('dragDelta: '+delta.x+','+delta.y);
 			//console.log('data.layout: '+data.getLayoutWidth()+'x'+data.getLayoutHeight());
 
@@ -166,10 +175,10 @@ Ui.DropBox.extend('KJing.MapDevicesView', {
 			y -= this.mapY;
 			x -= delta.x;
 			y -= delta.y;
-			x += data.getLayoutWidth()/2;
-			y += data.getLayoutHeight()/2;
+			x += dataTransfer.draggable.getLayoutWidth()/2;
+			y += dataTransfer.draggable.getLayoutHeight()/2;
 
-			var device = data.getResource();
+			var device = data;
 			x /= this.mapWidth;
 			y /= this.mapHeight;
 
@@ -182,9 +191,60 @@ Ui.DropBox.extend('KJing.MapDevicesView', {
 			// else move the device on the map
 			else {
 				this.resource.moveDevice(device, x, y);
-				data.setX(x);
-				data.setY(y);
+				dataTransfer.draggable.setX(x);
+				dataTransfer.draggable.setY(y);
 				this.updateDevicesPositions();
+			}
+		}
+		else {
+			var devices = this.resource.getDevices();
+
+			if(KJing.File.hasInstance(data)) {
+				for(var i = 0; i < devices.length; i++)
+					devices[i].device.setPath(data.getId());
+			}
+			else {
+				if(effect === 'playall') {
+					for(var i = 0; i < devices.length; i++)
+						devices[i].device.setPath(data.getId());
+				}
+				else if(effect === 'playlinear') {
+					var folder = data;
+					var func = function() {
+						var children = folder.getChildren();
+						for(var i = 0; i < devices.length; i++)
+							devices[i].device.setPath(children[i % children.length].getId());
+					};
+					if(folder.getIsChildrenReady())
+						func();
+					else {
+						folder.loadChildren();
+						this.connect(folder, 'change', func);
+					}
+				}
+				else if(effect === 'playrandom') {
+					var folder = data;
+					var func = function() {
+						var children = data.getChildren();
+						if(children.length > 0) {
+							var available = children.slice(0);
+							for(var i = 0; i < devices.length; i++) {
+								if(available.length === 0)
+									available = children.slice(0);
+								var pos = Math.min(available.length -1, Math.max(0, Math.floor(Math.random() * available.length)));
+								var resource = available[pos];
+								available.splice(pos, 1);
+								devices[i].device.setPath(resource.getId());
+							}
+						}
+					};
+					if(folder.getIsChildrenReady())
+						func();
+					else {
+						folder.loadChildren();
+						this.connect(folder, 'change', func);
+					}
+				}
 			}
 		}
 	},

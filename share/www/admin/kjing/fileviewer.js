@@ -28,7 +28,7 @@ Ui.HBox.extend('Storage.FileViewer', {
 	},
 
 	getSetupPopup: function() {
-		var popup = new Ui.MenuPopup({ preferredWidth: 200 });
+		var popup = new Ui.MenuPopup();
 		var vbox = new Ui.VBox({ spacing: 10 });
 		popup.setContent(vbox);
 
@@ -40,7 +40,7 @@ Ui.HBox.extend('Storage.FileViewer', {
 		this.connect(button, 'press', function() {
 			var dialog = new KJing.ResourcePropertiesDialog({ resource: this.file });
 			dialog.open();
-			popup.hide();
+			popup.close();
 		});
 		vbox.append(button);
 		return popup;
@@ -71,7 +71,9 @@ Ui.HBox.extend('Storage.FileViewer', {
 			this.tools = [];
 			this.supportProperties = true;
 
-			if(this.file.getMimetype() == 'image/gif')
+			if(this.file.getMimetype().indexOf('application/x-kjing-state') == 0)
+				this.contentViewer = new Storage.StateFileViewer({ file: this.file, fileViewer: this });
+			else if(this.file.getMimetype() == 'image/gif')
 				this.contentViewer = new Storage.GifImageFileViewer({file: this.file, fileViewer: this });
 			else if(this.file.getMimetype().indexOf('image/') == 0)
 				this.contentViewer = new Storage.ImageFileViewer({ file: this.file, fileViewer: this });
@@ -161,7 +163,8 @@ Ui.HBox.extend('Storage.FileViewer', {
 	},
 
 	onFileChange: function() {
-		this.buildContent();
+		if((this.contentViewer === undefined) || !('supportUpdate' in this.contentViewer) || !this.contentViewer.supportUpdate())
+			this.buildContent();
 	}
 
 }, {
@@ -582,7 +585,7 @@ Ui.LBox.extend('Storage.TextFileViewer', {
 				current = current.getParent();
 			}
 			if(popup !== undefined)
-				popup.hide();
+				popup.close();
 		});
 		this.fileViewer.appendTool(button);
 	},

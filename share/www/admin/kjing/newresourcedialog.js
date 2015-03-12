@@ -103,8 +103,10 @@ KJing.ItemView.extend('KJing.RightAddUserItemView', {
 		this.target = config.target;
 		delete(config.target);
 	
-		this.setItemImage(this.getResource().getFaceUrl());
-		this.setItemName(this.getResource().getName());
+		console.log(this.resource);
+
+		this.setItemImage(this.resource.getFaceUrl());
+		this.setItemName(this.resource.getName());
 	},
 	
 	getResource: function() {
@@ -199,17 +201,18 @@ Ui.SFlow.extend('KJing.NewResourceSelector', {
 			delete(config.types);
 		}
 		this.setItemAlign('stretch');
-		this.setStretchMaxRatio(5);
+		this.setUniform(true);
+		this.setStretchMaxRatio(1.5);
 		this.setSpacing(5);
 		
 		var types = {
 			folder: { icon: 'folder', text: 'Classeur', creator: KJing.NewFolderCreator },
 			file: { icon: 'file', uploader: true, text: 'Fichier local', creator: KJing.NewFileCreator },
 			textfile: { icon: 'text', text: 'Fichier texte vide', creator: KJing.NewTextFileCreator },
+			statefile: { icon: 'text', text: 'Etat clients / ressources', creator: KJing.NewStateFileCreator },
 			urlfile: { icon: 'earth', text: 'Lien vers un site', creator: KJing.NewUrlFileCreator },
 			user: { icon: 'person', text: 'Utilisateur', creator: KJing.NewUserCreator },
 			group: { icon: 'group', text: 'Groupe de personne', creator: KJing.NewGroupCreator },
-			share: { icon: 'files', text: 'Dossier de fichiers', creator: KJing.NewShareCreator },
 			map: { icon: 'map', text: 'Salle de diffusion', creator: KJing.NewMapCreator },
 			groupuser: { icon: 'person', text: 'Utilisateur', creator: KJing.NewGroupUserCreator },
 			groupgroup: { icon: 'group', text: 'Groupe de personne', creator: KJing.NewGroupGroupCreator },
@@ -275,23 +278,20 @@ Ui.VBox.extend('KJing.NewGroupUserCreator', {
 	},
 	
 	onSearchValidate: function() {
-		var request = new Core.HttpRequest({ method: 'GET', url: '/cloud/user?seenBy='+Ui.App.current.getUser().getId()+'&query='+encodeURIComponent(this.searchField.getValue()) });
-		this.connect(request, 'done', this.onSearchDone);
-		this.connect(request, 'error', this.onSearchError);
-		request.send();
+		var search = new KJing.Search({ queryString: this.searchField.getValue(), filters: { type: 'user' } });
+		this.connect(search, 'change', this.onSearchDone);
 	},
-	
-	onSearchDone: function(req) {
-		var json = req.getResponseJSON();
+
+	onSearchDone: function(search) {
 		this.flow.clear();
-		for(var i = 0; i < json.length; i++) {
-			var person = KJing.Resource.create(json[i]);
-			console.log(person);
+		var resources = search.getResources();
+		for(var i = 0; i < resources.length; i++) {
+			var person = resources[i];
 			var view = new KJing.GroupAddUserItemView({ resource: person, group: this.resource, view: this });
 			this.flow.append(view);
 		}
 	},
-	
+
 	onSearchError: function(req) {
 	}
 });
@@ -321,18 +321,16 @@ Ui.VBox.extend('KJing.NewGroupGroupCreator', {
 	},
 	
 	onSearchValidate: function() {
-		var request = new Core.HttpRequest({ method: 'GET', url: '/cloud/resource?seenBy='+Ui.App.current.getUser().getId()+'&type=group&query='+encodeURIComponent(this.searchField.getValue()) });
-		this.connect(request, 'done', this.onSearchDone);
-		this.connect(request, 'error', this.onSearchError);
-		request.send();
+		var search = new KJing.Search({ queryString: this.searchField.getValue(), filters: { type: 'group' } });
+		this.connect(search, 'change', this.onSearchDone);
 	},
 	
-	onSearchDone: function(req) {
-		var json = req.getResponseJSON();
+	onSearchDone: function(search) {
 		this.flow.clear();
-		for(var i = 0; i < json.length; i++) {
-			var group = KJing.Resource.create(json[i]);
-			var view = new KJing.GroupAddGroupItemView({ resource: group, group: this.resource, view: this });
+		var resources = search.getResources();
+		for(var i = 0; i < resources.length; i++) {
+			var person = resources[i];
+			var view = new KJing.GroupAddGroupItemView({ resource: person, group: this.resource, view: this });
 			this.flow.append(view);
 		}
 	},
@@ -381,24 +379,18 @@ Ui.VBox.extend('KJing.NewRightUserCreator', {
 	},
 	
 	onSearchValidate: function() {
-		var request = new Core.HttpRequest({ method: 'GET', url: '/cloud/user?seenBy='+Ui.App.current.getUser().getId()+'&query='+encodeURIComponent(this.searchField.getValue()) });
-		this.connect(request, 'done', this.onSearchDone);
-		this.connect(request, 'error', this.onSearchError);
-		request.send();
+		var search = new KJing.Search({ queryString: this.searchField.getValue(), filters: { type: 'user' } });
+		this.connect(search, 'change', this.onSearchDone);
 	},
-	
-	onSearchDone: function(req) {
-		var json = req.getResponseJSON();
+
+	onSearchDone: function(search) {
 		this.flow.clear();
-		for(var i = 0; i < json.length; i++) {
-			var person = KJing.Resource.create(json[i]);
-			console.log(person);
+		var resources = search.getResources();
+		for(var i = 0; i < resources.length; i++) {
+			var person = resources[i];
 			var view = new KJing.RightAddUserItemView({ resource: person, target: this.resource, view: this });
 			this.flow.append(view);
 		}
-	},
-	
-	onSearchError: function(req) {
 	}
 });
 
@@ -617,12 +609,6 @@ KJing.NewResourceCreator.extend('KJing.NewFolderCreator', {
 	}
 });
 
-KJing.NewResourceCreator.extend('KJing.NewShareCreator', {
-	constructor: function(config) {
-		this.setType('share');
-	}
-});
-
 Ui.SFlow.extend('KJing.AirPlayDeviceForm', {
 	addressField: undefined,
 	passwordField: undefined,
@@ -754,7 +740,7 @@ Ui.Dialog.extend('KJing.NewResourceDialog', {
 	
 		this.setTitle('Nouvelle ressource');
 		this.setFullScrolling(true);
-		this.setPreferredWidth(400);
+		this.setPreferredWidth(500);
 		this.setPreferredHeight(450);
 		
 		this.transBox = new Ui.TransitionBox();
@@ -769,7 +755,7 @@ Ui.Dialog.extend('KJing.NewResourceDialog', {
 		this.prevButton = new Ui.Button({ text: 'Précédent' });
 		this.connect(this.prevButton, 'press', this.onPrevPress);
 		
-		this.createButton = new Ui.Button({ text: 'Créer' });
+		this.createButton = new Ui.DefaultButton({ text: 'Créer' });
 		this.connect(this.createButton, 'press', this.onCreatePress);
 	},
 

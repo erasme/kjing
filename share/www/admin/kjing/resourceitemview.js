@@ -5,7 +5,9 @@ KJing.ItemView.extend('KJing.ResourceItemView', {
 	constructor: function(config) {					
 		this.resource = config.resource;
 		delete(config.resource);
-		
+
+		this.setDraggableData(this.resource);
+
 		this.connect(this.resource, 'change', this.onResourceChange);
 		if(this.resource.getIsReady())
 			this.onResourceChange();
@@ -36,18 +38,35 @@ KJing.ItemView.extend('KJing.ResourceItemView', {
 	},
 	
 	onResourceChange: function() {
+		if((this.resource.getOwnerId() !== Ui.App.current.getUser().getId()) &&
+		   (this.resource.getOwnerId() !== this.resource.getId())) {
+			var owner = KJing.Resource.create(this.resource.getOwnerId());
+			if(owner.getIsReady())
+				this.onOwnerReady(owner);
+			else
+				this.connect(owner, 'ready', this.onOwnerReady);
+		}
+
 		var name = this.resource.getName();
 		if((name === undefined) || (name === null))
 			this.setItemName('');
 		else
 			this.setItemName(name);
 	},
+
+	onOwnerReady: function(owner) {
+		this.setItemOwnerImage(owner.getFaceUrl());
+	},
 	
 	onResourceDelete: function() {
 		// force the parent resource to update
 		this.getView().getContentView().getResource().update();
+	},
+
+	testWriteRight: function() {
+		return this.getResource().canWrite();
 	}
-	
+
 }, {
 	onLoad: function() {
 		KJing.ResourceItemView.base.onLoad.apply(this, arguments);
@@ -64,11 +83,11 @@ KJing.ItemView.extend('KJing.ResourceItemView', {
 	getSelectionActions: function() {
 		return {
 			suppress: {
-				text: 'Supprimer', icon: 'trash',
+				text: 'Supprimer', icon: 'trash', testRight: this.testWriteRight,
 				scope: this, callback: this.suppress, multiple: false
 			},
 			edit: {
-				text: 'Propriétés', icon: 'edit',
+				text: 'Propriétés', icon: 'edit', testRight: this.testWriteRight,
 				scope: this, callback: this.onItemProperties, multiple: false
 			},
 			open: {

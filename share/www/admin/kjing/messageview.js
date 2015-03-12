@@ -133,7 +133,7 @@ Ui.Pressable.extend('KJing.MessageView', {
 			var dst = this.destination.getName()+' ';
 			str = "J'ai ";
 			if(this.message.getType() === 'resource')
-				str += 'partagé la ressouce "'+this.message.getContent().name+'" avec '+dst;
+				str += 'partagé la ressource "'+this.message.getContent().name+'" avec '+dst;
 			else if(this.message.getType() === 'contact')
 				str += 'ajouté '+dst+' à mes contacts';
 			else if(this.message.getType() === 'call')
@@ -144,7 +144,7 @@ Ui.Pressable.extend('KJing.MessageView', {
 		else {
 			str = this.source.getName()+' ';
 			if(this.message.getType() === 'resource')
-				str += 'vous a partagé la ressouce "'+this.message.getContent().name+'"';
+				str += 'vous a partagé la ressource "'+this.message.getContent().name+'"';
 			else if(this.message.getType() == 'contact')
 				str += 'vous a ajouté à ses contacts';
 			else if(this.message.getType() === 'call')

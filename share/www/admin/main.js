@@ -23,7 +23,7 @@ Ui.ScrollingArea.extend('KJing.PartView', {
 		var hbox = new Ui.HBox();
 		this.vbox.append(hbox);
 
-		this.locatorScroll = new Ui.ScrollingArea();
+		this.locatorScroll = new Ui.ScrollingArea({ scrollVertical: false });
 		hbox.append(this.locatorScroll, true);
 
 		this.locator = new Ui.Locator({ path: '/', horizontalAlign: 'left', margin: 5 });
@@ -40,7 +40,7 @@ Ui.ScrollingArea.extend('KJing.PartView', {
 
 	onSetupPress: function(button, x, y) {
 		var popup = this.content.getSetupPopup();
-		popup.show(button, 'bottom');
+		popup.open(button, 'bottom');
 	},
 
 	getContentView: function() {
@@ -428,9 +428,6 @@ Ui.App.extend('KJing.AdminApp', {
 	},
 
 	onSearchValidate: function(field, value) {
-		console.log('searchField validate: ' + value);
-		// TODO: DO SOME THING ;)
-
 		var newStack = [];
 		newStack.push(this.paned.getContent2().getStack()[0]);
 		newStack.push({ text: 'Recherche: '+value, resource: new KJing.Search({ id: 'search:'+value }) });
@@ -452,7 +449,7 @@ Ui.App.extend('KJing.AdminApp', {
 		this.connect(editButton, 'press', function() {
 			var dialog = new KJing.UserProfil({ user: this.user });
 			dialog.open();
-			popup.hide();
+			popup.close();
 		});
 		vbox.append(editButton);
 
@@ -462,12 +459,12 @@ Ui.App.extend('KJing.AdminApp', {
 		this.connect(logoutButton, 'press', this.onLogoutPress);
 		vbox.append(logoutButton);
 
-		popup.show(button, 'bottom');
+		popup.open(button, 'bottom');
 	},
 	
 	onMessagePress: function(button) {
 		var popup = new KJing.HistoryMessagesPopup({ messages: this.messages });
-		popup.show(button, 'bottom');
+		popup.open(button, 'bottom');
 	},
 
 	saveDisplayState: function() {
@@ -488,8 +485,8 @@ Ui.App.extend('KJing.AdminApp', {
 	},
 
 	onDisplayPress: function(button) {
-		var popup = new KJing.DisplayPopup({ app: this, preferredWidth: 220 });
-		popup.show(button, 'bottom');
+		var popup = new KJing.DisplayPopup({ app: this });
+		popup.open(button, 'bottom');
 	},
 
 	getBookmarks: function() {
@@ -638,43 +635,43 @@ Ui.App.extend('KJing.AdminApp', {
 	}
 });
 
-new KJing.AdminApp({
+var theme = {
+	background: "#fdfdfd",
+	foreground: "#555",
+	roundness: 3,
+	thickness: 1
+};
+
+var app = new KJing.AdminApp({
 webApp: true,
 style: {
 	"Ui.Element": {
-		color: "#444444",
+		color: theme.foreground,
 		fontSize: 16,
 		interLine: 1.4
 	},
-	"Ui.MenuPopup": {
-		background: "#ffffff",
+	"Ui.Popup": {
+		background: theme.background,
 		"Ui.Button": {
 			background: new Ui.Color({ r: 1, g: 1, b: 1, a: 0.1 }),
 			backgroundBorder: new Ui.Color({ r: 1, g: 1, b: 1, a: 0.1 }),
-			iconSize: 28,
-			textHeight: 28
-		},
-		"Ui.DefaultButton": {
-			borderWidth: 1,
-			background: "#fefefe",
-			backgroundBorder: 'black',
-			iconSize: 16,
-			textHeight: 16
+			activeBackground: 'rgb(33,211,255)',
+			activeBackgroundBorder: new Ui.Color({ r: 1, g: 1, b: 1, a: 0.1 }),
+			activeForeground: '#555555'
 		},
 		"Ui.ActionButton": {
 			showText: false
-		},
-		"Ui.SegmentBar": {
-			spacing: 7,
-			color: "#ffffff"
 		}
 	},
 	"Ui.SegmentBar": {
-		spacing: 8,
-		color: "#ffffff"
+		activeBackground: '#555555',
+		background: new Ui.Color({ r: 1, g: 1, b: 1, a: 0 }),
+		focusBackground: new Ui.Color({ r: 1, g: 1, b: 1, a: 0 }),
+		radius: theme.roundness,
+		borderWidth: theme.thickness
 	},
 	"Ui.Dialog": {
-		background: "#ffffff"
+		background: theme.background
 	},
 	"Ui.DialogTitle": {
 		fontSize: 20,
@@ -690,16 +687,17 @@ style: {
 		textWidth: 5,
 		borderWidth: 0,
 		background: "rgba(250,250,250,0)",
-		foreground: "#ffffff",
+		foreground: theme.background,
 		radius: 0
 	},
 	"Ui.Separator": {
 		color: "#999999"
 	},
 	"Ui.CheckBox": {
-		color: "#444444",
-		focusColor: new Ui.Color({ r: 0.13, g: 0.83, b: 1 }),
-		checkColor: new Ui.Color({ r: 0.03, g: 0.63, b: 0.9 })
+		color: theme.foreground,
+		checkColor: theme.background,
+		activeColor: new Ui.Color({ r: 0.03, g: 0.63, b: 0.9 }), 
+		focusColor: new Ui.Color({ r: 0.13, g: 0.83, b: 1 })
 	},
 	"Ui.ScrollingArea": {
 		color: "#999999",
@@ -714,37 +712,45 @@ style: {
 		radius: 0
 	},
 	"Ui.Button": {
-		background: "#fefefe",
-		iconSize: 28,
-		textHeight: 28,
-		padding: 8,
-		spacing: 10,
+		radius: theme.roundness,
+		borderWidth: theme.thickness,
+		background: theme.background,
+		backgroundBorder: theme.foreground,
+		foreground: theme.foreground,
 		focusBackground: new Ui.Color({ r: 0.13, g: 0.83, b: 1, a: 0.5 })
 	},
+	"Ui.DefaultButton": {
+		fontWeight: (theme.thickness >= 2)?'bold':'normal',
+		textTransform: 'uppercase',
+		borderWidth: 0,
+		background: theme.foreground,
+		backgroundBorder: theme.foreground,
+		foreground: "#fefefe"
+	},
 	"Ui.TextBgGraphic": {
-		focusBackground: new Ui.Color({ r: 0.13, g: 0.83, b: 1 })
+		radius: 3,
+		borderWidth: theme.thickness,
+		background: Ui.Color.create(theme.foreground).addY(0.5).addA(-0.5),
+		focusBackground: new Ui.Color({ r: 0.13, g: 0.83, b: 1, a: 0.5 })
 	},
 	"Ui.ActionButton": {
-		iconSize: 28,
-		textHeight: 28,
 		background: new Ui.Color({ r: 1, g: 1, b: 1, a: 0 }),
 		backgroundBorder: new Ui.Color({ r: 1, g: 1, b: 1, a: 0 }),
 		foreground: "#ffffff",
-		radius: 0,
+		radius: theme.roundness,
 		borderWidth: 0
 	},
 	"Ui.Slider": {
 		foreground: new Ui.Color({ r: 0.03, g: 0.63, b: 0.9 })
 	},
 	"Ui.Locator": {
-		color: "#eeeeee",
-		iconSize: 30,
-		spacing: 6
+		radius: theme.roundness,
+		backgroundBorder: theme.foreground,
+		borderWidth: theme.thickness,
+		color: theme.background
 	},
 	"Ui.MenuToolBarButton": {
-		color: new Ui.Color({ r: 0.8, g: 0.8, b: 0.8, a: 0.2 }),
-		iconSize: 28,
-		spacing: 0
+		color: new Ui.Color({ r: 0.8, g: 0.8, b: 0.8, a: 0.2 })
 	},
 	"Ui.ContextBar": {
 		background: "#00b9f1",
@@ -752,16 +758,21 @@ style: {
 			color: "#ffffff"
 		}
 	},
+	"Ui.DialogButtonBox": {
+		background: theme.background
+	},
 	"KJing.PosBar": {
 		radius: 0,
 		current: new Ui.Color({ r: 0.03, g: 0.63, b: 0.9 })
 	},
 	"KJing.OptionOpenButton": {
 		borderWidth: 0,
-		iconSize: 16,
 		radius: 0,
+		iconSize: 16,
 		whiteSpace: 'pre-line',
-		background: 'rgba(250,250,250,0)'
+		background: 'rgba(250,250,250,0)',
+		focusForeground: new Ui.Color({r: 0, g: 0.72, b: 0.95 }),
+		focusBackground: 'rgba(250,250,250,0)'
 	},
 	"KJing.ItemView": {
 		orientation: 'vertical',
@@ -778,8 +789,11 @@ style: {
 		focusBackground: new Ui.Color({ r: 1, g: 1, b: 1, a: 0 }),
 		focusBackgroundBorder: new Ui.Color({r: 0, g: 0.72, b: 0.95 }),
 		selectCheckColor: new Ui.Color({r: 0, g: 0.72, b: 0.95 }),
-		radius: 0,
-		borderWidth: 2
+		radius: theme.roundness,
+		borderWidth: theme.thickness
+	},
+	"KJing.UploadFaceButton": {
+		padding: 2
 	},
 	"KJing.UserItemView": {
 		roundMode: true
@@ -799,17 +813,24 @@ style: {
 	"KJing.RightItemView": {
 		roundMode: true
 	},
+	"Ui.MenuToolBar": {
+		"Ui.Button": {
+			fontWeight: (theme.thickness >= 2)?'bold':'normal',
+			textTransform: 'uppercase',
+			background: new Ui.Color({ r: 0.8, g: 0.8, b: 0.8, a: 0 })
+		}
+	},
 	"KJing.MenuToolBar": {
 		background: "#4285f4",//"#6c19ab",
 		"Ui.Button": {
-			background: new Ui.Color({ r: 1, g: 1, b: 1, a: 0.2 }),
+			background: new Ui.Color({ r: 1, g: 1, b: 1, a: 0 }),
 			backgroundBorder: new Ui.Color({ r: 1, g: 1, b: 1, a: 0.3 }),
 			foreground: "#ffffff",
 			focusBackground: new Ui.Color({ r: 0.43, g: 1, b: 1, a: 0.6 }),
 			focusForeground: "#ffffff"
 		},
 		"Ui.TextBgGraphic": {
-			background: "#ffffff",
+			background: "rgba(255,255,255,0.6)",
 			focusBackground: new Ui.Color({ r: 0.43, g: 1, b: 1, a: 0.6 })
 		},
 		"Ui.Entry": {
@@ -823,8 +844,8 @@ style: {
 		focusBackgroundBorder: new Ui.Color({r: 0, g: 0.72, b: 0.95 }),
 		iconSize: 48,
 		padding: 31,
-		radius: 0,
-		borderWidth: 2
+		radius: theme.roundness,
+		borderWidth: theme.thickness
 	},
 	"KJing.UserProfilButton": {
 		iconSize: 32
@@ -834,3 +855,4 @@ style: {
 	}
 }
 });
+app.getDrawing().style.background = Ui.Color.create(theme.background).getCssHtml();

@@ -6,7 +6,7 @@ KJing.Resource.extend('KJing.Group', {
 	getUsers: function() {
 		return this.getData().users;
 	},
-	
+
 	addUser: function(user) {
 		this.addUsers([user]);
 	},

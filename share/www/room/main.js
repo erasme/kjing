@@ -1,6 +1,8 @@
 
 Ui.App.extend('KJing.RoomApp', {
 	scroll: undefined,
+	request: undefined,
+	rooms: undefined,
 
 	constructor: function(config) {
 		var vbox = new Ui.VBox({ margin: 20 });
@@ -12,12 +14,60 @@ Ui.App.extend('KJing.RoomApp', {
 		this.scroll = new Ui.ScrollingArea({ marginTop: 10 });
 		vbox.append(this.scroll, true);
 
-		var rooms = new Ui.VBox({ spacing: 10 });
-		this.scroll.setContent(rooms);
-		for(var i = 0; i < 20; i++) {
-			var button = new Ui.Button({ text: 'Salle '+i });
-			rooms.append(button);
+		this.scroll.setContent(new Ui.Text({ text: 'Chargement en cours...', textAlign: 'center', verticalAlign: 'center' }));
+
+		this.request = new Core.HttpRequest({ method: 'GET', url: '/cloud/map/public' });
+		this.connect(this.request, 'done', this.onRequestDone);
+		this.connect(this.request, 'error', this.onRequestFails);
+		this.request.send();
+	},
+
+	onRequestFails: function() {
+		this.scroll.setContent(new Ui.Text({ text: 'Problème au chargement...', textAlign: 'center', verticalAlign: 'center' }));
+	},
+
+	onRequestDone: function(req) {
+		var res = req.getResponseJSON();
+
+		if(res.length <= 0)
+			this.scroll.setContent(new Ui.Text({ text: 'Aucune salle publique pour le moment', textAlign: 'center', verticalAlign: 'center' }));
+		else {
+			this.rooms = new Ui.VBox({ spacing: 10 });
+			this.scroll.setContent(this.rooms);
+			for(var i = 0; i < res.length; i++) {
+				var button = new Ui.Button({ text: res[i].publicName });
+				button["KJing.RoomApp.room"] = res[i];
+				this.rooms.append(button);
+				this.connect(button, 'press', this.onRoomPress);
+			}
 		}
+	},
+
+	onRoomPress: function(button) {
+		var room = button["KJing.RoomApp.room"];
+		var dialog = new Ui.Dialog({ preferredWidth: 350 });
+
+		dialog.setTitle('Choisir un pseudo');
+		dialog.setCancelButton(new Ui.DialogCloseButton());
+		var connectButton = new Ui.Button({ text: 'Rejoindre', disabled: true });
+		dialog.setActionButtons([ connectButton ]);
+
+		var nameField = new Ui.TextField();
+		dialog.setContent(nameField);
+		this.connect(nameField, 'change', function() {
+			if(nameField.getValue() !== '')
+				connectButton.enable();
+			else
+				connectButton.disable();
+		});
+		this.connect(connectButton, 'press', function() {
+			var location = '/client/';
+			if(window.location.pathname.indexOf('index-debug.html') != -1)
+				location += 'index-debug.html';
+			location += '?parent='+encodeURIComponent(room.id)+'&name='+encodeURIComponent(nameField.getValue());
+			window.location = location;
+		});
+		dialog.open();
 	}
 });
 

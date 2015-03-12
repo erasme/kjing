@@ -113,7 +113,7 @@ KJing.ResourceItemView.extend('KJing.FileItemView', {
 		if(this.uploader !== undefined) {
 			return {
 				suppress: {
-					text: 'Supprimer', icon: 'trash', color: '#d02020',
+					text: 'Supprimer', icon: 'trash', color: '#d02020', testRight: this.testWriteRight,
 					callback: this.onDelete, multiple: false
 				}
 			};
@@ -142,18 +142,17 @@ KJing.ResourceItemView.extend('KJing.FileItemView', {
 					callback: this.onDownload, multiple: false
 				},
 				suppress: {
-					text: 'Supprimer', icon: 'trash', color: '#d02020',
+					text: 'Supprimer', icon: 'trash', color: '#d02020', testRight: this.testWriteRight,
 					callback: this.onDelete, multiple: false
+				},
+				edit: {
+					text: 'Propriétés', icon: 'edit', testRight: this.testWriteRight,
+					callback: this.onEdit, multiple: false
 				},
 				open: {
 					"default": true,
 					text: 'Ouvrir', icon: 'eye',
 					callback: this.onOpen, multiple: false
-				},
-				edit: {
-					"default": true,
-					text: 'Propriétés', icon: 'pen',
-					callback: this.onEdit, multiple: false
 				}
 			}
 		}

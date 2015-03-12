@@ -2,8 +2,12 @@
 KJing.ResourceItemView.extend('KJing.MapItemView', {
 	constructor: function(config) {
 		this.setItemIcon('map');
-		this.getItemIcon().addType(KJing.FileItemView, 'link');
-		this.getItemIcon().addType(KJing.FolderItemView, 'link');
+		this.getItemIcon().addType(KJing.File, [ 'play' ]);
+		this.getItemIcon().addType(KJing.Folder, [
+			{ action: 'playall', text: 'Envoyer à tous', dragicon: 'dragplay' },
+			{ action: 'playlinear', text: 'Répartir sur tous', dragicon: 'dragplay' },
+			{ action: 'playrandom', text: 'Répartir aléatoirement', dragicon: 'dragplay' }
+		]);
 
 		this.connect(this.getItemIcon(), 'drop', this.onIconDrop);
 		this.connect(this.getItemIcon(), 'dragenter', this.onIconDragEnter);
@@ -11,12 +15,57 @@ KJing.ResourceItemView.extend('KJing.MapItemView', {
 	},
 
 	onIconDrop: function(dropbox, data, effect, x, y) {
-		console.log(this+'.onIconDrop data: '+data);
 
-		if(KJing.FileItemView.hasInstance(data) || KJing.FolderItemView.hasInstance(data)) {
+		if(KJing.File.hasInstance(data) || KJing.Folder.hasInstance(data)) {
 			var devices = this.getResource().getDevices();
-			for(var i = 0; i < devices.length; i++)
-				devices[i].device.setPath(data.getResource().getId());
+
+			if(KJing.File.hasInstance(data)) {
+				for(var i = 0; i < devices.length; i++)
+					devices[i].device.setPath(data.getId());
+			}
+			else {
+				if(effect === 'playall') {
+					for(var i = 0; i < devices.length; i++)
+						devices[i].device.setPath(data.getId());
+				}
+				else if(effect === 'playlinear') {
+					var folder = data;
+					var func = function() {
+						var children = folder.getChildren();
+						for(var i = 0; i < devices.length; i++)
+							devices[i].device.setPath(children[i % children.length].getId());
+					};
+					if(folder.getIsChildrenReady())
+						func();
+					else {
+						folder.loadChildren();
+						this.connect(folder, 'change', func);
+					}
+				}
+				else if(effect === 'playrandom') {
+					var folder = data;
+					var func = function() {
+						var children = data.getChildren();
+						if(children.length > 0) {
+							var available = children.slice(0);
+							for(var i = 0; i < devices.length; i++) {
+								if(available.length === 0)
+									available = children.slice(0);
+								var pos = Math.min(available.length -1, Math.max(0, Math.floor(Math.random() * available.length)));
+								var resource = available[pos];
+								available.splice(pos, 1);
+								devices[i].device.setPath(resource.getId());
+							}
+						}
+					};
+					if(folder.getIsChildrenReady())
+						func();
+					else {
+						folder.loadChildren();
+						this.connect(folder, 'change', func);
+					}
+				}
+			}
 		}
 	},
 

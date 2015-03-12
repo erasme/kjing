@@ -4,12 +4,12 @@ KJing.ResourceItemView.extend('KJing.FolderItemView', {
 		this.setItemIcon('folder');
 	
 		var bindedIconEffect = this.onIconEffect.bind(this);
-		this.getItemIcon().addType(KJing.FolderItemView, bindedIconEffect);
-		this.getItemIcon().addType(KJing.FileItemView, bindedIconEffect);
-		this.getItemIcon().addType(KJing.GroupItemView, bindedIconEffect);
-		this.getItemIcon().addType(KJing.UserItemView, bindedIconEffect);
-		this.getItemIcon().addType(KJing.MapItemView, bindedIconEffect);
-		this.getItemIcon().addType('files', 'copy');
+		this.getItemIcon().addType(KJing.Folder, bindedIconEffect);
+		this.getItemIcon().addType(KJing.File, bindedIconEffect);
+		this.getItemIcon().addType(KJing.Group, bindedIconEffect);
+		this.getItemIcon().addType(KJing.User, bindedIconEffect);
+		this.getItemIcon().addType(KJing.Map, bindedIconEffect);
+		this.getItemIcon().addType('files', [ 'copy' ]);
 
 		this.connect(this.getItemIcon(), 'dropfile', this.onIconDropFile);
 		this.connect(this.getItemIcon(), 'drop', this.onIconDrop);
@@ -18,22 +18,33 @@ KJing.ResourceItemView.extend('KJing.FolderItemView', {
 	},
 
 	onIconEffect: function(item) {
-		if(item.getResource().getParentId() === this.resource.getId())
-			return 'none';
+		if(!this.getResource().canWrite())
+			return [];
+		else if(item.getParentId() === this.resource.getId())
+			return [];
 		// if we resources have the same owner => move
-		else if(item.getResource().getOwnerId() === this.resource.getOwnerId()) {
+		else if(item.getOwnerId() === this.resource.getOwnerId()) {
 			// is the resource is a sub folder of the item, move is not possible
-			if((item.getResource().getId() === this.resource.getId()) || item.getResource().getIsParentOf(this.resource))
-				return 'none';
-			else
-				return 'move';
+			if((item.getId() === this.resource.getId()) || item.getIsParentOf(this.resource))
+				return [];
+			else {
+				if(item.getType() === 'file')
+					return [ 'move', 'copy', 'link' ];
+				else
+					return [ 'move', 'link' ];
+			}
 		}
-		// else link the shared resource
+		// else copy the shared resource
+		else if(item.getType() === 'file')
+			return [ 'copy', 'link' ];
+		// else link the shared resource (like a folder, map...)
 		else
-			return 'link';
+			return [ 'link' ];
 	},
 
 	onIconDropFile: function(element, file, effect, x, y) {
+		console.log('onIconDropFile');
+
 		var uploader = new Core.FilePostUploader({ file: file, service: '/cloud/file' });
 		var uploaderId = Ui.App.current.addUploader(uploader);
 		uploader.setField('define', JSON.stringify({
@@ -43,19 +54,32 @@ KJing.ResourceItemView.extend('KJing.FolderItemView', {
 	},
 
 	onIconDrop: function(dropbox, data, effect, x, y) {
-		if(effect === 'move')
-			data.getResource().setParent(this.getResource());
-		else if(effect === 'link') {
-			// create link
-			var request = new Core.HttpRequest({
-				method: 'POST',
-				url: '/cloud/link',
-				content: JSON.stringify({
-					type: 'link', parent: this.getResource().getId(),
-					link: data.getResource().getId()
-				})
-			})
-			request.send();
+		if(KJing.Resource.hasInstance(data)) {
+			if(effect === 'move')
+				data.setParent(this.getResource());
+			else if(effect === 'link') {
+				// create link
+				var request = new Core.HttpRequest({
+					method: 'POST',
+					url: '/cloud/link',
+					content: JSON.stringify({
+						type: 'link', parent: this.getResource().getId(),
+						link: data.getId()
+					})
+				});
+				request.send();
+			}
+			else if(effect === 'copy') {
+				// copy the file
+				var request = new Core.HttpRequest({
+					method: 'POST',
+					url: '/cloud/file/'+encodeURIComponent(data.getId())+'/copy',
+					content: JSON.stringify({
+						type: 'file', parent: this.resource.getId(), position: 0
+					})
+				});
+				request.send();
+			}
 		}
 	},
 

@@ -16,7 +16,7 @@ Core.Object.extend('KJing.Resource', {
 
 	constructor: function(config) {
 		this.addEvents('ready', 'change', 'delete', 'error', 'clientmessage', 'monitor', 'unmonitor');
-		
+
 		this.children = [];
 		this.shares = [];
 		this.revs = {};
@@ -29,7 +29,7 @@ Core.Object.extend('KJing.Resource', {
 		else if('id' in config) {
 			this.id = config.id;
 			delete(config.id);
-			this.data = { id: this.id, rev: -1 };
+			this.data = { id: this.id, type: this.id.substring(0,this.id.indexOf(':')), rev: -1 };
 			this.update();
 		}
 	},
@@ -109,6 +109,7 @@ Core.Object.extend('KJing.Resource', {
 			content: JSON.stringify(rights)
 		});
 		request.send();
+		return request;
 	},
 
 	suppress: function() {
@@ -325,55 +326,92 @@ Core.Object.extend('KJing.Resource', {
 	}
 	
 }, {}, {
+	cacheMap: undefined,
+	cacheList: undefined,
+	cacheMaxSize: 200,
+
+	constructor: function() {
+		KJing.Resource.cacheMap = {};
+		KJing.Resource.cacheList = new Core.DoubleLinkedList();
+	},
+
 	create: function(id) {
+		var resource = undefined;
+		var resourceNode = undefined;
 		if(typeof(id) === 'string') {
-			if(id.indexOf('user:') === 0)
-				return new KJing.User({ id: id });
+			if(KJing.Resource.cacheMap[id] !== undefined) {
+				resourceNode = KJing.Resource.cacheMap[id];
+				resource = resourceNode.data;
+			}
+			else if(id.indexOf('user:') === 0)
+				resource = new KJing.User({ id: id });
 			else if(id.indexOf('group:') === 0)
-				return new KJing.Group({ id: id });
+				resource = new KJing.Group({ id: id });
 			else if(id.indexOf('map:') === 0)
-				return new KJing.Map({ id: id });
+				resource = new KJing.Map({ id: id });
 			else if(id.indexOf('device:') === 0)
-				return new KJing.Device({ id: id });
+				resource = new KJing.Device({ id: id });
 			else if(id.indexOf('folder:') === 0)
-				return new KJing.Folder({ id: id });
+				resource = new KJing.Folder({ id: id });
 			else if(id.indexOf('link:') === 0)
-				return new KJing.Link({ id: id });
+				resource = new KJing.Link({ id: id });
 			else if(id.indexOf('file:') === 0)
-				return new KJing.File({ id: id });
+				resource = new KJing.File({ id: id });
 			else if(id.indexOf('search:') === 0)
-				return new KJing.Search({ id: id });
+				resource = new KJing.Search({ id: id });
 			else
-				return new KJing.Resource({ id: id });
+				resource = new KJing.Resource({ id: id });
 		}
 		else if(typeof(id) === 'object') {
 			if(KJing.Resource.hasInstance(id))
-				return id;
+				resource = id;
 			else if(KJing.File.hasInstance(id))
-				return id;
+				resource = id;
 			else if(KJing.Search.hasInstance(id))
-				return id;
+				resource = id;
 			else if('id' in id) {
-				if(id.id.indexOf('user:') === 0)
-					return new KJing.User({ data: id });
+				if(KJing.Resource.cacheMap[id.id] !== undefined) {
+					resourceNode = KJing.Resource.cacheMap[id.id];
+					resource = resourceNode.data;
+					resource.updateData(id);
+				}
+				else if(id.id.indexOf('user:') === 0)
+					resource = new KJing.User({ data: id });
 				else if(id.id.indexOf('group:') === 0)
-					return new KJing.Group({ data: id });
+					resource = new KJing.Group({ data: id });
 				else if(id.id.indexOf('map:') === 0)
-					return new KJing.Map({ data: id });
+					resource = new KJing.Map({ data: id });
 				else if(id.id.indexOf('device:') === 0)
-					return new KJing.Device({ data: id });
+					resource = new KJing.Device({ data: id });
 				else if(id.id.indexOf('folder:') === 0)
-					return new KJing.Folder({ data: id });
+					resource = new KJing.Folder({ data: id });
 				else if(id.id.indexOf('link:') === 0)
-					return new KJing.Link({ data: id });
+					resource = new KJing.Link({ data: id });
 				else if(id.id.indexOf('file:') === 0)
-					return new KJing.File({ data: id });
+					resource = new KJing.File({ data: id });
 				else if(id.id.indexOf('search:') === 0)
-					return new KJing.Search({ data: id });
+					resource = new KJing.Search({ data: id });
 				else
-					return new KJing.Resource({ data: id });
+					resource = new KJing.Resource({ data: id });
 			}
 		}
+		if(resource !== undefined) {
+			if(resourceNode !== undefined) {
+				KJing.Resource.cacheList.removeNode(resourceNode);
+				KJing.Resource.cacheList.appendNode(resourceNode);
+			}
+			else
+				KJing.Resource.cacheMap[resource.getId()] = KJing.Resource.cacheList.append(resource);
+
+			if(KJing.Resource.cacheList.getLength() > KJing.Resource.cacheMaxSize) {
+				var lastNode = KJing.Resource.cacheList.getLastNode();
+				if(lastNode !== undefined) {
+					delete(KJing.Resource.cacheMap[lastNode.data.getId()]);
+					KJing.Resource.cacheList.removeNode(lastNode);
+				}
+			}
+		}
+		return resource;
 	}
 });
 

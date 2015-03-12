@@ -15,6 +15,7 @@ Ui.Fold.extend('KJing.OptionSection', {
 		this.setIsFolded(false);
 
 		this.optionOpenButton = new KJing.OptionOpenButton();
+		this.arrow = this.optionOpenButton.getIcon();
 		this.connect(this.optionOpenButton, 'press', this.invert);
 		this.setHeader(this.optionOpenButton);
 						

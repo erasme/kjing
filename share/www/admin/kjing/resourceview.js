@@ -2,7 +2,7 @@
 Ui.FlowDropBox.extend('KJing.ResourceView', {
 	resource: undefined,
 	view: undefined,
-	flow: undefined,
+	newItem: undefined,
 
 	constructor: function(config) {
 		this.resource = config.resource;
@@ -11,21 +11,25 @@ Ui.FlowDropBox.extend('KJing.ResourceView', {
 		delete(config.view);
 
 		this.setUniform(true);
-//		this.flow = new Ui.FlowDropBox({ spacing: 5, uniform: true });
-//		this.setContent(this.flow);
 			
 		var bindedItemEffect = this.onItemEffect.bind(this);
-		this.addType(KJing.FolderItemView, bindedItemEffect);
-		this.addType(KJing.FileItemView, bindedItemEffect);
-		this.addType(KJing.GroupItemView, bindedItemEffect);
-		this.addType(KJing.UserItemView, bindedItemEffect);
-		this.addType(KJing.MapItemView, bindedItemEffect);
-		this.addType(KJing.LinkItemView, bindedItemEffect);
+		this.addType(KJing.Folder, bindedItemEffect);
+		this.addType(KJing.File, bindedItemEffect);
+		this.addType(KJing.Group, bindedItemEffect);
+		this.addType(KJing.User, bindedItemEffect);
+		this.addType(KJing.Map, bindedItemEffect);
+		this.addType(KJing.Link, bindedItemEffect);
 
-		this.addType('files', 'copy');
+		this.addType('files', [ 'copy' ]);
 		this.connect(this, 'dropat', this.onItemDropAt);
 		this.connect(this, 'dropfileat', this.onItemDropFileAt);
-		
+
+		this.newItem = new KJing.ResourceNewItem({
+			view: this.view, resource: this.resource,
+			types: [ 'folder', 'file', 'textfile', 'statefile', 'urlfile', 'user', 'group', 'map' ]
+		});
+		this.append(this.newItem);
+
 		if(this.resource.getIsChildrenReady())
 			this.onResourceChange();
 		else
@@ -37,7 +41,9 @@ Ui.FlowDropBox.extend('KJing.ResourceView', {
 	},
 
 	onItemEffect: function(item, pos) {
-		if(item.getResource().getParentId() === this.resource.getId()) {
+		if(!this.getResource().canWrite())
+			return [];
+		else if(item.getParentId() === this.resource.getId()) {
 			// find the current resource position
 			var children = this.getLogicalChildren();
 			var foundAt = undefined;
@@ -45,46 +51,56 @@ Ui.FlowDropBox.extend('KJing.ResourceView', {
 				var child = children[i];
 				if(!KJing.ResourceItemView.hasInstance(child))
 					continue;
-				if(child.getResource().getId() === item.getResource().getId())
+				if(child.getResource().getId() === item.getId())
 					foundAt = i;
 			}
+			console.log(this+'.onItemEffect pos: '+pos+', foundAt: '+foundAt);
 
 			// cant move before the add new item
 			if((children.length > 0) && (!KJing.ResourceItemView.hasInstance(children[0])) && (pos === 0))
-				return 'none';
+				return [];
 			// resource not found. The folder is perhaps not up to date. Refuse the action
 			if(foundAt === undefined)
-				return 'none';
+				return [];
 			// the position will not change, do nothing
-			else if((pos === foundAt) || (pos === foundAt+1))
-				return 'none';
+			if((pos === foundAt) || (pos === foundAt+1))
+				return [];
 			// ok, accept to change the position (not the parent)
+			if(item.getType() === 'file')
+				return [ 'move', 'copy' ];
 			else
-				return 'move';
+				return [ 'move' ];
 		}
 		// if the resources have the same owner => move
-		else if(item.getResource().getOwnerId() === this.resource.getOwnerId()) {
+		else if(item.getOwnerId() === this.resource.getOwnerId()) {
 			// is the resource is a sub folder of the item, move is not possible
-			if((item.getResource().getId() === this.resource.getId()) || item.getResource().getIsParentOf(this.resource))
-				return 'none';
-			else
-				return 'move';
+			if((item.getId() === this.resource.getId()) || item.getIsParentOf(this.resource))
+				return [];
+			else {
+				if(item.getType() === 'file')
+					return [ 'move', 'copy', 'link' ];
+				else
+					return [ 'move', 'link' ];
+			}
 		}
 		// else copy the shared resource
-		else if(item.getResource().getType() === 'file')
-			return 'copy';
+		else if(item.getType() === 'file')
+			return  [ 'copy', 'link' ];
 		// else link the shared resource (like a folder, map...)
 		else
-			return 'link';
+			return [ 'link' ];
 	},
 				
 	onItemDropAt: function(element, data, effect, pos, x, y) {
 		console.log(this+'.onItemDropAt '+data+', effect: '+effect+', pos: '+pos);
 		pos--;
-		
-		if(KJing.ResourceItemView.hasInstance(data)) {
-			if(effect === 'move')
-				data.getResource().changeData({ parent: this.resource.getId(), position: pos });
+
+		if(KJing.Resource.hasInstance(data)) {
+			if(effect === 'move') {
+				if((data.getParentId() === this.resource.getId()) && (pos > data.getData().position))
+					pos--;
+				data.changeData({ parent: this.resource.getId(), position: pos });
+			}
 			// TODO: change the position if needed
 			else if(effect === 'link') {
 				// create link
@@ -93,7 +109,7 @@ Ui.FlowDropBox.extend('KJing.ResourceView', {
 					url: '/cloud/link',
 					content: JSON.stringify({
 						type: 'link', parent: this.resource.getId(), position: pos,
-						link: data.getResource().getId()
+						link: data.getId()
 					})
 				})
 				request.send();
@@ -102,7 +118,7 @@ Ui.FlowDropBox.extend('KJing.ResourceView', {
 				// copy the file
 				var request = new Core.HttpRequest({
 					method: 'POST',
-					url: '/cloud/file/'+encodeURIComponent(data.getResource().getId())+'/copy',
+					url: '/cloud/file/'+encodeURIComponent(data.getId())+'/copy',
 					content: JSON.stringify({
 						type: 'file', parent: this.resource.getId(), position: pos
 					})
@@ -128,26 +144,87 @@ Ui.FlowDropBox.extend('KJing.ResourceView', {
 	onUploadError: function(uploader) {
 		this.resource.update();
 	},
-			
+
 	onResourceChange: function() {
-		this.clear();
-		this.append(new KJing.ResourceNewItem({
-			view: this.view, resource: this.resource,
-			types: [ 'folder', 'file', 'textfile', 'urlfile', 'user', 'group', 'map' ]
-		}));
+		this.newItem.setDisabled(!this.getResource().canWrite());
+
+		// find the children diff
+		var remove = [];
+		var add = [];
 
 		var children = this.resource.getChildren();
-		for(var i = 0; i < children.length; i++)
-			this.addResource(children[i], false);
 		var shares = this.resource.getShares();
-		for(var i = 0; i < shares.length; i++) {
-			// only add if not already in children
-			var found = false;
-			for(var i2 = 0; (found === false) && (i2 < children.length); i2++)
-				found = (children[i2].getId() === shares[i].getId());
-			if(!found)
-				this.addResource(shares[i], true);
+		if(shares.length > 0) {
+			for(var i = 0; i < shares.length; i++) {
+				var found = false;
+				for(var i2 = 0; !found && (i2 < children.length); i2++)
+					found = (shares[i].getId() === children[i2].getId());
+				if(!found) {
+					shares[i]["KJing.ResourceView.isShare"] = true;
+					children.push(shares[i]);
+				}
+			}
 		}
+
+		// find added resource
+		var viewChildren = this.getLogicalChildren();
+		var children = this.resource.getChildren();
+		for(var i = 0; i < children.length; i++) {
+			var child = children[i];
+			child["KJing.ResourceView.renderPosition"] = i;
+
+			var found = undefined;
+			for(var i2 = 1; (found === undefined) && (i2 < viewChildren.length); i2++) {
+				if(viewChildren[i2].getResource().getId() === child.getId())
+					found = viewChildren[i2];
+			}
+			if(found === undefined)
+				add.push(child);
+		}
+
+		// find removed resource
+		for(var i2 = 1; i2 < viewChildren.length; i2++) {
+			var viewChild = viewChildren[i2];
+			var found = undefined;
+			for(var i = 0; (found === undefined) && (i < children.length); i++) {
+				if(children[i].getId() === viewChild.getResource().getId())
+					found = children[i];
+			}
+			if(found === undefined)
+				remove.push(viewChild);
+		}
+
+		console.log('ResourceView.onResourceChange add: '+add.length+', remove: '+remove.length);
+
+		// remove old
+		for(var i = 0; i < remove.length; i++)
+			this.remove(remove[i]);
+
+		// add new
+		if(add.length > 0)
+			for(var i = 0; i < add.length; i++)
+				this.addResource(add[i], add[i]["KJing.ResourceView.isShare"] === true);
+
+		// check if the order is correct
+		var viewChildren;
+		var badResourcePosition;
+		var iterCount = 0;
+		do {
+			viewChildren = this.getLogicalChildren();
+			badResourcePosition = undefined;
+			for(var i = 1; i < viewChildren.length; i++) {
+				if(viewChildren[i].getResource()["KJing.ResourceView.renderPosition"] !== i-1) {
+					for(var i2 = 1; i2 < viewChildren.length; i2++) {
+						if(viewChildren[i2].getResource()["KJing.ResourceView.renderPosition"] === i-1) {
+							badResourcePosition = viewChildren[i2];
+							this.moveAt(viewChildren[i2], viewChildren[i2].getResource()["KJing.ResourceView.renderPosition"] + 1);
+						}
+					}
+					break;
+				}
+			}
+			iterCount++;
+		} while((badResourcePosition !== undefined) && (iterCount <= viewChildren.length));
 	},
 
 	addResource: function(resource, share) {	
@@ -169,7 +246,7 @@ Ui.FlowDropBox.extend('KJing.ResourceView', {
 	},
 
 	getSetupPopup: function() {
-		var popup = new Ui.MenuPopup({ preferredWidth: 200 });
+		var popup = new Ui.MenuPopup();
 		var vbox = new Ui.VBox({ spacing: 10 });
 		popup.setContent(vbox);
 
@@ -177,7 +254,7 @@ Ui.FlowDropBox.extend('KJing.ResourceView', {
 		this.connect(button, 'press', function() {
 			var dialog = new KJing.ResourcePropertiesDialog({ resource: this.resource });
 			dialog.open();
-			popup.hide();
+			popup.close();
 		});
 		vbox.append(button);
 		return popup;

@@ -10,7 +10,6 @@ Ui.CanvasElement.extend('KJing.RoundItemGraphic', {
 
 	setImageSrc: function(src) {
 		this.image.setSrc(src);
-		
 	}
 }, {
 	canvasEngine: 'canvas',

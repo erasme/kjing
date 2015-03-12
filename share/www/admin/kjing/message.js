@@ -59,7 +59,7 @@ Core.Object.extend('KJing.Message', {
 			this.searchText += contact.getName()+' ';
 
 		if(this.message.type === 'resource')
-			this.searchText += 'partage ressouce '+this.message.content.name;
+			this.searchText += 'partage ressource '+this.message.content.name;
 		else if(this.message.type === 'contact')
 			this.searchText += 'ajoute contact';
 		else if(this.message.type === 'comment')
