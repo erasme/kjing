@@ -582,67 +582,6 @@ namespace KJing.Directory
 			File.Delete(tmpFile);
 		}
 
-		JsonArray SearchUsers(string firstname, string lastname, string description, string query, int limit, string seenBy)
-		{
-			JsonArray users = new JsonArray();
-
-			lock(dbcon) {						
-				using(IDbTransaction transaction = dbcon.BeginTransaction()) {
-
-					// select from the user table
-					using(IDbCommand dbcmd = dbcon.CreateCommand()) {
-						dbcmd.Transaction = transaction;
-						string filter = "";
-						if(firstname != null) {
-							if(filter != "")
-								filter += " AND ";
-							filter += "firstname LIKE '%"+firstname.Replace("'","''")+"%'";
-						}
-						if(lastname != null) {
-							if(filter != "")
-								filter += " AND ";
-							filter += "lastname LIKE '%"+lastname.Replace("'","''")+"%'";
-						}
-						if(description != null) {
-							if(filter != "")
-								filter += " AND ";
-							filter += "description LIKE '%"+description.Replace("'","''")+"%'";
-						}
-						if(query != null) {
-							string[] words = query.Split(' ', '\t', '\n');
-							foreach(string word in words) {
-								if(filter != "")
-									filter += " AND ";
-								filter += "(";
-								bool first = true;
-								foreach(string field in new string[]{"firstname", "lastname", "description"}) {
-									if(first)
-										first = false;
-									else
-										filter += " OR ";
-									filter += field+" LIKE '%"+word.Replace("'","''")+"%'";
-								}
-								filter += ")";
-							}
-						}				
-						if(filter != "")
-							filter = "WHERE "+filter;
-						dbcmd.CommandText = "SELECT id FROM user "+filter+" LIMIT "+limit;
-
-						using(IDataReader reader = dbcmd.ExecuteReader()) {
-							while(reader.Read()) {
-								users.Add(directory.GetResource(dbcon, transaction, reader.GetString(0), seenBy, 0));
-							}
-							// clean up
-							reader.Close();
-						}
-					}
-					transaction.Commit();
-				}
-			}
-			return users;
-		}
-
 		public string GetUserFromLoginPassword(string login, string password)
 		{
 			string foundPassword = null;
@@ -690,32 +629,8 @@ namespace KJing.Directory
 		{
 			string[] parts = context.Request.Path.Split(new char[] { '/' }, System.StringSplitOptions.RemoveEmptyEntries);
 
-			// GET /[?firstname=firstname][&lastname=lastname][&description=description][&query=words] search
-			if((context.Request.Method == "GET") && (parts.Length == 0)) {
-				string seenBy = null;
-				if(context.Request.QueryString.ContainsKey("seenBy"))
-					seenBy = context.Request.QueryString["seenBy"];
-				string firstname = null;
-				if(context.Request.QueryString.ContainsKey("firstname"))
-					firstname = context.Request.QueryString["firstname"];
-				string lastname = null;
-				if(context.Request.QueryString.ContainsKey("lastname"))
-					lastname = context.Request.QueryString["lastname"];
-				string description = null;
-				if(context.Request.QueryString.ContainsKey("description"))
-					description = context.Request.QueryString["description"];
-				string query = null;
-				if(context.Request.QueryString.ContainsKey("query"))
-					query = context.Request.QueryString["query"];
-				int limit = 200;
-				if(context.Request.QueryString.ContainsKey("limit"))
-					limit = Math.Max(0, Math.Min(200, Convert.ToInt32(context.Request.QueryString["limit"])));
-
-				context.Response.StatusCode = 200;
-				context.Response.Content = new JsonContent(SearchUsers(firstname, lastname, description, query, limit, seenBy));
-			}
 			// POST /login
-			else if((context.Request.Method == "POST") && (parts.Length == 1) && (parts[0] == "login")) {
+			if((context.Request.Method == "POST") && (parts.Length == 1) && (parts[0] == "login")) {
 				JsonValue content = await context.Request.ReadAsJsonAsync();
 
 				string login = (string)content["login"];
