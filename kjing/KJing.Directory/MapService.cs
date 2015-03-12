@@ -5,7 +5,7 @@
 // Author(s):
 //  Daniel Lacroix <dlacroix@erasme.org>
 // 
-// Copyright (c) 2013-2014 Departement du Rhone
+// Copyright (c) 2013-2015 Departement du Rhone - Metropole de Lyon
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -64,10 +64,29 @@ namespace KJing.Directory
 				dbcmd.CommandText = sql;
 				dbcmd.ExecuteNonQuery();
 			}
+			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+				string sql = "CREATE TABLE map (map VARCHAR NOT NULL, publicName VARCHAR DEFAULT NULL)";
+				dbcmd.CommandText = sql;
+				dbcmd.ExecuteNonQuery();
+			}
 		}
 			
 		public override void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceContext> parents)
 		{
+			// get the publicName
+			value["publicName"] = null;
+			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+				dbcmd.CommandText = "SELECT publicName FROM map WHERE map=@id";
+				dbcmd.Parameters.Add(new SqliteParameter("id", id));
+				dbcmd.Transaction = transaction;
+				using(IDataReader reader = dbcmd.ExecuteReader()) {
+					while(reader.Read()) {
+						if(!reader.IsDBNull(0))
+							value["publicName"] = reader.GetString(0);
+					}
+				}
+			}
+
 			JsonValue imageJson = directory.GetChildResourceByName(dbcon, transaction, id, "image", filterBy, 0, groups, heritedRights, parents, false);
 			if(imageJson != null)
 				value["image"] = imageJson;
@@ -93,11 +112,77 @@ namespace KJing.Directory
 
 		public override void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data)
 		{
+			string id = (string)data["id"];
+			string publicName = null;
+
+			if(data.ContainsKey("publicName")) {
+				publicName = (string)data["publicName"];
+				// check if the publicName is already used
+				if(publicName != null) {
+					using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+						dbcmd.Transaction = transaction;
+						dbcmd.CommandText = "SELECT COUNT(map) FROM map WHERE publicName=@publicName";
+						dbcmd.Parameters.Add(new SqliteParameter("publicName", publicName));
+						int count = Convert.ToInt32(dbcmd.ExecuteScalar());
+						if(count >= 1)
+							throw new WebException(409, 0, "publicName already used, choose another one");
+					}
+				}
+			}
+
+			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+				dbcmd.Transaction = transaction;
+				dbcmd.CommandText = "INSERT INTO map (map,publicName) VALUES (@map,@publicName)";
+				dbcmd.Parameters.Add(new SqliteParameter("publicName", publicName));
+				dbcmd.Parameters.Add(new SqliteParameter("map", id));
+				dbcmd.ExecuteNonQuery();
+			}
 		}
 
 		public override void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff)
 		{
-			// TODO
+			if(diff.ContainsKey("publicName")) {
+				string publicName = (string)diff["publicName"];
+				// check if the publicName is already used
+				if(publicName != null) {
+					using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+						dbcmd.Transaction = transaction;
+						dbcmd.CommandText = "SELECT COUNT(map) FROM map WHERE publicName=@publicName AND map != @map";
+						dbcmd.Parameters.Add(new SqliteParameter("publicName", publicName));
+						dbcmd.Parameters.Add(new SqliteParameter("map", id));
+						int count = Convert.ToInt32(dbcmd.ExecuteScalar());
+						if(count >= 1)
+							throw new WebException(409, 0, "publicName already used, choose another one");
+					}
+				}
+
+				bool found = false;
+				using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+					dbcmd.Transaction = transaction;
+					dbcmd.CommandText = "SELECT COUNT(map) FROM map WHERE map = @map";
+					dbcmd.Parameters.Add(new SqliteParameter("map", id));
+					int count = Convert.ToInt32(dbcmd.ExecuteScalar());
+					found = (count >= 1);
+				}
+				if(found) {
+					using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+						dbcmd.Transaction = transaction;
+						dbcmd.CommandText = "UPDATE map SET publicName=@publicName WHERE map = @map";
+						dbcmd.Parameters.Add(new SqliteParameter("publicName", publicName));
+						dbcmd.Parameters.Add(new SqliteParameter("map", id));
+						dbcmd.ExecuteNonQuery();
+					}
+				}
+				else {
+					using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+						dbcmd.Transaction = transaction;
+						dbcmd.CommandText = "INSERT INTO map (map,publicName) VALUES (@map,@publicName)";
+						dbcmd.Parameters.Add(new SqliteParameter("publicName", publicName));
+						dbcmd.Parameters.Add(new SqliteParameter("map", id));
+						dbcmd.ExecuteNonQuery();
+					}
+				}
+			}
 		}
 
 		public override void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data)
@@ -106,6 +191,13 @@ namespace KJing.Directory
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 				dbcmd.Transaction = transaction;
 				dbcmd.CommandText = "DELETE FROM map_device WHERE map=@id";
+				dbcmd.Parameters.Add(new SqliteParameter("id", id));
+				dbcmd.ExecuteNonQuery();
+			}
+			// delete from map table
+			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+				dbcmd.Transaction = transaction;
+				dbcmd.CommandText = "DELETE FROM map WHERE map=@id";
 				dbcmd.Parameters.Add(new SqliteParameter("id", id));
 				dbcmd.ExecuteNonQuery();
 			}
@@ -222,12 +314,53 @@ namespace KJing.Directory
 			process.Dispose();
 		}
 
+		public JsonArray GetPublicList()
+		{
+			JsonArray res;
+			lock(dbcon) {
+				using(IDbTransaction transaction = dbcon.BeginTransaction()) {
+					res = GetPublicList(dbcon, transaction);
+				}
+			}
+			return res;
+		}
+
+		public JsonArray GetPublicList(IDbConnection dbcon, IDbTransaction transaction)
+		{
+			JsonArray res = new JsonArray();
+
+			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+				dbcmd.CommandText = "SELECT map,publicName FROM map WHERE publicName IS NOT NULL";
+				dbcmd.Transaction = transaction;
+				using(IDataReader reader = dbcmd.ExecuteReader()) {
+					while(reader.Read()) {
+						if(!reader.IsDBNull(0)) {
+							string mapId = reader.GetString(0);
+							res.Add(GetResource(mapId, null, 0));
+						}
+					}
+				}
+			}
+			return res;
+		}
+
 		public override async Task ProcessRequestAsync(HttpContext context)
 		{
 			string[] parts = context.Request.Path.Split(new char[] { '/' }, System.StringSplitOptions.RemoveEmptyEntries);
 
+			// GET /public?seenBy=[user] get the list of public maps
+			if((context.Request.Method == "GET") && (parts.Length == 1) && (parts[0] == "public")) {
+			
+				string seenBy = null;
+				if(context.Request.QueryString.ContainsKey("seenBy"))
+					seenBy = context.Request.QueryString["seenBy"];
+
+				context.Response.StatusCode = 200;
+				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
+				context.Response.Content = new JsonContent(GetPublicList());
+			}
 			// POST /[map]/image set the map background
-			if((context.Request.Method == "POST") && (parts.Length == 2) && (parts[1] == "image") && IsValidId(parts[0])) {
+			else if((context.Request.Method == "POST") && (parts.Length == 2) && (parts[1] == "image") && IsValidId(parts[0])) {
 
 				directory.EnsureRights(context, parts[0], false, true, false);
 
