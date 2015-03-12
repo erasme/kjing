@@ -187,6 +187,11 @@ namespace KJing.Directory
 			return resourceService.GetUserShares(dbcon, transaction, user, depth, groups);
 		}
 
+		public JsonArray GetGroupShares(IDbConnection dbcon, IDbTransaction transaction, string group, string seenBy, int depth)
+		{
+			return resourceService.GetGroupShares(dbcon, transaction, group, seenBy, depth);
+		}
+
 		public JsonValue CreateResource(JsonValue data)
 		{
 			return resourceService.CreateResource(data);

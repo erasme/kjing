@@ -78,6 +78,11 @@ namespace KJing.Directory
 					}
 				}
 			}
+
+			if(depth > 0) {
+				// select resources shared by this group
+				value["shares"] = directory.GetGroupShares(dbcon, transaction, id, filterBy, depth);
+			}
 		}
 
 		public override void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data)
