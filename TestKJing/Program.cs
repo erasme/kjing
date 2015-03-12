@@ -11,7 +11,6 @@ namespace TestKJing
 	public class MainClass
 	{
 		public delegate bool TestHandler();
-		static int NbRequest = 100;
 		static int NbThread = 4;
 		static int SlowRequestLevel = 50;
 		static int ServerPort = 3333;
@@ -24,6 +23,13 @@ namespace TestKJing
 		static string TestUserAuthorization;
 		static string TestFolderId;
 		static string TestFileId;
+
+		public class BenchContext
+		{
+			public Thread Thread;
+			public TestHandler Handler;
+			public int NbRequest;
+		}
 
 		public static bool TestStaticFilesService()
 		{
@@ -121,6 +127,21 @@ namespace TestKJing
 			return done;
 		}
 
+		public static bool TestGetFolder()
+		{
+			bool done = false;
+			using (HttpClient client = HttpClient.Create(ServerHost, ServerPort)) {
+				HttpClientRequest request = new HttpClientRequest();
+				request.Method = "GET";
+				request.Path = "/cloud/resource/"+TestFolderId;
+				request.Headers["authorization"] = TestUserAuthorization;
+				client.SendRequest(request);
+				HttpClientResponse response = client.GetResponse();
+				done = (response.StatusCode == 200);
+			}
+			return done;
+		}
+
 		public static bool TestCreateFile()
 		{
 			bool done = false;
@@ -186,26 +207,29 @@ namespace TestKJing
 			Console.ForegroundColor = ConsoleColor.Black;
 		}
 
-		public static void Bench(string display, TestHandler handler)
+		public static void Bench(string display, TestHandler handler, int count = 1000)
 		{
 			DateTime start = DateTime.Now;
 			if(NbThread == 1) {
 				BenchThreadStart(handler);
 			}
 			else {
-				List<Thread> threads = new List<Thread>();
+				List<BenchContext> contexts = new List<BenchContext>();
 				for(int i = 0; i < NbThread; i++) {
-					Thread thread = new Thread(BenchThreadStart);
-					threads.Add(thread);
-					thread.Start(handler);
+					BenchContext context = new BenchContext();
+					context.NbRequest = count;
+					context.Handler = handler;
+					context.Thread = new Thread(BenchThreadStart);
+					contexts.Add(context);
+					context.Thread.Start(context);
 				}
-				foreach(Thread thread in threads) {
-					thread.Join();
+				foreach(BenchContext context in contexts) {
+					context.Thread.Join();
 				}
 			}
 			TimeSpan duration = DateTime.Now - start;
 			Console.Write("Bench "+display+" ");
-			int reqSecond = (int)Math.Round((NbRequest*NbThread)/duration.TotalSeconds);
+			int reqSecond = (int)Math.Round((count*NbThread)/duration.TotalSeconds);
 			if(reqSecond < SlowRequestLevel)
 				Console.ForegroundColor = ConsoleColor.Red;
 			else
@@ -217,10 +241,21 @@ namespace TestKJing
 
 		static void BenchThreadStart(object obj)
 		{
-			TestHandler handler = (TestHandler)obj;
-			for(int i = 0; i < NbRequest; i++) {
-				handler();
+			BenchContext context = (BenchContext)obj;
+			for(int i = 0; i < context.NbRequest; i++) {
+				context.Handler();
 			}
+		}
+
+		public static TestHandler TestGroup(params TestHandler[] handlers)
+		{
+			return new TestHandler(delegate() {
+				foreach(TestHandler handler in handlers) {
+					if(!handler())
+						return false;
+				}
+				return true;
+			});
 		}
 
 		public static void Main(string[] args)
@@ -230,9 +265,15 @@ namespace TestKJing
 			Display("StaticFilesService", TestStaticFilesService);
 			Display("CreateUser", TestCreateUser);
 			Display("CreateFolder", TestCreateFolder);
+			Display("GetFolder", TestGetFolder);
+			Bench("GetFolder", TestGetFolder, 100);
 			Display("CreateFile", TestCreateFile);
 			Display("DeleteFile", TestDeleteFile);
 			Display("DeleteFolder", TestDeleteFolder);
+
+			//Display("Create/Delete Folder", TestGroup(TestCreateFolder, TestDeleteFolder));
+			//Bench("Create/Delete Folder", TestGroup(TestCreateFolder, TestDeleteFolder), 100);
+
 			Display("DeleteUser", TestDeleteUser);
 
 			//Bench("StaticFilesService", TestStaticFilesService);
