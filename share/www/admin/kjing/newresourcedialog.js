@@ -1,196 +1,4 @@
-
-KJing.ItemView.extend('KJing.GroupAddUserItemView', {
-	resource: undefined,
-	group: undefined,
-
-	constructor: function(config) {
-		this.resource = config.resource;
-		delete(config.resource);
-		this.group = config.group;
-		delete(config.group);
-	
-		this.setItemImage(this.getResource().getFaceUrl());
-		this.setItemName(this.getResource().getName());
-	},
-	
-	getResource: function() {
-		return this.resource;
-	},
-	
-	getGroup: function() {
-		return this.group;
-	}	
-}, {
-	getSelectionActions: function() {
-		return KJing.GroupAddUserItemView.actions;
-	}
-}, {
-	actions: undefined,
-	
-	constructor: function() {
-		KJing.GroupAddUserItemView.actions = {
-			add: {
-				text: 'Ajouter', icon: 'plus', "default": true,
-				callback: KJing.GroupAddUserItemView.onAddAction, multiple: true
-			}
-		};
-	},
-
-	onAddAction: function(selection) {
-		var elements = selection.getElements();
-		var users = [];
-		for(var i = 0; i < elements.length; i++)
-			users.push(elements[i].getResource());		
-		elements[0].getGroup().addUsers(users);
-		elements[0].getView().create();
-	}
-});
-
-KJing.ItemView.extend('KJing.GroupAddGroupItemView', {
-	resource: undefined,
-	group: undefined,
-
-	constructor: function(config) {
-		this.resource = config.resource;
-		delete(config.resource);
-		this.group = config.group;
-		delete(config.group);
-	
-		this.setItemIcon('group');
-		this.setItemName(this.getResource().getName());
-	},
-	
-	getResource: function() {
-		return this.resource;
-	},
-	
-	getGroup: function() {
-		return this.group;
-	}
-}, {
-	getSelectionActions: function() {
-		return KJing.GroupAddGroupItemView.actions;
-	}
-}, {
-	actions: undefined,
-	
-	constructor: function() {
-		KJing.GroupAddGroupItemView.actions = {
-			add: {
-				text: 'Ajouter', icon: 'plus', "default": true,
-				callback: KJing.GroupAddGroupItemView.onAddAction, multiple: true
-			}
-		};
-	},
-
-	onAddAction: function(selection) {
-		var elements = selection.getElements();
-		var groups = [];
-		for(var i = 0; i < elements.length; i++)
-			groups.push(elements[i].getResource());		
-		elements[0].getGroup().addUsers(groups);
-		elements[0].getView().create();
-	}
-});
-
-KJing.ItemView.extend('KJing.RightAddUserItemView', {
-	resource: undefined,
-	target: undefined,
-
-	constructor: function(config) {
-		this.resource = config.resource;
-		delete(config.resource);
-		this.target = config.target;
-		delete(config.target);
-	
-		console.log(this.resource);
-
-		this.setItemImage(this.resource.getFaceUrl());
-		this.setItemName(this.resource.getName());
-	},
-	
-	getResource: function() {
-		return this.resource;
-	},
-	
-	getTarget: function() {
-		return this.target;
-	}	
-}, {
-	getSelectionActions: function() {
-		return KJing.RightAddUserItemView.actions;
-	}
-}, {
-	actions: undefined,
-	
-	constructor: function() {
-		KJing.RightAddUserItemView.actions = {
-			add: {
-				text: 'Ajouter', icon: 'plus', "default": true,
-				callback: KJing.RightAddUserItemView.onAddAction, multiple: true
-			}
-		};
-	},
-
-	onAddAction: function(selection) {
-		var elements = selection.getElements();
-		var	rights = elements[0].getView().getRights();
-		var users = [];
-		for(var i = 0; i < elements.length; i++)
-			users.push({ user: elements[i].getResource().getId(), read: rights.read, write: rights.write, admin: rights.admin });
-		elements[0].getTarget().addRights(users);
-		elements[0].getView().create();
-	}
-});
-
-KJing.ItemView.extend('KJing.RightAddGroupItemView', {
-	resource: undefined,
-	target: undefined,
-
-	constructor: function(config) {
-		this.resource = config.resource;
-		delete(config.resource);
-		this.target = config.target;
-		delete(config.target);
-	
-		this.setItemIcon('group');
-		this.setItemName(this.getResource().getName());
-	},
-	
-	getResource: function() {
-		return this.resource;
-	},
-	
-	getTarget: function() {
-		return this.target;
-	}	
-}, {
-	getSelectionActions: function() {
-		return KJing.RightAddGroupItemView.actions;
-	}
-}, {
-	actions: undefined,
-	
-	constructor: function() {
-		KJing.RightAddGroupItemView.actions = {
-			add: {
-				text: 'Ajouter', icon: 'plus', "default": true,
-				callback: KJing.RightAddGroupItemView.onAddAction, multiple: true
-			}
-		};
-	},
-
-	onAddAction: function(selection) {
-		var elements = selection.getElements();
-		var	rights = elements[0].getView().getRights();
-		var groups = [];
-		for(var i = 0; i < elements.length; i++)
-			groups.push({ user: elements[i].getResource().getId(), read: rights.read, write: rights.write, admin: rights.admin });
-		elements[0].getTarget().addRights(groups);
-		elements[0].getView().create();
-	}
-});
-
+/*
 Ui.SFlow.extend('KJing.NewResourceSelector', {
 	types: undefined,
 
@@ -202,24 +10,26 @@ Ui.SFlow.extend('KJing.NewResourceSelector', {
 		}
 		this.setItemAlign('stretch');
 		this.setUniform(true);
-		this.setStretchMaxRatio(1.5);
+		this.setStretchMaxRatio(3);
 		this.setSpacing(5);
-		
-		var types = {
-			folder: { icon: 'folder', text: 'Classeur', creator: KJing.NewFolderCreator },
-			file: { icon: 'file', uploader: true, text: 'Fichier local', creator: KJing.NewFileCreator },
-			textfile: { icon: 'text', text: 'Fichier texte vide', creator: KJing.NewTextFileCreator },
-			statefile: { icon: 'text', text: 'Etat clients / ressources', creator: KJing.NewStateFileCreator },
-			urlfile: { icon: 'earth', text: 'Lien vers un site', creator: KJing.NewUrlFileCreator },
-			user: { icon: 'person', text: 'Utilisateur', creator: KJing.NewUserCreator },
-			group: { icon: 'group', text: 'Groupe de personne', creator: KJing.NewGroupCreator },
-			map: { icon: 'map', text: 'Salle de diffusion', creator: KJing.NewMapCreator },
-			groupuser: { icon: 'person', text: 'Utilisateur', creator: KJing.NewGroupUserCreator },
-			groupgroup: { icon: 'group', text: 'Groupe de personne', creator: KJing.NewGroupGroupCreator },
-			rightuser: { icon: 'person', text: 'Utilisateur', creator: KJing.NewRightUserCreator },
-			rightgroup: { icon: 'group', text: 'Groupe de personne', creator: KJing.NewRightGroupCreator },
-			device: { icon: 'eye', text: 'Client de diffusion', creator: KJing.NewDeviceCreator }
-		};
+
+		var types = KJing.ResourceCreator.getTypesDefs();
+
+//		var types = {
+//			folder: { icon: 'folder', text: 'Classeur', creator: KJing.NewFolderCreator },
+//			file: { icon: 'file', uploader: true, text: 'Fichier local', creator: KJing.NewFileCreator },
+//			textfile: { icon: 'text', text: 'Fichier texte vide', creator: KJing.NewTextFileCreator },
+//			statefile: { icon: 'text', text: 'Etat clients / ressources', creator: KJing.NewStateFileCreator },
+//			urlfile: { icon: 'earth', text: 'Lien vers un site', creator: KJing.NewUrlFileCreator },
+//			user: { icon: 'person', text: 'Utilisateur', creator: KJing.NewUserCreator },
+//			group: { icon: 'group', text: 'Groupe de personne', creator: KJing.NewGroupCreator },
+//			map: { icon: 'map', text: 'Salle de diffusion', creator: KJing.NewMapCreator },
+//			groupuser: { icon: 'person', text: 'Utilisateur', creator: KJing.NewGroupUserCreator },
+//			groupgroup: { icon: 'group', text: 'Groupe de personne', creator: KJing.NewGroupGroupCreator },
+//			rightuser: { icon: 'person', text: 'Utilisateur', creator: KJing.NewRightUserCreator },
+//			rightgroup: { icon: 'group', text: 'Groupe de personne', creator: KJing.NewRightGroupCreator },
+//			device: { icon: 'eye', text: 'Client de diffusion', creator: KJing.NewDeviceCreator }
+//		};
 		for(var type in types) {
 			if(this.types !== undefined) {
 				var found = false;
@@ -258,6 +68,7 @@ Ui.VBox.extend('KJing.NewGroupUserCreator', {
 	searchField: undefined,
 	flow: undefined,
 	valid: false,
+	onAddActionBinded: undefined,
 	
 	constructor: function(config) {
 		this.addEvents('done', 'valid', 'notvalid');
@@ -271,6 +82,8 @@ Ui.VBox.extend('KJing.NewGroupUserCreator', {
 		
 		this.flow = new Ui.Flow();
 		this.append(this.flow);
+
+		this.onAddActionBinded = this.onAddAction.bind(this);
 	},
 	
 	create: function() {
@@ -287,12 +100,32 @@ Ui.VBox.extend('KJing.NewGroupUserCreator', {
 		var resources = search.getResources();
 		for(var i = 0; i < resources.length; i++) {
 			var person = resources[i];
-			var view = new KJing.GroupAddUserItemView({ resource: person, group: this.resource, view: this });
+			var view = KJing.ResourceIconViewer.create(person);
 			this.flow.append(view);
 		}
 	},
 
 	onSearchError: function(req) {
+	}, 
+
+	getContextActions: function(element, actions) {
+		if(KJing.UserIconViewer.hasInstance(element)) {
+			return  {
+				add: {
+					text: 'Ajouter', icon: 'plus', "default": true,
+					callback: this.onAddActionBinded, multiple: true
+				}
+			};
+		}
+	},
+
+	onAddAction: function(selection) {
+		var elements = selection.getElements();
+		var users = [];
+		for(var i = 0; i < elements.length; i++)
+			users.push(elements[i].getResource());
+		this.resource.addUsers(users);
+		this.fireEvent('done', this);
 	}
 });
 
@@ -301,6 +134,7 @@ Ui.VBox.extend('KJing.NewGroupGroupCreator', {
 	searchField: undefined,
 	flow: undefined,
 	valid: false,
+	onAddActionBinded: undefined,
 	
 	constructor: function(config) {
 		this.addEvents('done', 'valid', 'notvalid');
@@ -314,6 +148,8 @@ Ui.VBox.extend('KJing.NewGroupGroupCreator', {
 		
 		this.flow = new Ui.Flow();
 		this.append(this.flow);
+
+		this.onAddActionBinded = this.onAddAction.bind(this);
 	},
 	
 	create: function() {
@@ -330,12 +166,34 @@ Ui.VBox.extend('KJing.NewGroupGroupCreator', {
 		var resources = search.getResources();
 		for(var i = 0; i < resources.length; i++) {
 			var person = resources[i];
-			var view = new KJing.GroupAddGroupItemView({ resource: person, group: this.resource, view: this });
+			var view = KJing.ResourceIconViewer.create(person);
 			this.flow.append(view);
 		}
 	},
 	
 	onSearchError: function(req) {
+	},
+
+	getContextActions: function(element, actions) {
+		if(KJing.GroupIconViewer.hasInstance(element)) {
+			return {
+				add: {
+					text: 'Ajouter', icon: 'plus', "default": true,
+					callback: this.onAddActionBinded, multiple: true
+				}
+			};
+		}
+		else
+			return actions;
+	},
+
+	onAddAction: function(selection) {
+		var elements = selection.getElements();
+		var groups = [];
+		for(var i = 0; i < elements.length; i++)
+			groups.push(elements[i].getResource());		
+		this.resource.addUsers(groups);
+		this.fireEvent('done', this);
 	}
 });
 
@@ -346,6 +204,7 @@ Ui.VBox.extend('KJing.NewRightUserCreator', {
 	readField: undefined,
 	flow: undefined,
 	valid: false,
+	onAddActionBinded: undefined,
 	
 	constructor: function(config) {
 		this.addEvents('done', 'valid', 'notvalid');
@@ -368,6 +227,8 @@ Ui.VBox.extend('KJing.NewRightUserCreator', {
 		
 		this.flow = new Ui.Flow();
 		this.append(this.flow);
+
+		this.onAddActionBinded = this.onAddAction.bind(this);
 	},
 	
 	getRights: function() {
@@ -388,9 +249,32 @@ Ui.VBox.extend('KJing.NewRightUserCreator', {
 		var resources = search.getResources();
 		for(var i = 0; i < resources.length; i++) {
 			var person = resources[i];
-			var view = new KJing.RightAddUserItemView({ resource: person, target: this.resource, view: this });
+			var view = KJing.ResourceIconViewer.create(person);
 			this.flow.append(view);
 		}
+	},
+
+	onAddAction: function(selection) {
+		var elements = selection.getElements();
+		var	rights = this.getRights();
+		var users = [];
+		for(var i = 0; i < elements.length; i++)
+			users.push({ user: elements[i].getResource().getId(), read: rights.read, write: rights.write, admin: rights.admin });
+		this.resource.addRights(users);
+		this.fireEvent('done', this);
+	},
+
+	getContextActions: function(element, actions) {
+		if(KJing.UserIconViewer.hasInstance(element)) {
+			return {
+				add: {
+					text: 'Ajouter', icon: 'plus', "default": true,
+					callback: this.onAddActionBinded, multiple: true
+				}
+			};
+		}
+		else
+			return actions;
 	}
 });
 
@@ -445,12 +329,35 @@ Ui.VBox.extend('KJing.NewRightGroupCreator', {
 		this.flow.clear();
 		for(var i = 0; i < json.length; i++) {
 			var group = KJing.Resource.create(json[i]);
-			var view = new KJing.RightAddGroupItemView({ resource: group, target: this.resource, view: this });
+			var view = KJing.ResourceIconViewer.create(group);
 			this.flow.append(view);
 		}
 	},
 	
 	onSearchError: function(req) {
+	},
+
+	onAddAction: function(selection) {
+		var elements = selection.getElements();
+		var	rights = this.getRights();
+		var groups = [];
+		for(var i = 0; i < elements.length; i++)
+			groups.push({ user: elements[i].getResource().getId(), read: rights.read, write: rights.write, admin: rights.admin });
+		this.resource.addRights(groups);
+		this.fireEvent('done', this);
+	},
+
+	getContextActions: function(element, actions) {
+		if(KJing.GroupIconViewer.hasInstance(element)) {
+			return {
+				add: {
+					text: 'Ajouter', icon: 'plus', "default": true,
+					callback: this.onAddAction.bind(this), multiple: true
+				}
+			};
+		}
+		else
+			return actions;
 	}
 });
 
@@ -653,6 +560,7 @@ Ui.SFlow.extend('KJing.NewDeviceCreator', {
 		delete(config.resource);
 		
 		this.setItemAlign('stretch');
+		this.setStretchMaxRatio(5);
 		this.setSpacing(10);
 		
 		this.nameField = new KJing.TextField({ title: 'Nom', width: 150 });
@@ -802,3 +710,4 @@ Ui.Dialog.extend('KJing.NewResourceDialog', {
 		this.createButton.disable();
 	}
 });
+*/

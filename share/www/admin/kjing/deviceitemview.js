@@ -1,4 +1,4 @@
-
+/*
 Ui.CanvasElement.extend('KJing.DeviceItemGraphic', {
 	ratio: 1.33,
 	online: false,
@@ -102,15 +102,12 @@ Ui.CanvasElement.extend('KJing.DeviceItemGraphic', {
 });
 	
 Ui.Selectionable.extend('KJing.DeviceItemView', {
-	view: undefined,
 	resource: undefined,
 	label: undefined,
 	content: undefined,
 	graphic: undefined,
 
 	constructor: function(config) {
-		this.view = config.view;
-		delete(config.view);
 		this.resource = config.resource;
 		delete(config.resource);
 
@@ -150,7 +147,13 @@ Ui.Selectionable.extend('KJing.DeviceItemView', {
 	},
 	
 	getView: function() {
-		return this.view;
+		var current = this.getParent();
+		while((current !== null) && (current !== undefined)) {
+			if(KJing.PartView.hasInstance(current))
+				return current;
+			current = current.getParent();
+		}
+		return undefined;
 	},
 	
 	getResource: function() {
@@ -192,29 +195,29 @@ Ui.Selectionable.extend('KJing.DeviceItemView', {
 		var playList = this.resource.getDevicePlayList();
 		if((playList !== undefined) && (playList.length > 0)) { 
 			var pos = this.resource.getDevicePosition();
-			var fileControl = playList[pos];
-			if(fileControl.getIsReady())
-				this.onFileControlReady(fileControl);
+			var controller = playList[pos];
+			if(controller.getIsReady())
+				this.onControllerReady(controller);
 			else
-				this.connect(fileControl, 'ready', this.onFileControlReady);
+				this.connect(controller, 'ready', this.onControllerReady);
 		}
 		else if(this.resource.getData().path !== null) {
-			var file = KJing.Resource.create(this.resource.getData().path);
-			if(file.getIsReady())
-				this.onFileReady(file);
+			var resource = KJing.Resource.create(this.resource.getData().path);
+			if(resource.getIsReady())
+				this.onResourceReady(resource);
 			else
-				this.connect(file, 'ready', this.onFileReady);
+				this.connect(resource, 'ready', this.onResourceReady);
 		}
 		this.graphic.setRatio(this.resource.getDeviceRatio());
 	},
 
-	onFileControlReady: function(fileControl) {
-		this.onFileReady(fileControl.getFile());
+	onControllerReady: function(controller) {
+		this.onResourceReady(controller.getResource());
 	},
 
-	onFileReady: function(file) {
-		if(file.data.thumbnailLow !== undefined) {
-			var thumbnailLow = KJing.File.create(file.data.thumbnailLow);
+	onResourceReady: function(resource) {
+		if(resource.data.thumbnailLow !== undefined) {
+			var thumbnailLow = KJing.Resource.create(resource.data.thumbnailLow);
 			this.graphic.setImageSrc(thumbnailLow.getDownloadUrl());
 		}
 	}
@@ -256,4 +259,4 @@ Ui.Selectionable.extend('KJing.DeviceItemView', {
 		this.bg.hide();
 	}
 });
-	
+*/

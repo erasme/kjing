@@ -1,99 +1,4 @@
 
-KJing.ItemView.extend('KJing.RightItemView', {
-	resource: undefined,
-	right: undefined,
-	user: undefined,
-	
-	constructor: function(config) {
-		this.resource = config.resource;
-		delete(config.resource);
-		this.right = config.right;
-		delete(config.right);
-		
-		this.user = KJing.Resource.create(this.right.user);
-		if(KJing.Group.hasInstance(this.user)) {
-			this.setItemIcon('group');
-			this.setItemName(this.user.getName());
-		}
-		else {
-			this.setItemImage(this.user.getFaceUrl());
-			this.setItemName(this.user.getName());
-		}
-			
-		var tags = undefined;
-		if(this.right.write && this.right.admin)
-			tags = [ 'pen', 'tools' ];
-		else if(this.right.write)
-			tags = [ 'pen' ];
-		else if(this.right.admin)
-			tags = [ 'tools' ];
-		this.setItemTags(tags);
-	},
-	
-	getResource: function() {
-		return this.resource;
-	},
-	
-	getUser: function() {
-		return this.user;
-	},
-	
-	onUserChange: function() {
-		this.setItemName(this.user.getName());
-		if(KJing.User.hasInstance(this.user))
-			this.setItemImage(this.user.getFaceUrl());
-	}
-}, {
-	onLoad: function() {
-		KJing.RightItemView.base.onLoad.apply(this, arguments);
-		this.connect(this.user, 'change', this.onUserChange);
-	},
-	
-	onUnload: function() {
-		KJing.RightItemView.base.onUnload.apply(this, arguments);
-		this.disconnect(this.user, 'change', this.onUserChange);
-	},
-	
-	getSelectionActions: function() {
-		return KJing.RightItemView.actions;
-	}
-}, {
-	actions: undefined,
-	
-	constructor: function(config) {
-		KJing.RightItemView.actions = {
-			suppress: {
-				icon: 'trash', text: 'Supprimer',
-				"default": true, multiple: true,
-				callback: KJing.RightItemView.onSuppressAction
-			}
-		};
-	},
-	
-	onSuppressAction: function(selection) {
-		var elements = selection.getElements();
-		var rights = [];
-		for(var i = 0; i < elements.length; i++)
-			rights.push({ user: elements[i].getUser().getId(), read: false, write: false, admin: false });
-		elements[0].getResource().addRights(rights);
-	}
-});
-
-KJing.NewItem.extend('KJing.RightNewItem', {
-	resource: undefined,
-	
-	constructor: function(config) {
-		this.resource = config.resource;
-		delete(config.resource);
-		this.connect(this, 'press', this.onNewPress);
-	},
-	
-	onNewPress: function() {
-		var dialog = new KJing.NewResourceDialog({ title: 'Ajouter un droit', resource: this.resource, types: [ 'rightuser', 'rightgroup' ] });
-		dialog.open();
-	}
-});
-
 KJing.OptionSection.extend('KJing.ResourceRightsSection', {
 	resource: undefined,
 	flow: undefined,
@@ -114,12 +19,12 @@ KJing.OptionSection.extend('KJing.ResourceRightsSection', {
 	onResourceChange: function() {
 		this.flow.clear();
 
-		var newRight = new KJing.RightNewItem({ resource: this.resource });
+		var newRight = new KJing.ResourceRightNewIcon({ resource: this.resource });
 		this.flow.append(newRight);
 
 		var rights = this.resource.getRights();
 		for(var i = 0; i < rights.length; i++) {
-			var view = new KJing.RightItemView({ resource: this.resource, right: rights[i] });
+			var view = new KJing.RightIconViewer({ resource: this.resource, right: rights[i] });
 			this.flow.append(view);
 		}
 		if(!this.resource.canAdmin())
@@ -173,8 +78,12 @@ Ui.Dialog.extend('KJing.ResourcePropertiesDialog', {
 		sflow.append(new KJing.TextField({ title: 'Stockage utilisé',
 			value: this.formatSize(this.resource.getData().quotaBytesUsed), width: 200, enable: false }));
 
+		this.positionField = new KJing.TextField({ title: 'Position dans le dossier', value: this.resource.getData().position, width: 200 });
+		sflow.append(this.positionField);
+
+
 		// handle specific fields
-		if(KJing.Device.hasInstance(this.resource)) {
+/*		if(KJing.Device.hasInstance(this.resource)) {
 			var deviceUrlField = new KJing.TextField({ title: 'URL du client Web', width: 300 });
 			deviceUrlField.setValue((new Core.Uri({ uri: '../client/?device='+this.resource.getId() })).toString());
 			deviceUrlField.disable();
@@ -192,10 +101,14 @@ Ui.Dialog.extend('KJing.ResourcePropertiesDialog', {
 			sflow.append(this.mapPublicNameField);
 		}
 		else if(KJing.File.hasInstance(this.resource)) {
-		}
+		}*/
 
-		this.positionField = new KJing.TextField({ title: 'Position dans le dossier', value: this.resource.getData().position, width: 200 });
-		sflow.append(this.positionField);
+		var typeDef = KJing.ResourceProperties.getTypeDef(this.resource.getType());
+		if(typeDef !== undefined) {
+			var fields = (new typeDef.creator({ resource: this.resource })).getFields();
+			for(var i = 0; i < fields.length; i++)
+				sflow.append(fields[i]);
+		}
 
 		var rightsSection = new KJing.ResourceRightsSection({ resource: this.resource });
 		sflow.append(rightsSection);

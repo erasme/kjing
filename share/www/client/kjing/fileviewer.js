@@ -37,7 +37,7 @@ Ui.LBox.extend('KJing.FileViewer', {
 	},
 
 	onFileControlReady: function() {
-		var file = this.fileControl.getFile();
+		var file = this.fileControl.getResource();
 		if(file.getMimetype().indexOf('image/') === 0)
 			this.contentViewer = new KJing.ImageFileViewer({ fileControl: this.fileControl });
 		else if((!navigator.isIE7 && !navigator.isIE8) && (file.getMimetype().indexOf('video/') === 0))
@@ -90,7 +90,7 @@ Ui.ScrollingArea.extend('KJing.ImageFileViewer', {
 	constructor: function(config) {
 		this.fileControl = config.fileControl;
 		delete(config.fileControl);
-		this.file = this.fileControl.getFile();
+		this.file = this.fileControl.getResource();
 				
 		this.setMaxScale(4);
 		this.image = new KJing.ScaledImage2();
@@ -152,7 +152,7 @@ Ui.Pressable.extend('KJing.VideoFileViewer', {
 
 		this.fileControl = config.fileControl;
 		delete(config.fileControl);
-		this.file = this.fileControl.getFile();
+		this.file = this.fileControl.getResource();
 
 		this.setLock(true);
 		this.connect(this, 'press', this.onVideoPress);
@@ -293,7 +293,7 @@ Ui.LBox.extend('KJing.SiteFileViewer', {
 	constructor: function(config) {
 		this.fileControl = config.fileControl;
 		delete(config.fileControl);
-		this.file = this.fileControl.getFile();
+		this.file = this.fileControl.getResource();
 
 		var request = new Core.HttpRequest({ method: 'GET', url: this.file.getDownloadUrl() });
 		this.connect(request, 'done', this.onContentLoaded);
@@ -326,7 +326,7 @@ Ui.LBox.extend('KJing.AudioFileViewer', {
 
 		this.fileControl = config.fileControl;
 		delete(config.fileControl);
-		this.file = this.fileControl.getFile();
+		this.file = this.fileControl.getResource();
 	},
 
 	onAudioEnd: function(player) {
@@ -452,7 +452,7 @@ Ui.ScrollingArea.extend('KJing.PdfPageViewer', {
 	constructor: function(config) {
 		this.pageControl = config.pageControl;
 		delete(config.pageControl);
-		this.file = this.pageControl.getFile();
+		this.file = this.pageControl.getResource();
 				
 		this.setMaxScale(4);
 		this.image = new KJing.ScaledImage2();
@@ -484,19 +484,19 @@ Ui.ScrollingArea.extend('KJing.PdfPageViewer', {
 	},
 
 	onFileControlMerge: function(fileControl, data) {
-		this.pageControl.mergeFileControlData(data);
+		this.pageControl.mergeControllerData(data);
 	}
 }, {
 	onLoad: function() {
 		KJing.PdfPageViewer.base.onLoad.apply(this, arguments);
 		this.connect(this.pageControl, 'change', this.onPageControlChange);
-		this.connect(this.pageControl.getFileControl(), 'merge', this.onFileControlMerge);
+		this.connect(this.pageControl.getController(), 'merge', this.onFileControlMerge);
 		this.onPageControlChange();
 	},
 	
 	onUnload: function() {
 		KJing.PdfPageViewer.base.onUnload.apply(this, arguments);
-		this.disconnect(this.pageControl.getFileControl(), 'merge', this.onFileControlMerge);
+		this.disconnect(this.pageControl.getController(), 'merge', this.onFileControlMerge);
 		this.disconnect(this.pageControl, 'change', this.onPageControlChange);
 	}
 });
@@ -524,7 +524,7 @@ Ui.TransitionBox.extend('KJing.PdfFileViewer', {
 			delete(config.file);
 		}
 		else
-			this.file = this.fileControl.getFile();
+			this.file = this.fileControl.getResource();
 
 		// generate page control
 		this.pagesControl = [];
@@ -537,8 +537,8 @@ Ui.TransitionBox.extend('KJing.PdfFileViewer', {
 		for(var i = 0; i < pdfPages.length; i++) {
 			var page = pdfPages[i];
 
-			var pageFile = KJing.File.create(page);
-			var pageControl = new KJing.PageControl({ fileControl: this.fileControl, file: pageFile, id: page.id });
+			var pageFile = KJing.Resource.create(page);
+			var pageControl = new KJing.PageController({ controller: this.fileControl, resource: pageFile, id: page.id });
 			this.pagesControl.push(pageControl);
 			pages.push(pageControl.getData());
 		}
@@ -623,7 +623,7 @@ Ui.ScrollingArea.extend('KJing.TextFileViewer', {
 	constructor: function(config) {
 		this.fileControl = config.fileControl;
 		delete(config.fileControl);
-		this.file = this.fileControl.getFile();
+		this.file = this.fileControl.getResource();
 				
 		this.setMaxScale(4);
 

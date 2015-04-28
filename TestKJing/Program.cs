@@ -178,6 +178,25 @@ namespace TestKJing
 			return done;
 		}
 
+		public static bool TestSearchResource()
+		{
+			bool done = false;
+			using (HttpClient client = HttpClient.Create(ServerHost, ServerPort)) {
+				HttpClientRequest request = new HttpClientRequest();
+				request.Headers["authorization"] = TestUserAuthorization;
+				request.Method = "GET";
+				request.Path = "/cloud/resource?query=jpg&seenBy="+TestUserId;
+				client.SendRequest(request);
+				HttpClientResponse response = client.GetResponse();
+				done = (response.StatusCode == 200) && response.Headers["content-type"].StartsWith("application/json");
+				if(done) {
+					JsonValue res = response.ReadAsJson();
+					done = res.Count > 0;
+				}
+			}
+			return done;
+		}
+
 		public static bool TestDeleteFile()
 		{
 			bool done = false;
@@ -268,6 +287,7 @@ namespace TestKJing
 			Display("GetFolder", TestGetFolder);
 			Bench("GetFolder", TestGetFolder, 100);
 			Display("CreateFile", TestCreateFile);
+			Display("SearchResource", TestSearchResource);
 			Display("DeleteFile", TestDeleteFile);
 			Display("DeleteFolder", TestDeleteFolder);
 

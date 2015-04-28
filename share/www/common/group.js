@@ -41,3 +41,4 @@ KJing.Resource.extend('KJing.Group', {
 	}
 });
 
+KJing.Resource.register('group', KJing.Group);

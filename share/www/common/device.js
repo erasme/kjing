@@ -162,41 +162,41 @@ KJing.Resource.extend('KJing.Device', {
 			else 
 				playList = client.data.state.list;
 			
-			var fileControlList = [];
+			var controllerList = [];
 
 			// find new items
 			for(var i = 0; i < playList.length; i++) {
 				var item = playList[i];
 				var found = false;
-				var fileControl;
+				var controller;
 				for(var i2 = 0; i2 < this.devicePlayList.length; i2++) {
-					fileControl = this.devicePlayList[i2];
-					if((item.id === fileControl.getId()) && (item.path === fileControl.getFile().getId())) {
+					controller = this.devicePlayList[i2];
+					if((item.id === controller.getId()) && (item.path === controller.getResource().getId())) {
 						found = true;
 						break;
 					}
 				}
 				if(found === false) {
-					fileControl = new KJing.FileControl({
+					controller = new KJing.Controller({
 						device: this, id: item.id,
-						file: KJing.File.create(item.path)
+						resource: KJing.Resource.create(item.path)
 					});
-					fileControl.updateData(item);
+					controller.updateData(item);
 				}
 				// update the data
 				else {
-					fileControl.updateData(item);
+					controller.updateData(item);
 				}
-				fileControlList.push(fileControl);
+				controllerList.push(controller);
 			}
 
-			var playlistChange = this.devicePlayList.length !== fileControlList.length;
+			var playlistChange = this.devicePlayList.length !== controllerList.length;
 
 			for(var i = 0; !playlistChange && (i < this.devicePlayList.length); i++) {
-				playlistChange = this.devicePlayList[i].getFile().getId() !== fileControlList[i].getFile().getId();
+				playlistChange = this.devicePlayList[i].getResource().getId() !== controllerList[i].getResource().getId();
 			}
 
-			this.devicePlayList = fileControlList;
+			this.devicePlayList = controllerList;
 
 			// find the new current file control
 			var nCurrent = undefined;
@@ -217,4 +217,5 @@ KJing.Resource.extend('KJing.Device', {
 		}
 	}
 });
-	
+
+KJing.Resource.register('device', KJing.Device);

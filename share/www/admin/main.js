@@ -56,7 +56,7 @@ Ui.ScrollingArea.extend('KJing.PartView', {
 		var level = this.stack[this.stack.length-1];
 		if(this.content !== undefined)
 			this.vbox.remove(this.content);
-		this.content = KJing.View.create(this, level.resource);
+		this.content = KJing.ResourceViewer.create(level.resource);
 		this.vbox.append(this.content, true);
 		this.updateLocator();
 		if('getSetupPopup' in this.content)
@@ -70,7 +70,7 @@ Ui.ScrollingArea.extend('KJing.PartView', {
 		this.stack.push(level);
 		if(this.content !== undefined)
 			this.vbox.remove(this.content);
-		this.content = KJing.View.create(this, resource);
+		this.content = KJing.ResourceViewer.create(resource);
 		this.vbox.append(this.content, true);
 		this.updateLocator();
 		if('getSetupPopup' in this.content)
@@ -102,7 +102,7 @@ Ui.ScrollingArea.extend('KJing.PartView', {
 		this.stack.splice(pos+1, this.stack.length-pos-1);
 		if(this.content !== undefined)
 			this.vbox.remove(this.content);
-		this.content = KJing.View.create(this, level.resource);
+		this.content = KJing.ResourceViewer.create(level.resource);
 		this.vbox.append(this.content, true);
 		this.updateLocator();
 		if('getSetupPopup' in this.content)
@@ -419,8 +419,6 @@ Ui.App.extend('KJing.AdminApp', {
 			count++;
 		}
 
-		console.log('onMessagesChange count: '+count);
-
 		if(count > 0)
 			this.messageButton.setBadge(count);
 		else
@@ -680,15 +678,15 @@ style: {
 	},
 	"Ui.DialogCloseButton": {
 		background: 'rgba(250,250,250,0)',
-		radius: 0,
-		borderWidth: 0
+		backgroundBorder: 'rgba(250,250,250,0)'
 	},
 	"Ui.ContextBarCloseButton": {
 		textWidth: 5,
-		borderWidth: 0,
+		borderWidth: 1,
 		background: "rgba(250,250,250,0)",
+		backgroundBorder: "rgba(250,250,250,0)",
 		foreground: theme.background,
-		radius: 0
+		radius: theme.roundness
 	},
 	"Ui.Separator": {
 		color: "#999999"
@@ -722,7 +720,6 @@ style: {
 	"Ui.DefaultButton": {
 		fontWeight: (theme.thickness >= 2)?'bold':'normal',
 		textTransform: 'uppercase',
-		borderWidth: 0,
 		background: theme.foreground,
 		backgroundBorder: theme.foreground,
 		foreground: "#fefefe"
@@ -738,7 +735,7 @@ style: {
 		backgroundBorder: new Ui.Color({ r: 1, g: 1, b: 1, a: 0 }),
 		foreground: "#ffffff",
 		radius: theme.roundness,
-		borderWidth: 0
+		borderWidth: 1
 	},
 	"Ui.Slider": {
 		foreground: new Ui.Color({ r: 0.03, g: 0.63, b: 0.9 })
@@ -774,7 +771,7 @@ style: {
 		focusForeground: new Ui.Color({r: 0, g: 0.72, b: 0.95 }),
 		focusBackground: 'rgba(250,250,250,0)'
 	},
-	"KJing.ItemView": {
+	"KJing.IconViewer": {
 		orientation: 'vertical',
 		whiteSpace: 'pre-line',
 		textWidth: 100,
@@ -795,22 +792,10 @@ style: {
 	"KJing.UploadFaceButton": {
 		padding: 2
 	},
-	"KJing.UserItemView": {
+	"KJing.UserIconViewer": {
 		roundMode: true
 	},
-	"KJing.GroupUserItemView": {
-		roundMode: true
-	},
-	"KJing.GroupAddUserItemView": {
-		roundMode: true
-	},
-	"KJing.RightAddGroupItemView": {
-		roundMode: true
-	},
-	"KJing.RightAddUserItemView": {
-		roundMode: true
-	},
-	"KJing.RightItemView": {
+	"KJing.RightIconViewer": {
 		roundMode: true
 	},
 	"Ui.MenuToolBar": {
@@ -837,7 +822,7 @@ style: {
 			color: "#ffffff"
 		}
 	},
-	"KJing.NewItem": {
+	"KJing.NewIcon": {
 		background: new Ui.Color({ r: 1, g: 1, b: 1, a: 0 }),
 		backgroundBorder: new Ui.Color({ r: 1, g: 1, b: 1, a: 0 }),
 		focusBackground: new Ui.Color({ r: 1, g: 1, b: 1, a: 0 }),

@@ -206,6 +206,11 @@ namespace KJing.Directory
 			}
 		}
 
+		public IService GetResourceTypeService(string type)
+		{
+			return directory.GetResourceTypeService(type);
+		}
+
 		public virtual string Name {
 			get {
 				return "resource";
@@ -270,7 +275,7 @@ namespace KJing.Directory
 
 		public bool IsValidId(string id)
 		{
-			string chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:";
+			string chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:+-";
 			for(int i = 0; i < id.Length; i++) {
 				bool found = false;
 				for(int i2 = 0; !found && (i2 < chars.Length); i2++) {
@@ -639,8 +644,9 @@ namespace KJing.Directory
 			else
 				ownRights = new Rights(true, true, true);
 
-			if(directory.ResourceTypes.ContainsKey(type))
-				directory.ResourceTypes[type].Get(dbcon, transaction, id, resource, filterBy, depth, groups, ownRights, parents);
+			IService service = GetResourceTypeService(type);
+			if(service != null)
+				service.Get(dbcon, transaction, id, resource, filterBy, depth, groups, ownRights, parents);
 
 			// get child resources
 			if(depth > 0) {
@@ -944,7 +950,6 @@ namespace KJing.Directory
 			return result;
 		}*/
 
-		// TODO: test with FTS
 		JsonArray SearchResources(string query, Dictionary<string,string> filters, string seenBy)
 		{
 			string user = seenBy;
@@ -996,7 +1001,10 @@ namespace KJing.Directory
 						}
 
 						if(filters.ContainsKey("type")) {
-							sb.Append("AND resource.type=@type ");
+							//sb.Append("AND resource.type LIKE '@type%' ");
+							sb.Append("AND (resource.type=@type OR (resource.type LIKE '");
+							sb.Append(Regex.Replace((string)filters["type"], "[^a-zA-Z-:]", ""));
+							sb.Append(":%')) ");
 							dbcmd.Parameters.Add(new SqliteParameter("type", (string)filters["type"]));
 						}
 						if(filters.ContainsKey("parent")) {
@@ -1012,6 +1020,7 @@ namespace KJing.Directory
 
 						sb.Append("LIMIT 500");
 						dbcmd.CommandText = sb.ToString();
+						Console.WriteLine("Search SQL: " + dbcmd.CommandText);
 						dbcmd.Parameters.Add(new SqliteParameter("query", query));
 						using(IDataReader reader = dbcmd.ExecuteReader()) {
 							while(reader.Read()) {
@@ -1116,8 +1125,10 @@ namespace KJing.Directory
 			} while(count > 0);
 			data["id"] = id;
 
-			if(ResourceTypes.ContainsKey(type))
-				ResourceTypes[type].Create(dbcon, transaction, data);
+
+			IService service = GetResourceTypeService(type);
+			if(service != null)
+				service.Create(dbcon, transaction, data);
 
 			string parent = null;
 			if(data.ContainsKey("parent"))
@@ -1290,8 +1301,9 @@ namespace KJing.Directory
 
 			if(diff != null) {
 
-				if(ResourceTypes.ContainsKey(type))
-					ResourceTypes[type].Change(dbcon, transaction, id, data, diff);
+				IService service = GetResourceTypeService(type);
+				if(service != null)
+					service.Change(dbcon, transaction, id, data, diff);
 
 				// handle name resource field
 				if(diff.ContainsKey("name")) {
@@ -1603,8 +1615,9 @@ namespace KJing.Directory
 			// get the resource type
 			string type = data["type"];
 
-			if(ResourceTypes.ContainsKey(type))
-				ResourceTypes[type].Delete(dbcon, transaction, id, data);
+			IService service = GetResourceTypeService(type);
+			if(service != null)
+				service.Delete(dbcon, transaction, id, data);
 
 			// delete from the resource table
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {

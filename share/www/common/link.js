@@ -17,3 +17,5 @@ KJing.Resource.extend('KJing.Link', {
 			return 'Lien';
 	}
 });
+
+KJing.Resource.register('link', KJing.Link);

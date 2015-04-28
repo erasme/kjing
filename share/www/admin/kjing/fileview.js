@@ -1,14 +1,11 @@
 ﻿
-Ui.LBox.extend('KJing.FileView', {
+Ui.LBox.extend('KJing.FileViewer', {
 	resource: undefined,
-	view: undefined,
 	viewer: undefined,
 
 	constructor: function(config) {
 		this.resource = config.resource;
 		delete(config.resource);
-		this.view = config.view;
-		delete(config.view);
 
 		this.viewer = new Storage.FileViewer({ file: this.resource });
 		this.setContent(this.viewer);

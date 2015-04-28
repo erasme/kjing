@@ -128,11 +128,11 @@ Ui.App.extend('KJing.ClientApp', {
 				}
 			}
 			else {
-				var fileControl = new KJing.FileControl({
+				var controller = new KJing.Controller({
 					id: this.playList.length, device: this.device,
-					file: resource
+					resource: resource
 				});
-				this.playList.push(fileControl);
+				this.playList.push(controller);
 			}
 		}
 		var list = [];

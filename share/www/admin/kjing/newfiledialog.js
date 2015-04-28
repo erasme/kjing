@@ -1,4 +1,4 @@
-
+/*
 Ui.SFlow.extend('KJing.NewFileCreator', {
 	resource: undefined,
 
@@ -101,7 +101,7 @@ Ui.SFlow.extend('KJing.NewTextFileCreator', {
 		var file = KJing.File.create(req.getResponseJSON());
 
 		// open the texte editor
-		var dialog = new Storage.TextEditor({ file: file });
+		var dialog = new KJing.TextEditor({ file: file });
 		dialog.open();
 	}
 });
@@ -250,3 +250,4 @@ Ui.SFlow.extend('KJing.NewUrlFileCreator', {
 		this.fireEvent('done', this);
 	}
 });
+*/

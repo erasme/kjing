@@ -70,3 +70,5 @@ KJing.Resource.extend('KJing.User', {
 		}
 	}
 });
+
+KJing.Resource.register('user', KJing.User);

@@ -108,6 +108,7 @@ namespace KJing.Directory
 			fileService = new FileService(this);
 			fileService.AddPlugin(new ImageMediaInfoPlugin(fileService));
 			fileService.AddPlugin(new VideoMediaInfoPlugin(fileService));
+			fileService.AddPlugin(new AudioMediaInfoPlugin(fileService));
 			fileService.AddPlugin(new ThumbnailPlugin(fileService, "thumbnailLow", 64, 64));
 			fileService.AddPlugin(new ThumbnailPlugin(fileService, "thumbnailHigh", 2048, 2048));
 			fileService.AddPlugin(new AudioPlugin(fileService));
@@ -126,6 +127,19 @@ namespace KJing.Directory
 				dbcmd.CommandText = "PRAGMA synchronous=0";
 				dbcmd.ExecuteNonQuery();
 			}
+		}
+
+		public IService GetResourceTypeService(string type)
+		{
+			if(ResourceTypes.ContainsKey(type))
+				return ResourceTypes[type];
+			int pos;
+			while((pos = type.LastIndexOf(':')) != -1) {
+				type = type.Substring(0, pos);
+				if(ResourceTypes.ContainsKey(type))
+					return ResourceTypes[type];
+			}
+			return null;
 		}
 
 		public string BasePath {
@@ -398,9 +412,12 @@ namespace KJing.Directory
 		{
 			string[] parts = context.Request.Path.Split(new char[] { '/' }, System.StringSplitOptions.RemoveEmptyEntries);
 
-			if((parts.Length > 0) && ResourceTypes.ContainsKey(parts[0])) {
-				context.Request.Path = context.Request.Path.Substring(parts[0].Length+1);
-				await ResourceTypes[parts[0]].ProcessRequestAsync(context);
+			if(parts.Length > 0) {
+				IService service = GetResourceTypeService(parts[0]);
+				if(service != null) {
+					context.Request.Path = context.Request.Path.Substring(parts[0].Length + 1);
+					await ResourceTypes[parts[0]].ProcessRequestAsync(context);
+				}
 			}
 		}
 

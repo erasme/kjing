@@ -1,5 +1,5 @@
 
-KJing.ItemView.extend('KJing.WebAccount', {
+KJing.IconViewer.extend('KJing.WebAccount', {
 	label: undefined,
 	accountIcon: undefined,
 	user: undefined,
@@ -339,7 +339,7 @@ Ui.Dialog.extend('KJing.LocalAccountDialog', {
 		
 		this.deleteButton = new Ui.Button({ text: 'Supprimer' });
 		this.connect(this.deleteButton, 'press', this.onDeletePress);
-		this.saveButton = new Ui.Button({ text: 'Enregistrer' });
+		this.saveButton = new Ui.DefaultButton({ text: 'Enregistrer' });
 		this.connect(this.saveButton, 'press', this.onSavePress);
 		
 		var vbox = new Ui.VBox({ spacing: 10 });

@@ -58,3 +58,5 @@ KJing.Resource.extend('KJing.File', {
 	}
 });
 
+KJing.Resource.register('file', KJing.File);
+

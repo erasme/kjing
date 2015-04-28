@@ -135,3 +135,5 @@ Core.Object.extend('KJing.Search', {
 		this.request = undefined;
 	}
 });
+
+KJing.Resource.register('search', KJing.Search);

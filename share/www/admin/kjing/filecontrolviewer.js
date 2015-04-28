@@ -1,4 +1,4 @@
-﻿
+﻿/*
 //
 // FileControl viewer that handle all mimetypes
 //
@@ -122,33 +122,18 @@ Ui.Element.extend('KJing.MediaControl', {
 		return this.duration;
 	},
 
-	/**
-	 * Seek the current position of the video file.
-	 */
 	setCurrentTime: function(time) {
 		this.fileControl.sendOrder({ order: 'seek', time: time });
 	},
 
-	/**
-	 * Return the current position in seconds.
-	 * This value is only known after the ready event.
-	 */
 	getCurrentTime: function() {
 		return this.position * this.duration;
 	},
 
-	/**
-	 * Return the current state of the media
-	 */
 	getState: function() {
 		return this.state;
 	},
 
-	/**
-	 * Return true if the video is ready to play
-	 * and infos like duration, currentTime... are
-	 * known
-	 */
 	getIsReady: function() {
 		return this.isReady;
 	},
@@ -183,7 +168,7 @@ Ui.Element.extend('KJing.MediaControl', {
 		KJing.MediaControl.base.onUnload.apply(this, arguments);
 		this.disconnect(this.fileControl, 'change', this.onFileControlChange);
 	}
-})
+});
 
 //
 // FileControl video viewer
@@ -493,4 +478,4 @@ Ui.ScrollingArea.extend('KJing.TextFileControlViewer', {
 	onTextLoaded: function(req) {
 		this.text.setText(req.getResponseText());
 	}
-});
+});*/

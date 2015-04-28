@@ -116,6 +116,7 @@ namespace KJing.Directory
 									   localFile, mimetype,
 									   width, height, out previewMimetype, out previewPath, out error)) {
 									jsonFile["mimetype"] = previewMimetype;
+									jsonFile["type"] = "file:"+previewMimetype.Replace('/', ':');
 
 									JsonValue jsonDiff = new JsonObject();
 

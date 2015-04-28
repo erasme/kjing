@@ -34,7 +34,7 @@ Core.Object.extend('KJing.Messages', {
 	update: function() {
 		if(this.request !== undefined)
 			return;
-		var url = '/cloud/message?user='+this.user.getId();
+		var url = '/cloud/message?limit=30&user='+this.user.getId();
 		
 		this.request = new Core.HttpRequest({ url: url });
 		this.connect(this.request, 'done', this.onGetDataDone);

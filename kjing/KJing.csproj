@@ -68,6 +68,7 @@
     <Compile Include="KJing.FileIndexing\FileIndexingPlugin.cs" />
     <Compile Include="KJing.FileIndexing\PdfExtractor.cs" />
     <Compile Include="KJing.Message\MessageRights.cs" />
+    <Compile Include="KJing.Directory\AudioMediaInfoPlugin.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ItemGroup>

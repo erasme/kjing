@@ -197,6 +197,7 @@ namespace KJing.Directory
 
 		public async Task<FileDefinition> GetFilePostAsync(HttpContext context)
 		{
+			string type = null;
 			string filename = null;
 			string mimetype = null;
 			long size = 0;
@@ -215,6 +216,8 @@ namespace KJing.Directory
 						string jsonString = await streamReader.ReadToEndAsync();
 						define = JsonValue.Parse(jsonString);
 
+						if(define.ContainsKey("type"))
+							type = (string)define["type"];
 						if(define.ContainsKey("name"))
 							filename = (string)define["name"];
 						if(define.ContainsKey("mimetype"))
@@ -235,6 +238,8 @@ namespace KJing.Directory
 			}
 			else {
 				define = await context.Request.ReadAsJsonAsync();
+				if(define.ContainsKey("type"))
+					type = (string)define["type"];
 				if(define.ContainsKey("name"))
 					filename = (string)define["name"];
 				if(define.ContainsKey("mimetype"))
@@ -254,7 +259,9 @@ namespace KJing.Directory
 				if((mimetype == "application/octet-stream") && (fileContentType != null))
 					mimetype = fileContentType;
 			}
-			define["type"] = "file";
+			if(type == null)
+				type = "file:" + mimetype.Replace('/', ':');
+			define["type"] = type;
 			define["mimetype"] = mimetype;
 			define["size"] = size;
 			define["name"] = filename;
@@ -264,6 +271,8 @@ namespace KJing.Directory
 
 		public Task<JsonValue> CreateFileAsync(FileDefinition fileDefinition)
 		{
+			Console.WriteLine("CreateFileAsync : " + fileDefinition.Define.ToString());
+
 			return CreateFileAsync(fileDefinition.Define, fileDefinition.Stream, fileDefinition.ProcessContent);
 		}
 
@@ -589,7 +598,7 @@ namespace KJing.Directory
 				FileDefinition fileDefinition = await GetFilePostAsync(context);
 
 				// check that the definition is correct
-				if(!fileDefinition.Define.ContainsKey("type") || ((string)fileDefinition.Define["type"] != "file"))
+				if(!fileDefinition.Define.ContainsKey("type"))
 					throw new WebException(400, 0, "Resource \"type\" is needed to create a new resource");
 				if(!fileDefinition.Define.ContainsKey("parent"))
 					throw new WebException(400, 0, "Resource that are not users need a parent resource");
@@ -621,7 +630,7 @@ namespace KJing.Directory
 				FileDefinition fileDefinition = await GetFilePostAsync(context);
 
 				// check that the definition is correct
-				if(fileDefinition.Define.ContainsKey("type") && ((string)fileDefinition.Define["type"] != "file"))
+				if(fileDefinition.Define.ContainsKey("type") && (((string)fileDefinition.Define["type"]).StartsWith("file:") || ((string)fileDefinition.Define["type"] == "file")))
 					throw new WebException(400, 0, "A file copy is of type \"file\"");
 				fileDefinition.Define["type"] = "file";
 				if(!fileDefinition.Define.ContainsKey("parent"))
@@ -670,7 +679,7 @@ namespace KJing.Directory
 
 
 /*
-				string filename ;
+				string filename;
 				string mimetype;
 				long rev;
 				GetDownloadFileInfo(storage, file, out mimetype, out filename, out rev);

@@ -1,4 +1,4 @@
-
+/*
 Ui.HBox.extend('Storage.FileViewer', {
 	uploader: undefined,
 	file: undefined,
@@ -788,4 +788,4 @@ Ui.LBox.extend('Storage.GenericFileViewer', {
 		vbox.append(downloadButton);
 	}
 });
-	
+*/

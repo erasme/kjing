@@ -107,3 +107,5 @@ KJing.Resource.extend('KJing.Map', {
 		}
 	}
 });
+
+KJing.Resource.register('map', KJing.Map);
