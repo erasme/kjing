@@ -81,14 +81,17 @@ namespace KJing.Directory
 			}
 
 			JsonValue videoMediaInfo = new JsonObject();
-			diff["videoMediaInfo"] = videoMediaInfo;
+			if(diff != null)
+				diff["videoMediaInfo"] = videoMediaInfo;
+			else
+				data["videoMediaInfo"] = videoMediaInfo;
 			videoMediaInfo["width"] = width;
 			videoMediaInfo["height"] = height;
 			videoMediaInfo["durationMilliseconds"] = durationMilliseconds;
 			videoMediaInfo["fails"] = fails;
 		}
 
-		public void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceContext> parents)
+		public void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, List<string> groups, Rights heritedRights, List<ResourceContext> parents, ResourceContext context)
 		{
 			// contentRev == 0 => no file content
 			if(value.ContainsKey("contentRev") && ((long)value["contentRev"] == 0))
@@ -152,12 +155,12 @@ namespace KJing.Directory
 			}
 		}
 
-		public void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data)
+		public void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data, Dictionary<string, ResourceChange> changes)
 		{
-			Change(dbcon, transaction, data["id"], null, data);
+			Change(dbcon, transaction, data["id"], null, data, changes);
 		}
 
-		public void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff)
+		public void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff, Dictionary<string, ResourceChange> changes)
 		{
 			bool found = false;
 			bool fails = false;
@@ -232,7 +235,7 @@ namespace KJing.Directory
 
 		}
 
-		public void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data)
+		public void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, Dictionary<string, ResourceChange> changes)
 		{
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 				dbcmd.Transaction = transaction;

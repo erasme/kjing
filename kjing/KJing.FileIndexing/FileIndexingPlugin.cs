@@ -68,8 +68,6 @@ namespace KJing.FileIndexing
 		public void ProcessContent(JsonValue data, JsonValue diff, string contentFilePath)
 		{
 			if(!data["cache"]) {
-				Console.WriteLine("FileIndexingPlugin.ProcessContent contentFilePath: " + contentFilePath + ", data: " + data.ToString());
-
 				long size;
 				if(diff.ContainsKey("size"))
 					size = diff["size"];
@@ -93,19 +91,19 @@ namespace KJing.FileIndexing
 			}
 		}
 
-		public void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceContext> parents)
+		public void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, List<string> groups, Rights heritedRights, List<ResourceContext> parents, ResourceContext context)
 		{
 		}
 
-		public void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data)
+		public void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data, Dictionary<string, ResourceChange> changes)
 		{
 		}
 
-		public void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff)
+		public void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff, Dictionary<string, ResourceChange> changes)
 		{
 		}
 
-		public void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data)
+		public void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, Dictionary<string, ResourceChange> changes)
 		{
 		}
 

@@ -66,7 +66,7 @@ namespace KJing.Directory
 			}
 		}
 
-		public override void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceContext> parentsr)
+		public override void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, List<string> groups, Rights heritedRights, List<ResourceContext> parentsr, ResourceContext context)
 		{
 			// get device in the group
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
@@ -85,7 +85,7 @@ namespace KJing.Directory
 			}
 		}
 
-		public override void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data)
+		public override void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data, Dictionary<string, ResourceChange> changes)
 		{
 			string id = (string)data["id"];
 
@@ -133,7 +133,7 @@ namespace KJing.Directory
 			}
 		}
 
-		public override void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff)
+		public override void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff, Dictionary<string, ResourceChange> changes)
 		{
 			// update the device table
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
@@ -160,7 +160,7 @@ namespace KJing.Directory
 			}
 		}
 
-		public override void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data)
+		public override void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, Dictionary<string, ResourceChange> changes)
 		{
 			// delete from device table
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
@@ -192,7 +192,7 @@ namespace KJing.Directory
 						id = dbcmd.ExecuteScalar() as string;
 					}
 					if(id != null)
-						res = directory.GetResource(dbcon, transaction, id, null, 0);
+						res = directory.GetResource(dbcon, transaction, id, null);
 				}
 			}
 			return res;
@@ -209,7 +209,7 @@ namespace KJing.Directory
 
 				if(json.ContainsKey("id")) {
 					try {
-						device = directory.GetResource((string)json["id"], null, 0);
+						device = directory.GetResource((string)json["id"], null);
 					}
 					catch(WebException) {
 						device = null;

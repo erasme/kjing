@@ -44,9 +44,8 @@ KJing.OptionSection.extend('KJing.ResourceRightsSection', {
 
 Ui.Dialog.extend('KJing.ResourcePropertiesDialog', {
 	resource: undefined,
-	nameField: undefined,
-	positionField: undefined,
-	mapPublicNameField: undefined,
+	propertiesViewer: undefined,
+	saveButton: undefined,
 	
 	constructor: function(config) {
 		this.setFullScrolling(true);
@@ -57,117 +56,23 @@ Ui.Dialog.extend('KJing.ResourcePropertiesDialog', {
 		this.resource = config.resource;
 		delete(config.resource);
 
-		var sflow = new Ui.SFlow({ itemAlign: 'stretch', spacing: 5, stretchMaxRatio: 10 });
-		this.setContent(sflow);
-		
-		var textField = new KJing.TextField({ title: 'Identifiant', value: this.resource.getId(), width: 200 });
-		textField.disable();
-		sflow.append(textField);
-
-		this.nameField = new KJing.TextField({ title: 'Nom', value: this.resource.getName(), width: 200 });
-		sflow.append(this.nameField);
-
-		sflow.append(new KJing.TextField({
-			title: 'Création', value: this.formatDate(new Date(this.resource.getData().ctime)), width: 200,
-			enable: false }));
-			
-		sflow.append(new KJing.TextField({
-			title: 'Modification', value: this.formatDate(new Date(this.resource.getData().mtime)), width: 200,
-			enable: false }));
-
-		sflow.append(new KJing.TextField({ title: 'Stockage utilisé',
-			value: this.formatSize(this.resource.getData().quotaBytesUsed), width: 200, enable: false }));
-
-		this.positionField = new KJing.TextField({ title: 'Position dans le dossier', value: this.resource.getData().position, width: 200 });
-		sflow.append(this.positionField);
-
-
-		// handle specific fields
-/*		if(KJing.Device.hasInstance(this.resource)) {
-			var deviceUrlField = new KJing.TextField({ title: 'URL du client Web', width: 300 });
-			deviceUrlField.setValue((new Core.Uri({ uri: '../client/?device='+this.resource.getId() })).toString());
-			deviceUrlField.disable();
-			sflow.append(deviceUrlField);
-		}
-		else if(KJing.Map.hasInstance(this.resource)) {
-			var mapUrlField = new KJing.TextField({ title: 'URL des clients Web', width: 300 });
-			mapUrlField.setValue((new Core.Uri({ uri: '../client/?parent='+this.resource.getId() })).toString());
-			mapUrlField.disable();
-			sflow.append(mapUrlField);
-
-			this.mapPublicNameField = new KJing.TextField({ title: 'Nom publique de la salle', width: 300 });
-			if(this.resource.getData().publicName !== null)
-				this.mapPublicNameField.setValue(this.resource.getData().publicName);
-			sflow.append(this.mapPublicNameField);
-		}
-		else if(KJing.File.hasInstance(this.resource)) {
-		}*/
-
 		var typeDef = KJing.ResourceProperties.getTypeDef(this.resource.getType());
-		if(typeDef !== undefined) {
-			var fields = (new typeDef.creator({ resource: this.resource })).getFields();
-			for(var i = 0; i < fields.length; i++)
-				sflow.append(fields[i]);
-		}
-
-		var rightsSection = new KJing.ResourceRightsSection({ resource: this.resource });
-		sflow.append(rightsSection);
+		this.propertiesViewer = new typeDef.creator({ resource: this.resource });
+		this.setContent(this.propertiesViewer);
 
 		this.setCancelButton(new Ui.DialogCloseButton());
 
 		if(Ui.App.current.getUser().isAdmin() || this.resource.canWrite()) {
-			var deleteButton = new Ui.Button({ text: 'Supprimer', style: { "Ui.Button": { color: '#fa4141' } } });
+			var deleteButton = new Ui.Button({ text: 'Supprimer' });
 			this.connect(deleteButton, 'press', this.onDeletePress);
 
-			var saveButton = new Ui.DefaultButton({ text: 'Enregistrer' });
-			this.connect(saveButton, 'press', this.onSavePress);
+			this.saveButton = new Ui.DefaultButton({ text: 'Enregistrer' });
+			this.connect(this.saveButton, 'press', this.onSavePress);
 
-			this.setActionButtons([ deleteButton, saveButton ]);
+			this.setActionButtons([ deleteButton, this.saveButton ]);
 		}
 		else
-			sflow.disable();
-	},
-
-	formatSize: function(size) {
-		var res;
-		if(size > 1000000000)
-			res = (size/1000000000).toFixed(2)+' Go';
-		else if(size > 1000000)
-			res = (size/1000000).toFixed(2)+' Mo';
-		else if(size > 1000)
-			res = (size/1000).toFixed(2)+' ko';
-		else
-			res = size+' octets';
-		return res;
-	},
-
-	formatDate: function(date) {
-		var res = '';
-		if(date.getDate() < 10)
-			res += '0'+date.getDate();
-		else
-			res += date.getDate();
-		res += '/';
-		if((date.getMonth()+1) < 10)
-			res += '0'+(date.getMonth()+1);
-		else
-			res += (date.getMonth()+1);
-		res += '/'+date.getFullYear()+' ';
-		if(date.getHours() < 10)
-			res += '0'+date.getHours();
-		else
-			res += date.getHours();
-		res += ':';
-		if(date.getMinutes() < 10)
-			res += '0'+date.getMinutes();
-		else
-			res += date.getMinutes();
-		res += ':';
-		if(date.getSeconds() < 10)
-			res += '0'+date.getSeconds();
-		else
-			res += date.getSeconds();
-		return res;
+			this.propertiesViewer.disable();
 	},
 
 	onDeletePress: function() {
@@ -176,19 +81,15 @@ Ui.Dialog.extend('KJing.ResourcePropertiesDialog', {
 	},
 
 	onSavePress: function() {
-		var json = {
-			name: this.nameField.getValue(),
-			position: parseInt(this.positionField.getValue())
-		};
-
-		if(KJing.Map.hasInstance(this.resource)) {
-			var publicName = this.mapPublicNameField.getValue();
-			if(publicName === '')
-				publicName = null;
-			json.publicName = publicName;
-		}
-
-		this.resource.changeData(json);
-		this.close();
+		this.propertiesViewer.disable();
+		this.saveButton.disable();
+		var req = this.propertiesViewer.save();
+		this.connect(req, 'done', function() {
+			this.close();
+		});
+		this.connect(req, 'error', function() {
+			// TODO: handle error display
+			this.close();
+		});
 	}
 });

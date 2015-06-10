@@ -55,6 +55,10 @@ namespace KJing
 		{
 			Setup = setup;
 
+			// HTTPS if certificate is set
+			if(setup.ServerCertificateFile != null)
+				LoadServerCertificate(setup.ServerCertificateFile, setup.ServerCertificatePassword);
+
 			//StopOnException = true;
 			AllowGZip = Setup.AllowGZip;
 			KeepAliveMax = Setup.HttpKeepAliveMax;

@@ -6,6 +6,7 @@ Ui.ScrollingArea.extend('KJing.TextControllerViewer', {
 	controller: undefined,
 	text: undefined,
 	changeLock: false,
+	contentRev: -1,
 
 	constructor: function(config) {
 		this.controller = config.controller;
@@ -20,12 +21,31 @@ Ui.ScrollingArea.extend('KJing.TextControllerViewer', {
 
 		this.text = new Ui.Text({ margin: 20, style: { "Ui.Text": { fontSize: 40, color: 'white' } } });
 		scalebox.append(this.text);
+
+		this.connect(this, 'scroll', this.onControllerTransform);
+	},
+
+	onControllerTransform: function() {
+		if(this.changeLock)
+			return;
+		this.controller.setTransform(-this.getRelativeOffsetX(), -this.getRelativeOffsetY(), this.getScale());
 	},
 
 	onControllerChange: function() {
-		var request = new Core.HttpRequest({ method: 'GET', url: this.controller.getResource().getDownloadUrl() });
-		this.connect(request, 'done', this.onTextLoaded);
-		request.send();
+		// update the content if needed
+		if(this.controller.getResource().getContentRev() !== this.contentRev) {
+			this.contentRev = this.controller.getResource().getContentRev();
+			var request = new Core.HttpRequest({ method: 'GET', url: this.controller.getResource().getDownloadUrl() });
+			this.connect(request, 'done', this.onTextLoaded);
+			request.send();
+		}
+
+		if(this.getIsDown() || this.getIsInertia())
+			return;
+		this.changeLock = true;
+		this.setScale(this.controller.getTransform().scale);
+		this.setOffset(-this.controller.getTransform().x, -this.controller.getTransform().y, false);
+		this.changeLock = false;
 	},
 
 	onTextLoaded: function(req) {

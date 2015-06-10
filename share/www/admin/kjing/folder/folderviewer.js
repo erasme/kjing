@@ -1,47 +1,46 @@
 ﻿
-Ui.FlowDropBox.extend('KJing.FolderViewer', {
-	resource: undefined,
+KJing.ResourceViewer.extend('KJing.FolderViewer', {
 	newItem: undefined,
+	flow: undefined,
 
 	constructor: function(config) {
-		this.resource = config.resource;
-		delete(config.resource);
 
-		this.setUniform(true);
+		this.flow = new Ui.FlowDropBox({ uniform: true });
+		this.setContent(this.flow);
 
 		var bindedItemEffect = this.onItemEffect.bind(this);
-		this.addType(KJing.Folder, bindedItemEffect);
-		this.addType(KJing.File, bindedItemEffect);
-		this.addType(KJing.Group, bindedItemEffect);
-		this.addType(KJing.User, bindedItemEffect);
-		this.addType(KJing.Map, bindedItemEffect);
-		this.addType(KJing.Link, bindedItemEffect);
+		this.flow.addType(KJing.Folder, bindedItemEffect);
+		this.flow.addType(KJing.File, bindedItemEffect);
+		this.flow.addType(KJing.Group, bindedItemEffect);
+		this.flow.addType(KJing.User, bindedItemEffect);
+		this.flow.addType(KJing.Map, bindedItemEffect);
+		this.flow.addType(KJing.Link, bindedItemEffect);
 
-		this.addType('files', [ 'copy' ]);
-		this.connect(this, 'dropat', this.onItemDropAt);
-		this.connect(this, 'dropfileat', this.onItemDropFileAt);
+		this.flow.addType('files', this.onFileEffect.bind(this));
+		this.connect(this.flow, 'dropat', this.onItemDropAt);
+		this.connect(this.flow, 'dropfileat', this.onItemDropFileAt);
 
 		this.newItem = new KJing.ResourceNewIcon({ resource: this.resource });
-		this.append(this.newItem);
+		this.flow.append(this.newItem);
 
-		if(this.resource.getIsChildrenReady())
-			this.onResourceChange();
-		else
+		if(!this.resource.getIsChildrenReady())
 			this.resource.loadChildren();
+		this.onResourceChange();
 	},
-	
-	getResource: function() {
-		return this.resource;
+
+	onFileEffect: function() {
+		if(this.getResource().canWrite())
+			return [ 'copy' ];
+		else
+			return [];
 	},
 
 	onItemEffect: function(item, pos) {
-		console.log('onItemEffect item: '+item.getType());
-
 		if(!this.getResource().canWrite())
 			return [];
 		else if(item.getParentId() === this.resource.getId()) {
 			// find the current resource position
-			var children = this.getLogicalChildren();
+			var children = this.flow.getLogicalChildren();
 			var foundAt = undefined;
 			for(var i = 0; (foundAt === undefined) && (i < children.length); i++) {
 				var child = children[i];
@@ -50,7 +49,7 @@ Ui.FlowDropBox.extend('KJing.FolderViewer', {
 				if(child.getResource().getId() === item.getId())
 					foundAt = i;
 			}
-			console.log(this+'.onItemEffect pos: '+pos+', foundAt: '+foundAt);
+			//console.log(this+'.onItemEffect pos: '+pos+', foundAt: '+foundAt);
 
 			// cant move before the add new item
 			if((children.length > 0) && (!KJing.ResourceIconViewer.hasInstance(children[0])) && (pos === 0))
@@ -146,6 +145,8 @@ Ui.FlowDropBox.extend('KJing.FolderViewer', {
 
 	onResourceChange: function() {
 		this.newItem.setDisabled(!this.getResource().canWrite());
+		KJing.ResourceViewer.updateChildren(this.flow, this.flow.getLogicalChildren(), 1, this.getResource().getChildren());
+/*
 
 		// find the children diff
 		var remove = [];
@@ -220,8 +221,8 @@ Ui.FlowDropBox.extend('KJing.FolderViewer', {
 				}
 			}
 			iterCount++;
-		} while((badResourcePosition !== undefined) && (iterCount <= viewChildren.length));
-	},
+		} while((badResourcePosition !== undefined) && (iterCount <= viewChildren.length));*/
+	}/*,
 
 	addResource: function(resource) {	
 		var item = KJing.ResourceIconViewer.create(resource);
@@ -242,7 +243,7 @@ Ui.FlowDropBox.extend('KJing.FolderViewer', {
 		});
 		vbox.append(button);
 		return popup;
-	}
+	}*/
 }, {
 	onLoad: function() {
 		KJing.FolderViewer.base.onLoad.apply(this, arguments);

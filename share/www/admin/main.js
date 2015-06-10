@@ -66,11 +66,18 @@ Ui.ScrollingArea.extend('KJing.PartView', {
 	},
 	
 	push: function(text, resource) {
+		if(this.content !== undefined) {
+			// save the previous state if any
+			var state = this.content.getState();
+			if(state !== undefined)
+				this.stack[this.stack.length - 1].state = state;
+			this.vbox.remove(this.content);
+		}
 		var level = { text: text, resource: resource };
 		this.stack.push(level);
-		if(this.content !== undefined)
-			this.vbox.remove(this.content);
-		this.content = KJing.ResourceViewer.create(resource);
+
+		this.resource = KJing.Resource.create(resource);
+		this.content = KJing.ResourceViewer.create(this.resource);
 		this.vbox.append(this.content, true);
 		this.updateLocator();
 		if('getSetupPopup' in this.content)
@@ -98,11 +105,23 @@ Ui.ScrollingArea.extend('KJing.PartView', {
 	},
 	
 	onPathChange: function(locator, path, pos) {
+
+		if(this.content !== undefined) {
+			this.vbox.remove(this.content);
+			// save the previous state if any
+			var state = this.content.getState();
+			if(state !== undefined)
+				this.stack[this.stack.length - 1].state = state;
+		}
+
 		var level = this.stack[pos];
 		this.stack.splice(pos+1, this.stack.length-pos-1);
-		if(this.content !== undefined)
-			this.vbox.remove(this.content);
-		this.content = KJing.ResourceViewer.create(level.resource);
+
+		this.resource = KJing.Resource.create(level.resource);
+		this.content = KJing.ResourceViewer.create(this.resource);
+		if(level.state !== undefined)
+			this.content.setState(level.state);
+
 		this.vbox.append(this.content, true);
 		this.updateLocator();
 		if('getSetupPopup' in this.content)
@@ -212,7 +231,7 @@ Ui.MenuPopup.extend('KJing.DisplayPopup', {
 			var nameField = new KJing.TextField({ title: 'Nom', value: 'Nouveau' });
 			dialog.setContent(nameField);
 			dialog.setCancelButton(new Ui.DialogCloseButton());
-			var savButton = new Ui.Button({ text: 'Enregistrer' });
+			var savButton = new Ui.DefaultButton({ text: 'Enregistrer' });
 			this.connect(savButton, 'press', function() {
 				this.app.addBookmark(nameField.getValue(), this.app.saveDisplayState());
 				dialog.close();
@@ -310,18 +329,24 @@ Ui.App.extend('KJing.AdminApp', {
 		if(this.getArguments()['user'] != undefined)
 			userId = this.getArguments()['user'];
 
-		var request = new Core.HttpRequest({ url: '/cloud/resource/'+userId });
-		this.connect(request, 'done', this.onGetUserDone);
-		this.connect(request, 'error', this.onGetUserError);
-		request.send();
+		this.user = KJing.Resource.create(userId);
+		this.connect(this.user, 'ready', this.onLoginDone);
+		this.connect(this.user, 'error', this.onGetUserError);
+		this.connect(this.user, 'delete', this.onGetUserError);
+
+//		var request = new Core.HttpRequest({ url: '/cloud/resource/'+encodeURIComponent(userId)+'?seenBy='+encodeURIComponent(userId) });
+//		this.connect(request, 'done', this.onGetUserDone);
+//		this.connect(request, 'error', this.onGetUserError);
+//		request.send();
 	},
 
-	onGetUserDone: function(req) {
-		// continue after login
-		this.onLoginDone(req.getResponseJSON());
-	},
+//	onGetUserDone: function(req) {
+//		// continue after login
+//		this.onLoginDone(req.getResponseJSON());
+//	},
 
 	onGetUserError: function(req) {
+		this.user = undefined;
 		// delete the session from the localStorage if not valid
 		if(('localStorage' in window) && this.sessionId == localStorage.getItem('authsession'))
 			localStorage.removeItem('authsession');
@@ -348,7 +373,10 @@ Ui.App.extend('KJing.AdminApp', {
 	},
 
 	onLoginDone: function(user) {
-		this.user = KJing.Resource.create(user);
+//		console.log(this+'.onLoginDone');
+//		console.log(user);
+
+//		this.user = KJing.Resource.create(user);
 		this.user.monitor();
 
 		this.messages = new KJing.Messages({ user: this.user });
@@ -428,7 +456,7 @@ Ui.App.extend('KJing.AdminApp', {
 	onSearchValidate: function(field, value) {
 		var newStack = [];
 		newStack.push(this.paned.getContent2().getStack()[0]);
-		newStack.push({ text: 'Recherche: '+value, resource: new KJing.Search({ id: 'search:'+value }) });
+		newStack.push({ text: 'Recherche: '+value, resource: 'search:'+value /*new KJing.Search({ id: 'search:'+value })*/ });
 
 		this.setMainStack(newStack);
 
@@ -445,7 +473,7 @@ Ui.App.extend('KJing.AdminApp', {
 
 		var editButton = new KJing.UserProfilButton({ user: this.user });
 		this.connect(editButton, 'press', function() {
-			var dialog = new KJing.UserProfil({ user: this.user });
+			var dialog = new KJing.ResourcePropertiesDialog({ resource: this.user });
 			dialog.open();
 			popup.close();
 		});
@@ -570,8 +598,8 @@ Ui.App.extend('KJing.AdminApp', {
 		if(this.uploaders.length === 1)
 			this.uploadProgressbar.show();
 		
-		this.connect(uploader, 'complete', this.onUploaderCompleteError);
-		this.connect(uploader, 'error', this.onUploaderCompleteError);
+		this.connect(uploader, 'complete', this.onUploaderComplete);
+		this.connect(uploader, 'error', this.onUploaderError);
 		this.connect(uploader, 'progress', this.updateUploaders);
 		this.updateUploaders();
 		return uploaderId;
@@ -594,7 +622,24 @@ Ui.App.extend('KJing.AdminApp', {
 		this.uploadProgressbar.setValue(loadedOctet / totalOctet);
 	},
 
-	onUploaderCompleteError: function(uploader) {
+	onUploaderError: function(uploader, status) {
+		// TODO: display the error
+		console.log(this+'.onUploaderError status: '+status);
+		var json = uploader.getResponseJSON();
+		// test if over quota error
+		if((status === 403) && (json.code === 3)) {
+			var dialog = new Ui.Dialog({
+				title: 'Dépassement de quota',
+				preferredWidth: 400,
+				cancelButton: new Ui.DialogCloseButton(),
+				content: new Ui.Text({ text: 'Le téléversement du fichier a échoué car le quota de l\'utilisateur est dépassé.' })
+			});
+			dialog.open();
+		}
+		this.onUploaderComplete(uploader);
+	},
+
+	onUploaderComplete: function(uploader) {
 		// check if all uploaders have completed
 		var allCompleted = true;
 		for(var i = 0; allCompleted && (i < this.uploaders.length); i++) {
@@ -723,6 +768,9 @@ style: {
 		background: theme.foreground,
 		backgroundBorder: theme.foreground,
 		foreground: "#fefefe"
+	},
+	"Ui.TextFieldButton": {
+		padding: 3
 	},
 	"Ui.TextBgGraphic": {
 		radius: 3,

@@ -34,6 +34,7 @@ KJing.ResourceViewer.extend('KJing.AudioViewer', {
 				var vbox = new Ui.VBox({ verticalAlign: 'center', spacing: 10 });
 				vbox.append(new Ui.Loading({ width: 50, height: 50, horizontalAlign: 'center' }));
 				vbox.append(new Ui.Text({ text: 'Encodage en cours... Veuillez patienter', textAlign: 'center' }));
+				this.setContent(vbox);
 			}
 			// rock an roll
 			else if(audioMp3.getMimetype() === 'audio/mpeg') {
@@ -51,6 +52,7 @@ KJing.ResourceViewer.extend('KJing.AudioViewer', {
 	
 }, {
 	onVisible: function() {
+		this.resource.monitor();
 		if(this.player === undefined) {
 			this.connect(this.resource, 'change', this.onResourceChange);
 			this.onResourceChange();
@@ -58,6 +60,7 @@ KJing.ResourceViewer.extend('KJing.AudioViewer', {
 	},
 
 	onHidden: function() {
+		this.resource.unmonitor();
 		this.disconnect(this.resource, 'change', this.onResourceChange);
 		if(this.player !== undefined)
 			this.player.pause();

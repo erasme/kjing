@@ -78,4 +78,4 @@ Ui.SFlow.extend('KJing.UserCreator', {
 	}
 });
 
-KJing.ResourceCreator.register('user', KJing.UserCreator, 'person', 'Utilisateur');
+//KJing.ResourceCreator.register('user', KJing.UserCreator, 'person', 'Utilisateur');

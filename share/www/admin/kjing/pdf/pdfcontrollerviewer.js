@@ -89,10 +89,11 @@ Ui.CarouselableLoader.extend('KJing.PdfControllerPagesLoader', {
 	
 	getElementAt: function(position) {
 		var control = this.pagesControl[position];
+		console.log(this+'.getElementAt('+position+') => '+JSON.stringify(control));
 		if(control === undefined)
 			return new Ui.Element();
 		else {
-			var pageFile = KJing.Resource.create(control.id);
+			var pageFile = KJing.Resource.create(control.path);
 			var pageController = new KJing.PageController({ controller: this.controller, resource: pageFile, id: control.id });
 			pageController.updateData(control);
 			return new KJing.PdfPageControllerViewer({ pageController: pageController });

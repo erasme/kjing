@@ -259,7 +259,7 @@ KJing.ResourceViewer.extend('KJing.DeviceViewer', {
 		var vbox = new Ui.VBox({ spacing: 10 });
 		popup.setContent(vbox);
 
-		var button = new Ui.Button({	text: 'Propriétés', icon: 'edit' });
+		var button = new Ui.Button({ text: 'Propriétés', icon: 'edit' });
 		this.connect(button, 'press', function() {
 			var dialog = new KJing.ResourcePropertiesDialog({ resource: this.resource });
 			dialog.open();
@@ -274,6 +274,9 @@ KJing.ResourceViewer.extend('KJing.DeviceViewer', {
 		this.connect(this.resource, 'change', this.onDeviceChange);
 		this.connect(this.resource, 'playlistchange', this.onPlayListChange);
 		this.resource.monitor();
+		this.resource.control();
+		if(this.resource.getIsReady())
+			this.onDeviceChange();
 	},
 	
 	onUnload: function() {
@@ -281,6 +284,7 @@ KJing.ResourceViewer.extend('KJing.DeviceViewer', {
 		this.disconnect(this.resource, 'change', this.onDeviceChange);
 		this.disconnect(this.resource, 'playlistchange', this.onPlayListChange);
 		this.resource.unmonitor();
+		this.resource.uncontrol();
 	}
 });
 

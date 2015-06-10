@@ -42,8 +42,6 @@ namespace KJing.Directory
 	public class ThumbnailPlugin: IFilePlugin
 	{
 		FileService fileService;
-		object instanceLock = new object();
-		Dictionary<string,LongTask> runningTasks = new Dictionary<string, LongTask>();
 		string name;
 		int width;
 		int height;
@@ -77,97 +75,76 @@ namespace KJing.Directory
 
 		public void ProcessContent(JsonValue data, JsonValue diff, string contentFilePath)
 		{
-		}
+			if((contentFilePath != null) && ((data != null) || (diff != null))) {
+				bool cache = ((data != null) && data.ContainsKey("cache") && (bool)data["cache"]) ||
+					((diff != null) && diff.ContainsKey("cache") && (bool)diff["cache"]);
 
-		public void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceContext> parents)
-		{
-			// contentRev == 0 => no file content
-			if(value.ContainsKey("contentRev") && ((long)value["contentRev"] == 0))
-				return;
-			// cache file => no thumbnail
-			if(value.ContainsKey("cache") && (bool)value["cache"])
-				return;
+				// cache file => no thumbnail
+				if(cache)
+					return;
+				
+				string mimetype = (data != null) ? data["mimetype"] : diff["mimetype"];
 
-			string mimetype = value["mimetype"];
+				// build the thumbnail
+				try {
+					string previewMimetype;
+					string previewPath;
+					string error;
 
-			JsonValue thumbnailJson = fileService.Directory.GetChildResourceByName(dbcon, transaction, id, Name, filterBy, 0, groups, heritedRights, parents, true);
+					JsonValue jsonFile = new JsonObject();
+					jsonFile["cache"] = true;
+					jsonFile["name"] = Name;
+					jsonFile["uniqueName"] = true;
+					if(Erasme.Cloud.Preview.PreviewService.BuildPreview(
+						fileService.Directory.TemporaryDirectory,
+						contentFilePath, mimetype,
+						width, height, out previewMimetype, out previewPath, out error)) {
+						jsonFile["mimetype"] = previewMimetype;
+						jsonFile["type"] = "file:"+previewMimetype.Replace('/', ':');
+						jsonFile["localPath"] = previewPath;
 
-			if(thumbnailJson == null) {
-				LongTask task = null;
-				lock(instanceLock) {
-					if(!runningTasks.ContainsKey(id)) {
+						if(diff == null)
+							data[Name] = jsonFile;
+						else
+							diff[Name] = jsonFile;
 
-						task = new LongTask(delegate {
-							try {
-								string previewMimetype;
-								string previewPath;
-								string error;
-
-								string localFile = fileService.GetLocalFile(id);
-
-								JsonValue jsonFile = new JsonObject();
-								jsonFile["type"] = "file";
-								jsonFile["cache"] = true;
-								jsonFile["parent"] = id;
-								jsonFile["name"] = Name;
-								jsonFile["uniqueName"] = true;
-								if(Erasme.Cloud.Preview.PreviewService.BuildPreview(
-									   fileService.Directory.TemporaryDirectory,
-									   localFile, mimetype,
-									   width, height, out previewMimetype, out previewPath, out error)) {
-									jsonFile["mimetype"] = previewMimetype;
-									jsonFile["type"] = "file:"+previewMimetype.Replace('/', ':');
-
-									JsonValue jsonDiff = new JsonObject();
-
-									jsonDiff[Name] = fileService.CreateFile(jsonFile, previewPath);
-									// change the owner of the thumb because the thumbnail is embedded
-									// and we want revision update, notifications...
-									fileService.Directory.ChangeResource(id, jsonDiff);
-								}
-								else {
-									jsonFile["mimetype"] = "application/x-cache-error";
-									fileService.CreateFile(jsonFile, (string)null);
-								}
-							}
-							catch(Exception e) {
-								fileService.Directory.Logger.Log(LogLevel.Error, "ThumbnailPlugin "+Name+" fails for "+id+": "+e.ToString());
-
-								JsonValue jsonFile = new JsonObject();
-								jsonFile["type"] = "file";
-								jsonFile["cache"] = true;
-								jsonFile["parent"] = id;
-								jsonFile["mimetype"] = "application/x-cache-error";
-								jsonFile["name"] = Name;
-								jsonFile["uniqueName"] = true;
-								fileService.CreateFile(jsonFile, (string)null);
-							}
-							finally {
-								lock(instanceLock) {
-									runningTasks.Remove(id);
-								}
-							}
-						}, null, "Build " + Name + " for " + id, LongTaskPriority.Normal);
-						runningTasks[id] = task;
+						// recursive process content 
+						fileService.ProcessContent(jsonFile, null, previewPath);
 					}
 				}
-				if(task != null)
-					fileService.Directory.LongRunningTaskScheduler.Start(task);
+				catch(Exception e) {
+					fileService.Directory.Logger.Log(LogLevel.Error, "ThumbnailPlugin "+Name+" fails "+e.ToString());
+				}
 			}
+		}
 
-			if((thumbnailJson != null) && (thumbnailJson["mimetype"] != "application/x-cache-error"))
+		public void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, List<string> groups, Rights heritedRights, List<ResourceContext> parents, ResourceContext context)
+		{
+			JsonValue thumbnailJson = fileService.Directory.GetChildResourceByName(dbcon, transaction, id, Name, filterBy, groups, heritedRights, parents, context, true);
+			if(thumbnailJson != null)
 				value[Name] = thumbnailJson;
 		}
 
-		public void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data)
+		public void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data, Dictionary<string, ResourceChange> changes)
 		{
+			if(data.ContainsKey(Name)) {
+				data[Name]["parent"] = (string)data["id"];
+				data[Name] = fileService.CreateFile(dbcon, transaction, data[Name], data[Name]["localPath"], changes);
+			}
 		}
 
-		public void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff)
+		public void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff, Dictionary<string, ResourceChange> changes)
 		{
+			if(diff.ContainsKey(Name)) {
+//				JsonValue thumbnailJson = fileService.Directory.GetChildResourceByName(dbcon, transaction, (string)data["id"], Name, true);
+				diff[Name]["parent"] = (string)data["id"];
+				diff[Name] = fileService.CreateFile(dbcon, transaction, diff[Name], diff[Name]["localPath"], changes);
+//				if(thumbnailJson != null)
+//					fileService.Directory.DeleteResource (dbcon, transaction, (string)thumbnailJson ["id"], changes);
+			}
 		}
 
-		public void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data)
+		public void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, Dictionary<string, ResourceChange> changes)
 		{
 		}
 

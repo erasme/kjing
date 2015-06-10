@@ -5,7 +5,7 @@
 // Author(s):
 //  Daniel Lacroix <dlacroix@erasme.org>
 // 
-// Copyright (c) 2014 Departement du Rhone
+// Copyright (c) 2014 Departement du Rhone - 2015 Metropole de Lyon
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -89,7 +89,7 @@ namespace KJing.Directory
 		{
 		}
 
-		public void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceContext> parents)
+		public void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, List<string> groups, Rights heritedRights, List<ResourceContext> parents, ResourceContext context)
 		{
 			// contentRev == 0 => no file content
 			if(value.ContainsKey("contentRev") && ((long)value["contentRev"] == 0))
@@ -99,7 +99,8 @@ namespace KJing.Directory
 				return;
 
 			// handle MP4
-			JsonValue videoMp4 = fileService.Directory.GetChildResourceByName(dbcon, transaction, id, "videoMp4", filterBy, 0, groups, heritedRights, parents, true);
+			JsonValue videoMp4 = fileService.Directory.GetChildResourceByName(dbcon, transaction, id, "videoMp4", filterBy, groups, heritedRights, parents, context, true);
+
 			if(videoMp4 == null) {
 				lock(instanceLock) {
 					if(!runningTasks.ContainsKey(id + ":mp4")) {
@@ -108,15 +109,16 @@ namespace KJing.Directory
 								string localFile = fileService.GetLocalFile(id);
 								string destFile = Path.Combine(fileService.Directory.TemporaryDirectory, Guid.NewGuid().ToString());
 								JsonValue jsonFile = new JsonObject();
-								jsonFile["type"] = "file";
 								jsonFile["cache"] = true;
 								jsonFile["parent"] = id;
 								jsonFile["name"] = "videoMp4";
 								if(BuildMp4(localFile, destFile)) {
+									jsonFile["type"] = "file:video:mp4";
 									jsonFile["mimetype"] = "video/mp4";
 									jsonFile = fileService.CreateFile(jsonFile, destFile);
 								}
 								else {
+									jsonFile["type"] = "file:application:x-cache-error";
 									jsonFile["mimetype"] = "application/x-cache-error";
 									jsonFile = fileService.CreateFile(jsonFile, (string)null);
 								}
@@ -126,9 +128,10 @@ namespace KJing.Directory
 								jsonDiff["videoMp4"] = jsonFile;
 								fileService.Directory.ChangeResource(id, jsonDiff);
 							}
-							catch(Exception) {
+							catch(Exception e) {
+								fileService.Directory.Logger.Log(Erasme.Cloud.Logger.LogLevel.Error, "Build MP4 video fails for "+id+", Exception: "+e.ToString());
 								JsonValue jsonFile = new JsonObject();
-								jsonFile["type"] = "file";
+								jsonFile["type"] = "file:application:x-cache-error";
 								jsonFile["cache"] = true;
 								jsonFile["parent"] = id;
 								jsonFile["mimetype"] = "application/x-cache-error";
@@ -142,26 +145,29 @@ namespace KJing.Directory
 							}
 							finally {
 								lock(instanceLock) {
-									runningTasks.Remove(id+":mp4");
+									runningTasks.Remove(id + ":mp4");
 								}
 							}
-						}, null, "Build Video MP4 "+id, LongTaskPriority.Low);
+						}, null, "Build Video MP4 " + id, LongTaskPriority.Low);
 						fileService.Directory.LongRunningTaskScheduler.Start(task);
-						runningTasks[id+":mp4"] = task;
+						runningTasks[id + ":mp4"] = task;
+
 					}
 					videoMp4 = new JsonObject();
-					videoMp4["type"] = "file";
+					videoMp4["type"] = "file:application:x-cache-progress";
 					videoMp4["parent"] = id;
-					videoMp4["id"] = id+":mp4";
+					videoMp4["id"] = id + ":mp4";
 					videoMp4["name"] = "videoMp4";
 					videoMp4["mimetype"] = "application/x-cache-progress";
 				}
 			}
+			Console.WriteLine("VideoPlugin.Get videoMp4");
+			Console.WriteLine((videoMp4 == null) ? "null" : videoMp4.ToString());
 			if((videoMp4 != null) && (videoMp4["mimetype"] != "application/x-cache-error"))
 				value["videoMp4"] = videoMp4;
 
 			// handle WEBM
-			JsonValue videoWebm = fileService.Directory.GetChildResourceByName(dbcon, transaction, id, "videoWebm", filterBy, 0, groups, heritedRights, parents, true);
+			JsonValue videoWebm = fileService.Directory.GetChildResourceByName(dbcon, transaction, id, "videoWebm", filterBy, groups, heritedRights, parents, context, true);
 			if(videoWebm == null) {
 				lock(instanceLock) {
 					if(!runningTasks.ContainsKey(id + ":webm")) {
@@ -170,15 +176,16 @@ namespace KJing.Directory
 								string localFile = fileService.GetLocalFile(id);
 								string destFile = Path.Combine(fileService.Directory.TemporaryDirectory, Guid.NewGuid().ToString());
 								JsonValue jsonFile = new JsonObject();
-								jsonFile["type"] = "file";
 								jsonFile["cache"] = true;
 								jsonFile["parent"] = id;
 								jsonFile["name"] = "videoWebm";
 								if(BuildWebm(localFile, destFile)) {
+									jsonFile["type"] = "file:video:webm";
 									jsonFile["mimetype"] = "video/webm";
 									jsonFile = fileService.CreateFile(jsonFile, destFile);
 								}
 								else {
+									jsonFile["type"] = "file:application:x-cache-error";
 									jsonFile["mimetype"] = "application/x-cache-error";
 									jsonFile = fileService.CreateFile(jsonFile, (string)null);
 								}
@@ -188,9 +195,10 @@ namespace KJing.Directory
 								jsonDiff["videoWebm"] = jsonFile;
 								fileService.Directory.ChangeResource(id, jsonDiff);
 							}
-							catch(Exception) {
+							catch(Exception e) {
+								fileService.Directory.Logger.Log(Erasme.Cloud.Logger.LogLevel.Error, "Build WebM video fails for "+id+", Exception: "+e.ToString());
 								JsonValue jsonFile = new JsonObject();
-								jsonFile["type"] = "file";
+								jsonFile["type"] = "file:application:x-cache-error";
 								jsonFile["cache"] = true;
 								jsonFile["parent"] = id;
 								jsonFile["mimetype"] = "application/x-cache-error";
@@ -212,7 +220,7 @@ namespace KJing.Directory
 						runningTasks[id+":webm"] = task;
 					}
 					videoWebm = new JsonObject();
-					videoWebm["type"] = "file";
+					videoWebm["type"] = "file:application:x-cache-progress";
 					videoWebm["parent"] = id;
 					videoWebm["id"] = id+":webm";
 					videoWebm["name"] = "videoWebm";
@@ -223,15 +231,15 @@ namespace KJing.Directory
 				value["videoWebm"] = videoWebm;
 		}
 
-		public void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data)
+		public void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data, Dictionary<string, ResourceChange> changes)
 		{
 		}
 
-		public void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff)
+		public void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff, Dictionary<string, ResourceChange> changes)
 		{
 		}
 
-		public void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data)
+		public void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, Dictionary<string, ResourceChange> changes)
 		{
 		}
 

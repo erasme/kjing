@@ -70,7 +70,9 @@ namespace KJing.Directory
 		{
 			// create the file table
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
-				string sql = "CREATE TABLE file (id VARCHAR PRIMARY KEY, mimetype VARCHAR, size INTEGER DEFAULT 0, uploader VARCHAR DEFAULT NULL, contentRev INTEGER DEFAULT 0)";
+				string sql = "CREATE TABLE file (id VARCHAR PRIMARY KEY, mimetype VARCHAR, "+
+					"size INTEGER DEFAULT 0, uploader VARCHAR DEFAULT NULL, contentRev INTEGER DEFAULT 0, "+
+					"durationMs INTEGER DEFAULT NULL)";
 				dbcmd.CommandText = sql;
 				dbcmd.ExecuteNonQuery();
 			}
@@ -92,38 +94,15 @@ namespace KJing.Directory
 
 		public JsonValue CreateFile(JsonValue data, string contentFilePath)
 		{
-			JsonValue removeResource = null;
-			string parent = null;
-			if(data.ContainsKey("parent"))
-				parent = data["parent"];
-			string name = null;
-			if(data.ContainsKey("name"))
-				parent = data["name"];
-			bool cache = false;
-			if(data.ContainsKey("cache"))
-				cache = data["cache"];
-			bool uniqueName = data.ContainsKey("uniqueName") && (bool)data["uniqueName"];
-
 			JsonValue json = null;
 			Dictionary<string,ResourceChange> changes = new Dictionary<string, ResourceChange>();
 
 			// handle plugins
-			if(mimePlugins.ContainsKey("*/*")) {
-				foreach(IFilePlugin plugin in mimePlugins["*/*"])
-					plugin.ProcessContent(data, data, contentFilePath);
-			}
-			if(data.ContainsKey("mimetype") && mimePlugins.ContainsKey(data["mimetype"])) {
-				foreach(IFilePlugin plugin in mimePlugins[data["mimetype"]])
-					plugin.ProcessContent(data, data, contentFilePath);
-			}
+			ProcessContent(data, null, contentFilePath);
 
 			lock(Directory.DbCon) {
 				using(IDbTransaction transaction = Directory.DbCon.BeginTransaction()) {
-					if(uniqueName)
-						removeResource = GetChildResourceByName(Directory.DbCon, transaction, parent, name, null, 0, null, new Rights(), null, cache);
 					json = CreateFile(Directory.DbCon, transaction, data, contentFilePath, changes);
-					if(removeResource != null)
-						DeleteResource(Directory.DbCon, transaction, removeResource["id"], changes);
 					transaction.Commit();
 				}
 			}
@@ -147,7 +126,9 @@ namespace KJing.Directory
 			if(!data.ContainsKey("cache") || !(bool)data["cache"])
 				data["quotaBytesUsed"] = size;
 			data["uploader"] = null;
+
 			JsonValue res = Directory.CreateResource(dbcon, transaction, data, changes);
+
 			string id = res["id"];
 			// store the file content
 			if(contentFilePath != null)
@@ -163,27 +144,11 @@ namespace KJing.Directory
 			data["uploader"] = uploader.Id;
 			data["contentRev"] = 0;
 
-			JsonValue removeResource = null;
-			string parent = null;
-			if(data.ContainsKey("parent"))
-				parent = data["parent"];
-			string name = null;
-			if(data.ContainsKey("name"))
-				name = data["name"];
-			bool cache = false;
-			if(data.ContainsKey("cache"))
-				cache = data["cache"];
-			bool uniqueName = data.ContainsKey("uniqueName") && (bool)data["uniqueName"];
-
 			Dictionary<string,ResourceChange> changes = new Dictionary<string, ResourceChange>();
 
 			lock(Directory.DbCon) {
 				using(IDbTransaction transaction = Directory.DbCon.BeginTransaction()) {
-					if(uniqueName)
-						removeResource = GetChildResourceByName(Directory.DbCon, transaction, parent, name, cache);
 					json = Directory.CreateResource(Directory.DbCon, transaction, data, changes);
-					if(removeResource != null)
-						DeleteResource(Directory.DbCon, transaction, removeResource["id"], changes);
 					transaction.Commit();
 				}
 			}
@@ -195,7 +160,7 @@ namespace KJing.Directory
 			return json;
 		}
 
-		public async Task<FileDefinition> GetFilePostAsync(HttpContext context)
+		public async Task<FileDefinition> GetFileDefinitionAsync(HttpContext context)
 		{
 			string type = null;
 			string filename = null;
@@ -246,33 +211,33 @@ namespace KJing.Directory
 					mimetype = (string)define["mimetype"];
 			}
 
-			if(filename == null) {
-				filename = "unknown";
-				if(mimetype == null)
-					mimetype = "application/octet-stream";
+			// if it is an initial create, find minimal required fields
+			if(context.Request.Method == "POST") {
+				if(filename == null) {
+					filename = "unknown";
+					if (mimetype == null)
+						mimetype = "application/octet-stream";
+				} else if(mimetype == null) {
+					// if mimetype was not given in the define part, decide it from
+					// the file extension
+					mimetype = FileContent.MimeType(filename);
+					// if not found from the file extension, decide it from the Content-Type
+					if ((mimetype == "application/octet-stream") && (fileContentType != null))
+						mimetype = fileContentType;
+				}
+				if (type == null)
+					type = "file:" + mimetype.Replace ('/', ':');
+				define["type"] = type;
+				define["mimetype"] = mimetype;
+				define["size"] = size;
+				define["name"] = filename;
 			}
-			else if(mimetype == null) {
-				// if mimetype was not given in the define part, decide it from
-				// the file extension
-				mimetype = FileContent.MimeType(filename);
-				// if not found from the file extension, decide it from the Content-Type
-				if((mimetype == "application/octet-stream") && (fileContentType != null))
-					mimetype = fileContentType;
-			}
-			if(type == null)
-				type = "file:" + mimetype.Replace('/', ':');
-			define["type"] = type;
-			define["mimetype"] = mimetype;
-			define["size"] = size;
-			define["name"] = filename;
 
 			return new FileDefinition() { Define = define, Stream = fileContentStream };
 		}
 
 		public Task<JsonValue> CreateFileAsync(FileDefinition fileDefinition)
 		{
-			Console.WriteLine("CreateFileAsync : " + fileDefinition.Define.ToString());
-
 			return CreateFileAsync(fileDefinition.Define, fileDefinition.Stream, fileDefinition.ProcessContent);
 		}
 
@@ -311,12 +276,19 @@ namespace KJing.Directory
 			return json;
 		}
 
+		public async Task<JsonValue> ChangeFileAsync(string id, FileDefinition fileDefinition)
+		{
+			return await ChangeFileAsync(id, fileDefinition.Define, fileDefinition.Stream, fileDefinition.ProcessContent);
+		}
+
 		public async Task<JsonValue> ChangeFileAsync(string id, JsonValue diff, Stream fileContentStream, ProcessContentHandler processContent)
 		{
 			JsonValue json = null;
+			if(diff == null)
+				diff = new JsonObject();
 			if(fileContentStream != null) {
 				string uploaderId;
-				if((diff != null) && diff.ContainsKey("uploader"))
+				if(diff.ContainsKey("uploader"))
 					uploaderId = diff["uploader"];
 				else
 					uploaderId = Guid.NewGuid().ToString();
@@ -327,15 +299,10 @@ namespace KJing.Directory
 						await uploader.Run(tmpFile);
 						if(processContent != null)
 							processContent(diff, tmpFile);
-						json = ChangeFile(id, new JsonObject(), tmpFile);
+						json = ChangeFile(id, diff, tmpFile);
 					}
 					catch(Exception e) {
-						try {
-							Directory.DeleteResource(id);
-						}
-						finally {
-							File.Delete(tmpFile);
-						}
+						File.Delete(tmpFile);
 						throw new WebException(500, 0, "File upload fails", e);
 					}
 				}
@@ -348,24 +315,13 @@ namespace KJing.Directory
 					
 		public JsonValue ChangeFile(string id, JsonValue diff, string contentFilePath)
 		{
-			Console.WriteLine("FileService.ChangeFile id: "+id+", diff: "+diff);
-
 			if(contentFilePath != null) {
 				diff["size"] = (new FileInfo(contentFilePath)).Length;
 				diff["uploader"] = null;
 
-				Console.WriteLine("FileService.ChangeFile contains */*: " + mimePlugins.ContainsKey("*/*"));
-
-				JsonValue data = Directory.GetResource(id, null, 0);
+				JsonValue data = Directory.GetResource(id, null);
 				// handle plugins
-				if(mimePlugins.ContainsKey("*/*")) {
-					foreach(IFilePlugin plugin in mimePlugins["*/*"])
-						plugin.ProcessContent(data, diff, contentFilePath);
-				}
-				if(data.ContainsKey("mimetype") && mimePlugins.ContainsKey(data["mimetype"])) {
-					foreach(IFilePlugin plugin in mimePlugins[data["mimetype"]])
-						plugin.ProcessContent(data, diff, contentFilePath);
-				}
+				ProcessContent(data, diff, contentFilePath);
 			}
 			else {
 				diff["size"] = 0;
@@ -377,7 +333,7 @@ namespace KJing.Directory
 
 			lock(Directory.DbCon) {
 				using(IDbTransaction transaction = Directory.DbCon.BeginTransaction()) {
-					jsonOld = Directory.GetResource(Directory.DbCon, transaction, id, null, 0);
+					jsonOld = Directory.GetResource(Directory.DbCon, transaction, id, null);
 					jsonNew = ChangeFile(Directory.DbCon, transaction, id, jsonOld, diff, changes, contentFilePath);
 					transaction.Commit();
 				}
@@ -439,11 +395,11 @@ namespace KJing.Directory
 			return res;
 		}
 
-		public override void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceContext> parents)
+		public override void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, List<string> groups, Rights heritedRights, List<ResourceContext> parents, ResourceContext context)
 		{
 			// select from the file table
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
-				dbcmd.CommandText = "SELECT mimetype,size,uploader,contentRev FROM file WHERE id=@id";
+				dbcmd.CommandText = "SELECT mimetype,size,uploader,contentRev,durationMs FROM file WHERE id=@id";
 				dbcmd.Transaction = transaction;
 				dbcmd.Parameters.Add(new SqliteParameter("id", id));
 				using(IDataReader reader = dbcmd.ExecuteReader()) {
@@ -456,22 +412,27 @@ namespace KJing.Directory
 							value["uploader"] = reader.GetString(2);
 						if(!reader.IsDBNull(3))
 							value["contentRev"] = reader.GetInt64(3);
+						value["durationMs"] = !reader.IsDBNull(4) ? (long?)reader.GetInt64(4) : null;
 					}
 					reader.Close();
 				}
 			}
+			Console.WriteLine("FileService.Get id: " + id);
+			Console.WriteLine(value.ToString());
 			// handle plugins
 			if(mimePlugins.ContainsKey("*/*")) {
 				foreach(IFilePlugin plugin in mimePlugins["*/*"])
-					plugin.Get(dbcon, transaction, id, value, filterBy, depth, groups, heritedRights, parents);
+					plugin.Get(dbcon, transaction, id, value, filterBy, groups, heritedRights, parents, context);
 			}
 			if(value.ContainsKey("mimetype") && mimePlugins.ContainsKey(value["mimetype"])) {
-				foreach(IFilePlugin plugin in mimePlugins[value["mimetype"]])
-					plugin.Get(dbcon, transaction, id, value, filterBy, depth, groups, heritedRights, parents);
+				foreach(IFilePlugin plugin in mimePlugins[value["mimetype"]]) {
+					Console.WriteLine("FileService.Get id: " + id+", plugin: "+plugin.Name);
+					plugin.Get(dbcon, transaction, id, value, filterBy, groups, heritedRights, parents, context);
+				}
 			}
 		}
 
-		public override void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data)
+		public override void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data, Dictionary<string, ResourceChange> changes)
 		{
 			string id = data["id"];
 			string uploader = null;
@@ -480,16 +441,24 @@ namespace KJing.Directory
 			long contentRev = 0;
 			if(data.ContainsKey("contentRev"))
 				contentRev = (long)data["contentRev"];
+			long? durationMs = null;
+			if(data.ContainsKey("durationMs"))
+				durationMs = (long?)data["durationMs"];
+
+			Console.WriteLine("FileService.Create id: " + id);
+			Console.WriteLine(data.ToString());
 
 			// insert into file table
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 				dbcmd.Transaction = transaction;
-				dbcmd.CommandText = "INSERT INTO file (id,mimetype,size,uploader,contentRev) VALUES (@id,@mimetype,@size,@uploader,@contentRev)";
+				dbcmd.CommandText = "INSERT INTO file (id,mimetype,size,uploader,contentRev,durationMs) "+
+					"VALUES (@id,@mimetype,@size,@uploader,@contentRev,@durationMs)";
 				dbcmd.Parameters.Add(new SqliteParameter("id", id));
 				dbcmd.Parameters.Add(new SqliteParameter("mimetype", (string)data["mimetype"]));
 				dbcmd.Parameters.Add(new SqliteParameter("size", (long)data["size"]));
 				dbcmd.Parameters.Add(new SqliteParameter("uploader", uploader));
 				dbcmd.Parameters.Add(new SqliteParameter("contentRev", contentRev));
+				dbcmd.Parameters.Add(new SqliteParameter("durationMs", durationMs));
 
 				if(dbcmd.ExecuteNonQuery() != 1)
 					throw new Exception("File create fails");
@@ -497,15 +466,15 @@ namespace KJing.Directory
 			// handle plugins
 			if(mimePlugins.ContainsKey("*/*")) {
 				foreach(IFilePlugin plugin in mimePlugins["*/*"])
-					plugin.Create(dbcon, transaction, data);
+					plugin.Create(dbcon, transaction, data, changes);
 			}
 			if(data.ContainsKey("mimetype") && mimePlugins.ContainsKey(data["mimetype"])) {
 				foreach(IFilePlugin plugin in mimePlugins[data["mimetype"]])
-					plugin.Create(dbcon, transaction, data);
+					plugin.Create(dbcon, transaction, data, changes);
 			}
 		}
 
-		public override void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff)
+		public override void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff, Dictionary<string, ResourceChange> changes)
 		{
 			// update the file table
 			if(diff.ContainsKey("size")) {
@@ -541,28 +510,38 @@ namespace KJing.Directory
 						throw new Exception("File update fails");
 				}
 			}
+			if(diff.ContainsKey("durationMs")) {
+				using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+					dbcmd.Transaction = transaction;
+					dbcmd.CommandText = "UPDATE file SET durationMs=@durationMs WHERE id=@id";
+					dbcmd.Parameters.Add(new SqliteParameter("id", id));
+					dbcmd.Parameters.Add(new SqliteParameter("durationMs", (long?)diff["durationMs"]));
 
+					if(dbcmd.ExecuteNonQuery() != 1)
+						throw new Exception("File update fails");
+				}
+			}
 			// handle plugins
 			if(mimePlugins.ContainsKey("*/*")) {
 				foreach(IFilePlugin plugin in mimePlugins["*/*"])
-					plugin.Change(dbcon, transaction, id, data, diff);
+					plugin.Change(dbcon, transaction, id, data, diff, changes);
 			}
 			if(data.ContainsKey("mimetype") && mimePlugins.ContainsKey(data["mimetype"])) {
 				foreach(IFilePlugin plugin in mimePlugins[data["mimetype"]])
-					plugin.Change(dbcon, transaction, id, data, diff);
+					plugin.Change(dbcon, transaction, id, data, diff, changes);
 			}
 		}
 
-		public override void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data)
+		public override void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, Dictionary<string, ResourceChange> changes)
 		{
 			// handle plugins
 			if(mimePlugins.ContainsKey("*/*")) {
 				foreach(IFilePlugin plugin in mimePlugins["*/*"])
-					plugin.Delete(dbcon, transaction, id, data);
+					plugin.Delete(dbcon, transaction, id, data, changes);
 			}
 			if(data.ContainsKey("mimetype") && mimePlugins.ContainsKey(data["mimetype"])) {
 				foreach(IFilePlugin plugin in mimePlugins[data["mimetype"]])
-					plugin.Delete(dbcon, transaction, id, data);
+					plugin.Delete(dbcon, transaction, id, data, changes);
 			}
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 				dbcmd.Transaction = transaction;
@@ -588,6 +567,21 @@ namespace KJing.Directory
 			allPlugins.Add(plugin);
 		}
 
+		public void ProcessContent(JsonValue data, JsonValue diff, string contentFilePath)
+		{
+			Console.WriteLine("FileService.ProcessContent mimePlugins count: " + mimePlugins.Count);
+
+			// handle plugins
+			if(mimePlugins.ContainsKey("*/*")) {
+				foreach(IFilePlugin plugin in mimePlugins["*/*"])
+					plugin.ProcessContent(data, diff, contentFilePath);
+			}
+			if(data.ContainsKey("mimetype") && mimePlugins.ContainsKey(data["mimetype"])) {
+				foreach(IFilePlugin plugin in mimePlugins[data["mimetype"]])
+					plugin.ProcessContent(data, diff, contentFilePath);
+			}
+		}
+
 		public override async Task ProcessRequestAsync(HttpContext context)
 		{
 			string[] parts = context.Request.Path.Split(new char[] { '/' }, System.StringSplitOptions.RemoveEmptyEntries);
@@ -595,7 +589,7 @@ namespace KJing.Directory
 			// POST / create a file
 			if((context.Request.Method == "POST") && (parts.Length == 0)) {
 			
-				FileDefinition fileDefinition = await GetFilePostAsync(context);
+				FileDefinition fileDefinition = await GetFileDefinitionAsync(context);
 
 				// check that the definition is correct
 				if(!fileDefinition.Define.ContainsKey("type"))
@@ -627,7 +621,7 @@ namespace KJing.Directory
 			// POST /[file]/copy create a copy of a given file
 			else if((context.Request.Method == "POST") && (parts.Length == 2) && (parts[1] == "copy") && IsValidId(parts[0])) {
 
-				FileDefinition fileDefinition = await GetFilePostAsync(context);
+				FileDefinition fileDefinition = await GetFileDefinitionAsync(context);
 
 				// check that the definition is correct
 				if(fileDefinition.Define.ContainsKey("type") && (((string)fileDefinition.Define["type"]).StartsWith("file:") || ((string)fileDefinition.Define["type"] == "file")))
@@ -644,7 +638,7 @@ namespace KJing.Directory
 				Directory.EnsureRights(context, parts[0], true, false, false);
 
 				// fill the file missing parts for the source file
-				JsonValue sourceResource = Directory.GetResource(parts[0], null, 0);
+				JsonValue sourceResource = Directory.GetResource(parts[0], null);
 				fileDefinition.Define["mimetype"] = (string)sourceResource["mimetype"];
 				if(!fileDefinition.Define.ContainsKey("name") || ((string)fileDefinition.Define["name"] == "unknown"))
 					fileDefinition.Define["name"] = (string)sourceResource["name"];
@@ -661,7 +655,7 @@ namespace KJing.Directory
 				string file = parts[0];
 
 				Directory.EnsureRights(context, file, true, false, false);
-				JsonValue json = Directory.GetResource(file, null, 0);
+				JsonValue json = Directory.GetResource(file, null);
 
 				context.Response.StatusCode = 200;
 				context.Response.Headers["content-type"] = json["mimetype"];
@@ -705,9 +699,23 @@ namespace KJing.Directory
 					context.Response.Content = new FileContent(basePath + "/" + storage + "/" + file);
 				}*/
 			}
+			// PUT /[file] upload a new file content and define
+			else if((context.Request.Method == "PUT") && (parts.Length == 1) && IsValidId(parts[0])) {
+				string file = parts[0];
+				Directory.EnsureRights(context, file, false, true, false);
+
+				FileDefinition fileDefinition = await GetFileDefinitionAsync(context);
+				JsonValue jsonFile = await ChangeFileAsync(file, fileDefinition);
+
+				context.Response.StatusCode = 200;
+				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
+				context.Response.Content = new JsonContent(jsonFile);
+			}
 			// PUT /[file]/content upload a new file content
 			else if((context.Request.Method == "PUT") && (parts.Length == 2) && IsValidId(parts[0]) && (parts[1] == "content")) {
-				// TODO
+				string file = parts[0];
+				Directory.EnsureRights(context, file, false, true, false);
+
 				JsonValue jsonFile = await ChangeFileAsync(parts[0], null, context.Request.InputStream, null);
 
 				context.Response.StatusCode = 200;

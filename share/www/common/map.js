@@ -72,35 +72,35 @@ KJing.Resource.extend('KJing.Map', {
 	}
 
 }, {
-	updateDataCore: function() {
+	updateDataCore: function(data) {
 		if(this.devices === undefined)
 			this.devices = [];
 
 		// update attached devices
-		if('devices' in this.data) {
+		if('devices' in data) {
 			var devices = [];
-			for(var i = 0; i < this.data.devices.length; i++) {
+			for(var i = 0; i < data.devices.length; i++) {
 				var found = undefined;
 				for(var i2 = 0; (found === undefined) && (i2 < this.devices.length); i2++) {
-					if(this.devices[i2].device.getId() === this.data.devices[i].device)
+					if(this.devices[i2].device.getId() === data.devices[i].device)
 						found = this.devices[i2].device;
 				}
 				if(found !== undefined) {
-					devices.push({ device: found, x: this.data.devices[i].x, y: this.data.devices[i].y });
+					devices.push({ device: found, x: data.devices[i].x, y: data.devices[i].y });
 				}
 				else {
 					// try to find the device from the children
 					var device = undefined;
 					var children = this.getChildren();
 					for(var i2 = 0; (i2 < children.length); i2++) {
-						if(children[i2].getId() === this.data.devices[i].device) {
+						if(children[i2].getId() === data.devices[i].device) {
 							device = children[i2];
 							break;
 						}
 					}
 					if(device === undefined)
-						device = KJing.Resource.create(this.data.devices[i].device);
-					devices.push({ device: device, x: this.data.devices[i].x, y: this.data.devices[i].y });
+						device = KJing.Resource.create(data.devices[i].device);
+					devices.push({ device: device, x: data.devices[i].x, y: data.devices[i].y });
 				}
 			}
 			this.devices = devices;

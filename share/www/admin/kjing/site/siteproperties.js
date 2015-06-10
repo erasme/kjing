@@ -1,33 +1,26 @@
 ﻿
 KJing.ResourceProperties.extend('KJing.SiteProperties', {
-	urlField: undefined,
+	siteUrlField: undefined,
 
-	constructor: function(config) {
-		this.urlField = new KJing.TextField({ title: 'URL du site Web', width: 300 });
-		this.urlField.disable();
+	onContentLoaded: function(req) {
+		this.siteUrlField.setValue(req.getResponseText());
+		this.siteUrlField.enable();
+	}
 
-		if(this.resource.getIsReady())
-			this.onResourceReady();
-		else
-			this.connect(this.resource, 'ready', this.onResourceReady);
-	},
+}, {
+	build: function() {
+		KJing.SiteProperties.base.build.apply(this, arguments);
 
-	onResourceReady: function() {
+		this.siteUrlField = new KJing.TextField({ title: 'URL du site Web', width: 300, disabled: true });
+		this.insertAt(this.siteUrlField, 1);
+
 		var request = new Core.HttpRequest({ method: 'GET', url: this.resource.getDownloadUrl() });
 		this.connect(request, 'done', this.onContentLoaded);
 		request.send();
 	},
 
-	onContentLoaded: function(req) {
-		this.urlField.setValue(req.getResponseText());
-		this.urlField.enable();
-	}
-
-}, {
-	getFields: function() {
-		var fields = KJing.SiteProperties.base.getFields();
-		fields.push(this.urlField);
-		return fields;
+	save: function() {
+		return this.resource.changeData(this.getPropertiesJson(), this.siteUrlField.getValue());
 	}
 });
 

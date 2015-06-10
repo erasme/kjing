@@ -20,6 +20,8 @@ Core.Object.extend('KJing.PageController', {
 		this.id = config.id;
 		delete(config.id);
 
+		console.log('KJing.PageController.new id: '+this.id+', resource: '+this.resource);
+
 		this.transform = { x: 0, y: 0, scale: 1 };
 		this.ready = this.controller.getIsReady() && this.resource.getIsReady();
 		if(!this.ready) {

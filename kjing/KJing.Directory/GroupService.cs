@@ -63,7 +63,7 @@ namespace KJing.Directory
 			}
 		}
 
-		public override void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceContext> parents)
+		public override void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, List<string> groups, Rights heritedRights, List<ResourceContext> parents, ResourceContext context)
 		{
 			// get users/groups in the group
 			JsonArray users = new JsonArray();
@@ -79,22 +79,96 @@ namespace KJing.Directory
 				}
 			}
 
-			if(depth > 0) {
-				// select resources shared by this group
-				value["shares"] = directory.GetGroupShares(dbcon, transaction, id, filterBy, depth);
+			// select resources shared by this group
+			value["shares"] = directory.GetShares(dbcon, transaction, id);
+
+			if(filterBy != null)
+				value["sharesWith"] = directory.GetSharesByWith(dbcon, transaction, filterBy, id);
+
+
+//			List<string> groupGroups = new List<string>();
+//			directory.GetUserGroups(dbcon, transaction, id, groupGroups);
+//			JsonArray groupsJson = new JsonArray();
+//			value["groups"] = groupsJson;
+//			foreach(string groupId in groupGroups)
+//				groupsJson.Add(groupId);
+
+			// get the resources this group share with filterBy
+//			value["ownShares"] = directory.GetSharesByWith(dbcon, transaction, id, filterBy);
+		}
+
+		public override void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data, Dictionary<string, ResourceChange> changes)
+		{
+		}
+
+		public override void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff, Dictionary<string, ResourceChange> changes)
+		{
+		}
+
+		public override void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, Dictionary<string, ResourceChange> changes)
+		{
+			List<string> updateResources = new List<string>();
+
+			// get all users that share resources with the group for the "sharesBy"
+			List<string> userGroups = new List<string>();
+			userGroups.Add(id);
+			Directory.GetUserGroups(dbcon, transaction, id, userGroups);
+			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+				dbcmd.Transaction = transaction;
+				dbcmd.CommandText = "SELECT DISTINCT(resource.owner) FROM resource,right WHERE right.user "+ListToSqlIn(userGroups)+" AND right.resource=resource.id";
+				using(IDataReader reader = dbcmd.ExecuteReader()) {
+					while(reader.Read()) {
+						string u = reader.GetString(0);
+						if(!updateResources.Contains(u))
+							updateResources.Add(u);
+					}
+				}
 			}
-		}
 
-		public override void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data)
-		{
-		}
+			// find all group where this group is present
+			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+				dbcmd.Transaction = transaction;
+				dbcmd.CommandText = "SELECT ugroup FROM ugroup_user WHERE user=@id";
+				dbcmd.Parameters.Add(new SqliteParameter("id", id));
+				using(IDataReader reader = dbcmd.ExecuteReader()) {
+					while(reader.Read()) {
+						string g = reader.GetString(0);
+						// add this group in the resources that needs an update
+						if(!updateResources.Contains(g))
+							updateResources.Add(g);
+					}
+				}
+			}
+			// remove this group from the groups where it is present
+			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+				dbcmd.Transaction = transaction;
+				dbcmd.CommandText = "DELETE FROM ugroup_user WHERE user=@id";
+				dbcmd.Parameters.Add(new SqliteParameter("id", id));
+				dbcmd.ExecuteNonQuery();
+			}
 
-		public override void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff)
-		{
-		}
+			// find all resources where this group has right on
+			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+				dbcmd.Transaction = transaction;
+				dbcmd.CommandText = "SELECT resource FROM right WHERE user=@id";
+				dbcmd.Parameters.Add(new SqliteParameter("id", id));
+				using(IDataReader reader = dbcmd.ExecuteReader()) {
+					while(reader.Read()) {
+						string r = reader.GetString(0);
+						// add this resource in the resources that needs an update (for the "rights" update)
+						if(!updateResources.Contains(r))
+							updateResources.Add(r);
+					}
+				}
+			}
+			// delete this group from the right table
+			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+				dbcmd.Transaction = transaction;
+				dbcmd.CommandText = "DELETE FROM right WHERE user=@id";
+				dbcmd.Parameters.Add(new SqliteParameter("id", id));
+				dbcmd.ExecuteNonQuery();
+			}
 
-		public override void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data)
-		{
 			// delete from ugroup_user
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 				dbcmd.Transaction = transaction;
@@ -102,6 +176,11 @@ namespace KJing.Directory
 				dbcmd.Parameters.Add(new SqliteParameter("id", id));
 				dbcmd.ExecuteNonQuery();
 			}
+
+			// update the users
+			foreach(string r in updateResources)
+				Directory.ChangeResource(dbcon, transaction, r, null, changes);
+
 		}
 
 		public void GroupRemoveUsers(string id, JsonValue data)
@@ -111,24 +190,62 @@ namespace KJing.Directory
 			lock(dbcon) {
 				using(IDbTransaction transaction = dbcon.BeginTransaction()) {
 
-					JsonValue before = GetResource(dbcon, transaction, id, null, 0);
+					JsonValue before = GetResource(dbcon, transaction, id, null);
 
-					if(data is JsonArray) {
-						foreach(string user in (JsonArray)data) {
+					JsonArray users;
+					if(data is JsonArray)
+						users = (JsonArray)data;
+					else {
+						users = new JsonArray();
+						users.Add(data);
+					}
+
+					foreach(string user in (JsonArray)data) {
+						bool exists = false;
+						// test if the user is not already in the group
+						using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+							dbcmd.Transaction = transaction;
+							dbcmd.CommandText = "SELECT COUNT(*) FROM ugroup_user WHERE ugroup=@ugroup AND user=@user";
+							dbcmd.Parameters.Add(new SqliteParameter("ugroup", id));
+							dbcmd.Parameters.Add(new SqliteParameter("user", user));
+							object res = dbcmd.ExecuteScalar();
+							if(res != null)
+								exists = (Convert.ToInt64(res) > 0);
+						}
+						// remove from the group
+						if(exists) {
+							List<string> updateUsers = new List<string>();
+
+							// get all the groups/users in the added user (or group) for the "sharesWith"
+							updateUsers.Add(user);
+							Directory.GetGroupUsers(dbcon, transaction, user, updateUsers);
+
+							// get all users that share resources with the group for the "sharesBy"
+							List<string> userGroups = new List<string>();
+							userGroups.Add(user);
+							Directory.GetUserGroups(dbcon, transaction, user, userGroups);
+							using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+								dbcmd.Transaction = transaction;
+								dbcmd.CommandText = "SELECT DISTINCT(resource.owner) FROM resource,right WHERE right.user "+ListToSqlIn(userGroups)+" AND right.resource=resource.id";
+								using(IDataReader reader = dbcmd.ExecuteReader()) {
+									while(reader.Read()) {
+										string u = reader.GetString(0);
+										if(!updateUsers.Contains(u))
+											updateUsers.Add(u);
+									}
+								}
+							}
+
 							using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 								dbcmd.CommandText = "DELETE FROM ugroup_user WHERE ugroup=@id AND user=@user";
 								dbcmd.Parameters.Add(new SqliteParameter("id", id));
 								dbcmd.Parameters.Add(new SqliteParameter("user", user));
 								dbcmd.ExecuteNonQuery();
 							}
-						}
-					}
-					else {
-						using(IDbCommand dbcmd = dbcon.CreateCommand()) {
-							dbcmd.CommandText = "DELETE FROM ugroup_user WHERE ugroup=@id AND user=@user";
-							dbcmd.Parameters.Add(new SqliteParameter("ugroup", id));
-							dbcmd.Parameters.Add(new SqliteParameter("user", (string)data));
-							dbcmd.ExecuteNonQuery();
+
+							// update the users
+							foreach(string u in updateUsers)
+								Directory.ChangeResource(dbcon, transaction, u, null, changes);
 						}
 					}
 
@@ -160,7 +277,7 @@ namespace KJing.Directory
 			lock(dbcon) {
 				using(IDbTransaction transaction = dbcon.BeginTransaction()) {
 
-					JsonValue before = GetResource(dbcon, transaction, id, null, 0);
+					JsonValue before = GetResource(dbcon, transaction, id, null);
 
 					JsonArray users;
 					if(data is JsonArray)
@@ -190,6 +307,32 @@ namespace KJing.Directory
 								dbcmd.Parameters.Add(new SqliteParameter("user", user));
 								dbcmd.ExecuteNonQuery();
 							}
+
+							List<string> updateUsers = new List<string>();
+
+							// get all the groups/users in the added user (or group) for the "sharesWith"
+							updateUsers.Add(user);
+							Directory.GetGroupUsers(dbcon, transaction, user, updateUsers);
+
+							// get all users that share resources with the group for the "sharesBy"
+							List<string> userGroups = new List<string>();
+							userGroups.Add(user);
+							Directory.GetUserGroups(dbcon, transaction, user, userGroups);
+							using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+								dbcmd.Transaction = transaction;
+								dbcmd.CommandText = "SELECT DISTINCT(resource.owner) FROM resource,right WHERE right.user "+ListToSqlIn(userGroups)+" AND right.resource=resource.id";
+								using(IDataReader reader = dbcmd.ExecuteReader()) {
+									while(reader.Read()) {
+										string u = reader.GetString(0);
+										if(!updateUsers.Contains(u))
+											updateUsers.Add(u);
+									}
+								}
+							}
+
+							// update the users
+							foreach(string u in updateUsers)
+								Directory.ChangeResource(dbcon, transaction, u, null, changes);
 						}
 					}
 
@@ -221,7 +364,7 @@ namespace KJing.Directory
 
 				context.Response.StatusCode = 200;
 				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
-				context.Response.Content = new JsonContent(directory.GetResource(parts[0], null, 0));
+				context.Response.Content = new JsonContent(directory.GetResource(parts[0], null));
 			}
 			// DELETE /[group]/users/[user] remove a user from the group
 			else if((context.Request.Method == "DELETE") && (parts.Length == 3) && IsValidId(parts[0]) && (parts[1] == "users") && IsValidId(parts[2])) {

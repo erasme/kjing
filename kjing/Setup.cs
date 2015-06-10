@@ -167,6 +167,18 @@ namespace KJing
 		/// </summary>
 		[XmlAttribute]
 		public long DefaultBytesQuota = -1;
+
+		/// <summary>
+		/// Allow the HTTP server to use HTTPS streams. Set the default value is null and mean no HTTPS
+		/// </summary>
+		[XmlAttribute]
+		public string ServerCertificateFile = null;
+
+		/// <summary>
+		/// If ServerCertificateFile is set, provide the file password
+		/// </summary>
+		[XmlAttribute]
+		public string ServerCertificatePassword = null;
 	}
 }
 

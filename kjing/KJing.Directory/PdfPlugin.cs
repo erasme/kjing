@@ -38,6 +38,7 @@ using Mono.Data.Sqlite;
 using Erasme.Json;
 using Erasme.Http;
 using Erasme.Cloud.Utils;
+using Erasme.Cloud.Logger;
 
 namespace KJing.Directory
 {
@@ -124,21 +125,57 @@ namespace KJing.Directory
 
 		public void ProcessContent(JsonValue data, JsonValue diff, string contentFilePath)
 		{
+			if((contentFilePath != null) && ((data != null) || (diff != null))) {
+				bool cache = ((data != null) && data.ContainsKey("cache") && (bool)data["cache"]) ||
+					((diff != null) && diff.ContainsKey("cache") && (bool)diff["cache"]);
+
+				// cache file => no thumbnail
+				if(cache)
+					return;
+
+				string mimetype = (data != null) ? data["mimetype"] : diff["mimetype"];
+
+				Console.WriteLine("PdfPlugin.ProcessContent mimetype: " + mimetype);
+
+				// build the pdf
+				string destFile = Path.Combine(fileService.Directory.TemporaryDirectory, Guid.NewGuid().ToString());
+				try {
+					if(ConvertToPdf(contentFilePath, mimetype, destFile)) {
+						JsonValue jsonFile = new JsonObject();
+						jsonFile["cache"] = true;
+						jsonFile["name"] = "pdf";
+						jsonFile["type"] = "file:application:pdf";
+						jsonFile["mimetype"] = "application/pdf";
+						jsonFile["localPath"] = destFile;
+
+						if(diff == null)
+							data[Name] = jsonFile;
+						else
+							diff[Name] = jsonFile;
+
+						// recursive process content
+						fileService.ProcessContent(jsonFile, null, destFile);
+					}
+				}
+				catch(Exception e) {
+					fileService.Directory.Logger.Log(LogLevel.Error, "PdfPlugin "+Name+" fails "+e.ToString());
+				}
+			}
 		}
 
-		public void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceContext> parents)
+		public void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, List<string> groups, Rights heritedRights, List<ResourceContext> parents, ResourceContext context)
 		{
-			// contentRev == 0 => no file content
+/*			// contentRev == 0 => no file content
 			if(value.ContainsKey("contentRev") && ((long)value["contentRev"] == 0))
 				return;
 			if(value.ContainsKey("cache") && (bool)value["cache"])
 				return;
 
-			string mimetype = value["mimetype"];
+			string mimetype = value["mimetype"];*/
 
 			// handle PDF
-			JsonValue pdf = fileService.Directory.GetChildResourceByName(dbcon, transaction, id, "pdf", filterBy, 0, groups, heritedRights, parents, true);
-			if(pdf == null) {
+			JsonValue pdf = fileService.Directory.GetChildResourceByName(dbcon, transaction, id, "pdf", filterBy, groups, heritedRights, parents, context, true);
+/*			if(pdf == null) {
 				lock(instanceLock) {
 					if(!runningTasks.ContainsKey(id)) {
 						LongTask task = new LongTask(delegate {
@@ -146,16 +183,17 @@ namespace KJing.Directory
 								string localFile = fileService.GetLocalFile(id);
 								string destFile = Path.Combine(fileService.Directory.TemporaryDirectory, Guid.NewGuid().ToString());
 								JsonValue jsonFile = new JsonObject();
-								jsonFile["type"] = "file";
 								jsonFile["cache"] = true;
 								jsonFile["parent"] = id;
 								jsonFile["name"] = "pdf";
 
 								if(ConvertToPdf(localFile, mimetype, destFile)) {
+									jsonFile["type"] = "file:application:pdf";
 									jsonFile["mimetype"] = "application/pdf";
 									jsonFile = fileService.CreateFile(jsonFile, destFile);
 								}
 								else {
+									jsonFile["type"] = "file:application:x-cache-error";
 									jsonFile["mimetype"] = "application/x-cache-error";
 									jsonFile = fileService.CreateFile(jsonFile, (string)null);
 								}
@@ -167,7 +205,7 @@ namespace KJing.Directory
 							}
 							catch(Exception) {
 								JsonValue jsonFile = new JsonObject();
-								jsonFile["type"] = "file";
+								jsonFile["type"] = "file:application:x-cache-error";
 								jsonFile["cache"] = true;
 								jsonFile["parent"] = id;
 								jsonFile["mimetype"] = "application/x-cache-error";
@@ -189,26 +227,37 @@ namespace KJing.Directory
 						runningTasks[id] = task;
 					}
 					pdf = new JsonObject();
-					pdf["type"] = "file";
+					pdf["type"] = "file:application:x-cache-progress";
 					pdf["parent"] = id;
 					pdf["id"] = id;
 					pdf["name"] = "pdf";
 					pdf["mimetype"] = "application/x-cache-progress";
 				}
-			}
-			if((pdf != null) && (pdf["mimetype"] != "application/x-cache-error"))
+			}*/
+			Console.WriteLine("PdfPlugin pdf: "+((pdf != null)?(pdf.ToString()):"null"));
+			if(pdf != null)// && (pdf["mimetype"] != "application/x-cache-error"))
 				value["pdf"] = pdf;
 		}
 
-		public void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data)
+		public void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data, Dictionary<string, ResourceChange> changes)
 		{
+			string id = data["id"];
+
+			if(data.ContainsKey(Name)) {
+				data[Name]["parent"] = id;
+				fileService.CreateFile(dbcon, transaction, data[Name], data[Name]["localPath"], changes);
+			}
 		}
 
-		public void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff)
+		public void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff, Dictionary<string, ResourceChange> changes)
 		{
+			if(diff.ContainsKey(Name)) {
+				diff[Name]["parent"] = id;
+				fileService.CreateFile(dbcon, transaction, diff[Name], diff[Name]["localPath"], changes);
+			}
 		}
 
-		public void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data)
+		public void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, Dictionary<string, ResourceChange> changes)
 		{
 		}
 

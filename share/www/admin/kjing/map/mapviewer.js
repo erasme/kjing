@@ -1,60 +1,29 @@
 ﻿
-Ui.LBox.extend('KJing.MapProvisioningViewer', {
-	resource: undefined,
+KJing.ResourceViewer.extend('KJing.MapProvisioningViewer', {
 	flow: undefined,
+	newItem: undefined,
 
 	constructor: function(config) {
-		this.resource = config.resource;
-		delete(config.resource);
-		
 		this.flow = new Ui.Flow({ spacing: 5, uniform: true });
 		this.setContent(this.flow);
 
-		this.flow.append(new KJing.MapMemberNewIcon({ resource: this.resource }));
+		this.newItem = new KJing.MapMemberNewIcon({ resource: this.resource });
+		this.flow.append(this.newItem);
 
 		if(this.resource.getIsReady())
 			this.onResourceChange();
 	},
-	
-	getResource: function() {
-		return this.resource;
-	},
-	
-	onResourceChange: function() {
-//		this.flow.clear();
-//		this.flow.append(new KJing.ResourceNewItem({
-//			view: this.view, resource: this.resource,
-//			types: [ 'device' ]
-//		}));
-		var children = this.resource.getChildren();
-		var flowChildren = this.flow.getChildren();
-		// remove old items
-		var remove = [];
-		for(var oi = 1; oi < flowChildren.length; oi++) {
-			var found = false;
-			for(var i = 0; !found && (i < children.length); i++) {
-				found = flowChildren[oi].getResource().getId() === children[i].getId();
-			}
-			if(!found)
-				remove.push(flowChildren[oi]);
-		}
-		for(var i = 0; i < remove.length; i++)
-			this.flow.remove(remove[i]);
-		// add new items
-		var add = [];
-		for(var i = 0; i < children.length; i++) {
-			if(!KJing.Device.hasInstance(children[i]))
-				continue;
 
-			var found = false;
-			for(var oi = 1; !found && (oi < flowChildren.length); oi++) {
-				found = flowChildren[oi].getResource().getId() === children[i].getId();
-			}
-			if(!found)
-				add.push(children[i]);
+	onResourceChange: function() {
+		this.newItem.setDisabled(!this.getResource().canWrite());
+
+		var resources = this.getResource().getChildren();
+		var devices = [];
+		for(var i = 0; i < resources.length; i++) {
+			if(KJing.Device.hasInstance(resources[i]))
+				devices.push(resources[i]);
 		}
-		for(var i = 0; i < add.length; i++)
-			this.flow.append(KJing.ResourceIconViewer.create(add[i]));
+		KJing.ResourceViewer.updateChildren(this.flow, this.flow.getChildren(), 1, devices);
 	}
 }, {
 	onLoad: function() {
@@ -70,19 +39,18 @@ Ui.LBox.extend('KJing.MapProvisioningViewer', {
 	}
 });
 
-Ui.VBox.extend('KJing.MapMapViewer', {
-	resource: undefined,
+KJing.ResourceViewer.extend('KJing.MapMapViewer', {
 	devicesBox: undefined,
 	fold: undefined,
 	provisioningText: undefined,
 	mapDevicesView: undefined,
 
 	constructor: function(config) {
-		this.resource = config.resource;
-		delete(config.resource);
+		var vbox = new Ui.VBox();
+		this.setContent(vbox);
 
 		this.mapDevicesView = new KJing.MapDevicesViewer({ resource: this.resource });
-		this.append(this.mapDevicesView, true);
+		vbox.append(this.mapDevicesView, true);
 
 		var scroll = new Ui.ScrollingArea({ scrollVertical: false });
 		this.devicesBox = new Ui.HBox({ height: 120, uniform: true });
@@ -97,18 +65,13 @@ Ui.VBox.extend('KJing.MapMapViewer', {
 		this.connect(header, 'press', function() { this.fold.invert() });
 		this.fold.setHeader(header);
 		this.fold.setContent(scroll);
-		this.append(this.fold);
+		vbox.append(this.fold);
 
 		if(this.resource.getIsReady())
 			this.onResourceChange();
 	},
-	
-	getResource: function() {
-		return this.resource;
-	},
-	
-	onResourceChange: function() {
 
+	onResourceChange: function() {
 		var children = this.resource.getChildren();
 		var boxChildren = this.devicesBox.getChildren();
 		// remove old items
@@ -162,62 +125,21 @@ Ui.VBox.extend('KJing.MapMapViewer', {
 	}
 });
 	
-Ui.LBox.extend('KJing.MapViewer', {
-	resource: undefined,
+KJing.ResourceViewer.extend('KJing.MapViewer', {
 	viewMode: 'map',
 
 	constructor: function(config) {
-		this.resource = config.resource;
-		delete(config.resource);
-
 		this.setContent(new KJing.MapMapViewer({ resource: this.resource }));
 	},
-	
-	getResource: function() {
-		return this.resource;
-	},
 
-	getSetupPopup: function() {
-		var popup = new Ui.MenuPopup();
-		var vbox = new Ui.VBox({ spacing: 10 });
-		popup.setContent(vbox);
-
-		var segmentbar = new Ui.SegmentBar({
-			margin: 10,
-			orientation: 'horizontal', field: 'text', data: [
-				{ text: 'Carte', value: 'map' }, { text: 'Rattachés', value: 'provisioning' }
-			]
-		});
-		vbox.append(segmentbar);
-		if(this.viewMode === 'provisioning')
-			segmentbar.setCurrentPosition(1);
-		else
-			segmentbar.setCurrentPosition(0);
-		
-		this.connect(segmentbar, 'change', function(seg, data) {
-			if(data.value !== this.viewMode) {
-				this.viewMode = data.value;
-				if(this.viewMode === 'provisioning') 
-					this.setContent(new KJing.MapProvisioningViewer({ resource: this.resource }));
-				else
-					this.setContent(new KJing.MapMapViewer({ resource: this.resource }));
-			}
-			popup.close();
-		});
-
-		var saveButton = new Ui.Button({ text: 'Enregistrer l\'état', icon: 'savecloud'  });
-		this.connect(saveButton, 'press', this.onSaveState);
-		vbox.append(saveButton);
-
-		var button = new Ui.Button({ text: 'Propriétés', icon: 'edit' });
-		this.connect(button, 'press', function() {
-			var dialog = new KJing.ResourcePropertiesDialog({ resource: this.resource });
-			dialog.open();
-			popup.close();
-		});
-		vbox.append(button);
-
-		return popup;
+	setViewMode: function(viewMode) {
+		if(viewMode !== this.viewMode) {
+			this.viewMode = viewMode;
+			if(this.viewMode === 'provisioning') 
+				this.setContent(new KJing.MapProvisioningViewer({ resource: this.resource }));
+			else
+				this.setContent(new KJing.MapMapViewer({ resource: this.resource }));
+		}
 	},
 
 	onSaveState: function() {
@@ -282,6 +204,52 @@ Ui.LBox.extend('KJing.MapViewer', {
 		});
 
 		dialog.open();
+	}
+}, {
+	getState: function() {
+		return { viewMode: this.viewMode };
+	},
+
+	setState: function(state) {
+		if((state !== undefined) && (state.viewMode !== undefined))
+			this.setViewMode(state.viewMode);
+	},
+
+	getSetupPopup: function() {
+		var popup = new Ui.MenuPopup();
+		var vbox = new Ui.VBox({ spacing: 10 });
+		popup.setContent(vbox);
+
+		var segmentbar = new Ui.SegmentBar({
+			margin: 10,
+			orientation: 'horizontal', field: 'text', data: [
+				{ text: 'Carte', value: 'map' }, { text: 'Rattachés', value: 'provisioning' }
+			]
+		});
+		vbox.append(segmentbar);
+		if(this.viewMode === 'provisioning')
+			segmentbar.setCurrentPosition(1);
+		else
+			segmentbar.setCurrentPosition(0);
+		
+		this.connect(segmentbar, 'change', function(seg, data) {
+			this.setViewMode(data.value);
+			popup.close();
+		});
+
+		var saveButton = new Ui.Button({ text: 'Enregistrer l\'état', icon: 'savecloud'  });
+		this.connect(saveButton, 'press', this.onSaveState);
+		vbox.append(saveButton);
+
+		var button = new Ui.Button({ text: 'Propriétés', icon: 'edit' });
+		this.connect(button, 'press', function() {
+			var dialog = new KJing.ResourcePropertiesDialog({ resource: this.resource });
+			dialog.open();
+			popup.close();
+		});
+		vbox.append(button);
+
+		return popup;
 	}
 });
 

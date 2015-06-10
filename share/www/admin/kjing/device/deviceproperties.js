@@ -1,15 +1,14 @@
 ﻿
-KJing.ResourceProperties.extend('KJing.DeviceProperties', {}, {
-
-	getFields: function() {
-		var fields = KJing.DeviceProperties.base.getFields();
+KJing.ResourceProperties.extend('KJing.DeviceProperties', {
+	deviceUrlField: undefined
+}, {
+	build: function() {
+		KJing.DeviceProperties.base.build.apply(this, arguments);
 	
-		var deviceUrlField = new KJing.TextField({ title: 'URL du client Web', width: 300 });
-		deviceUrlField.setValue((new Core.Uri({ uri: '../client/?device='+this.resource.getId() })).toString());
-		deviceUrlField.disable();
-		fields.push(deviceUrlField);
-
-		return fields;
+		this.deviceUrlField = new KJing.TextField({
+			title: 'URL du client Web', width: 300, disabled: true,
+			value: (new Core.Uri({ uri: '../client/?device='+this.resource.getId() })).toString() });
+		this.insertAt(this.deviceUrlField, 1);
 	}
 });
 

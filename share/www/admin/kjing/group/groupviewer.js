@@ -1,31 +1,31 @@
 ﻿
-Ui.DropBox.extend('KJing.GroupUserView', {
-	resource: undefined,
+KJing.ResourceViewer.extend('KJing.GroupUserViewer', {
+	dropbox: undefined,
 	flow: undefined,
 	onUserDetachBinded: undefined,
 	testWriteRightBinded: undefined,
+	newItem: undefined,
 
 	constructor: function(config) {
-		this.resource = config.resource;
-		delete(config.resource);
-						
+		this.dropbox = new Ui.DropBox();
+		this.setContent(this.dropbox);
+														
 		this.flow = new Ui.Flow({ spacing: 5, uniform: true });
-		this.setContent(this.flow);
+		this.dropbox.setContent(this.flow);
 
 		var bindedItemEffect = this.onItemEffect.bind(this);
-		this.addType(KJing.Group, bindedItemEffect);
-		this.addType(KJing.User, bindedItemEffect);
-		this.connect(this, 'drop', this.onItemDrop);
+		this.dropbox.addType(KJing.Group, bindedItemEffect);
+		this.dropbox.addType(KJing.User, bindedItemEffect);
+		this.connect(this.dropbox, 'drop', this.onItemDrop);
 
 		this.onUserDetachBinded = this.onUserDetach.bind(this);
 		this.testWriteRightBinded = this.resource.canWrite.bind(this.resource);
 
+		this.newItem = new KJing.GroupMemberNewIcon({ resource: this.resource, disabled: !this.resource.canWrite() });
+		this.flow.append(this.newItem);
+
 		if(this.resource.getIsReady())
 			this.onResourceChange();
-	},
-	
-	getResource: function() {
-		return this.resource;
 	},
 
 	onItemEffect: function(item) {
@@ -39,14 +39,14 @@ Ui.DropBox.extend('KJing.GroupUserView', {
 	},
 
 	onResourceChange: function() {
-		this.flow.clear();
-		this.flow.append(new KJing.GroupMemberNewIcon({	resource: this.resource }));
-		var users = this.resource.getUsers();
-		for(var i = 0; i < users.length; i++) {
-			var user = KJing.Resource.create(users[i]);
-			var item = KJing.ResourceIconViewer.create(user);
-			this.flow.append(item);
-		}
+		this.newItem.setDisabled(!this.getResource().canWrite());
+
+		var usersIds = this.resource.getUsers();
+		var users = [];
+		for(var i = 0; i < usersIds.length; i++)
+			users.push(KJing.Resource.create(usersIds[i]));
+		
+		KJing.ResourceViewer.updateChildren(this.flow, this.flow.getChildren(), 1, users);
 	},
 	
 	onItemDrop: function(element, data, effect, x, y) {
@@ -73,39 +73,45 @@ Ui.DropBox.extend('KJing.GroupUserView', {
 	}
 }, {
 	onLoad: function() {
-		KJing.GroupUserView.base.onLoad.apply(this, arguments);
+		KJing.GroupUserViewer.base.onLoad.apply(this, arguments);
 		this.connect(this.resource, 'change', this.onResourceChange);
 		this.resource.monitor();
 	},
 	
 	onUnload: function() {
-		KJing.GroupUserView.base.onUnload.apply(this, arguments);
+		KJing.GroupUserViewer.base.onUnload.apply(this, arguments);
 		this.disconnect(this.resource, 'change', this.onResourceChange);
 		this.resource.unmonitor();
 	}
 });
 
-Ui.DropBox.extend('KJing.GroupResourceView', {
-	resource: undefined,
+KJing.ResourceViewer.extend('KJing.GroupShareViewer', {
+	dropbox: undefined,
 	flow: undefined,
+	newItem: undefined,
+	onResourceUnshareBinded: undefined,
+	testWriteRightBinded: undefined,
 
 	constructor: function(config) {
-		this.resource = config.resource;
-		delete(config.resource);
+
+		this.dropbox = new Ui.DropBox();
+		this.setContent(this.dropbox);
 						
 		this.flow = new Ui.Flow({ spacing: 5, uniform: true });
-		this.setContent(this.flow);
+		this.dropbox.setContent(this.flow);
+
+		this.newItem = new KJing.NewIcon({ disabled: true });
+		this.flow.append(this.newItem);
 
 		var bindedItemEffect = this.onItemEffect.bind(this);
-		this.addType(KJing.Resource, bindedItemEffect);
-		this.connect(this, 'drop', this.onItemDrop);
+		this.dropbox.addType(KJing.Resource, bindedItemEffect);
+		this.connect(this.dropbox, 'drop', this.onItemDrop);
+
+		this.onResourceUnshareBinded = this.onResourceUnshare.bind(this);
+		this.testWriteRightBinded = this.resource.canWrite.bind(this.resource);
 
 		if(this.resource.getIsReady())
 			this.onResourceChange();
-	},
-	
-	getResource: function() {
-		return this.resource;
 	},
 
 	onItemEffect: function(item) {
@@ -115,25 +121,11 @@ Ui.DropBox.extend('KJing.GroupResourceView', {
 			if(shares[i] === item.getId())
 				return [];
 		}
-		return [ 'link' ];
+		return [ 'share' ];
 	},
 
 	onResourceChange: function() {
-		this.flow.clear();
-		//this.flow.append(new KJing.NewIcon({ disabled: true }));
-
-		//this.flow.append(new KJing.GroupMemberNewIcon({ resource: this.resource }));
-		var shares = this.resource.getShares();
-		for(var i = 0; i < shares.length; i++) {
-			var resource = KJing.Resource.create(shares[i]);
-			this.addResource(resource);
-		}
-	},
-
-	addResource: function(resource) {	
-		var item = KJing.ResourceIconViewer.create(resource);
-		if(item !== undefined)
-			this.flow.append(item);
+		KJing.ResourceViewer.updateChildren(this.flow, this.flow.getChildren(), 1, this.resource.getShares());
 	},
 
 	onItemDrop: function(element, data, effect, x, y) {
@@ -141,35 +133,65 @@ Ui.DropBox.extend('KJing.GroupResourceView', {
 		this.connect(req, 'done', function() {
 			this.resource.update();
 		});
+	},
+
+	onResourceUnshare: function(selection) {
+		var elements = selection.getElements();
+		for(var i = 0; i < elements.length; i++) {
+			elements[i].getResource().addRights([ { user: this.resource.getId(), read: false, write: false, admin: false } ]);
+		}
+	},
+
+	getContextActions: function(element, actions) {
+		if(KJing.ResourceIconViewer.hasInstance(element)) {
+			delete(actions.suppress);
+			actions.suppress = {
+				text: 'Retirer', icon: 'trash',
+				testRight: this.testWriteRightBinded,
+				callback: this.onResourceUnshareBinded, multiple: true
+			};
+		}
+		return actions;
 	}
 }, {
 	onLoad: function() {
-		KJing.GroupResourceView.base.onLoad.apply(this, arguments);
+		KJing.GroupShareViewer.base.onLoad.apply(this, arguments);
 		this.connect(this.resource, 'change', this.onResourceChange);
 		this.resource.monitor();
 	},
 	
 	onUnload: function() {
-		KJing.GroupResourceView.base.onUnload.apply(this, arguments);
+		KJing.GroupShareViewer.base.onUnload.apply(this, arguments);
 		this.disconnect(this.resource, 'change', this.onResourceChange);
 		this.resource.unmonitor();
 	}
 });
 
-Ui.LBox.extend('KJing.GroupViewer', {
-	resource: undefined,
-	flow: undefined,
+KJing.ResourceViewer.extend('KJing.GroupViewer', {
 	viewMode: 'user',
 
 	constructor: function(config) {
-		this.resource = config.resource;
-		delete(config.resource);
-
-		this.setContent(new KJing.GroupUserView({ resource: this.resource }));
+		this.setContent(new KJing.GroupUserViewer({ resource: this.resource }));
 	},
-	
-	getResource: function() {
-		return this.resource;
+
+	setViewMode: function(viewMode) {
+		if(viewMode !== this.viewMode) {
+			this.viewMode = viewMode;
+			if(this.viewMode === 'share') 
+				this.setContent(new KJing.GroupShareViewer({ resource: this.resource }));
+			else
+				this.setContent(new KJing.GroupUserViewer({ resource: this.resource }));
+		}
+	}
+}, {
+
+	getState: function() {
+		return { viewMode: this.viewMode };
+	},
+
+	setState: function(state) {
+		if((state !== undefined) && (state.viewMode !== undefined))
+			this.setViewMode(state.viewMode);
 	},
 
 	getSetupPopup: function() {
@@ -180,23 +202,17 @@ Ui.LBox.extend('KJing.GroupViewer', {
 		var segmentbar = new Ui.SegmentBar({
 			margin: 10,
 			orientation: 'horizontal', field: 'text', data: [
-				{ text: 'Utilisateurs', value: 'user' }, { text: 'Ressources', value: 'resource' }
+				{ text: 'Utilisateurs', value: 'user' }, { text: 'Partages', value: 'share' }
 			]
 		});
 		vbox.append(segmentbar);
-		if(this.viewMode === 'resource')
+		if(this.viewMode === 'share')
 			segmentbar.setCurrentPosition(1);
 		else
 			segmentbar.setCurrentPosition(0);
 
 		this.connect(segmentbar, 'change', function(seg, data) {
-			if(data.value !== this.viewMode) {
-				this.viewMode = data.value;
-				if(this.viewMode === 'resource') 
-					this.setContent(new KJing.GroupResourceView({ resource: this.resource }));
-				else
-					this.setContent(new KJing.GroupUserView({ resource: this.resource }));
-			}
+			this.setViewMode(data.value);
 			popup.close();
 		});
 

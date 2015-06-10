@@ -181,6 +181,7 @@ Ui.Button.extend('KJing.IconViewer', {
 		//this.setAllowedMode([ 'move', 'copy', 'run', 'play', 'link' ]);
 		this.itemIcon = new KJing.ItemViewIcon({ verticalAlign: 'bottom', horizontalAlign: 'center' });
 		this.setIcon(this.itemIcon);
+		this.setItemName('');
 
 		this.connect(this, 'press', function() {
 			if(this.allowSelect) {

@@ -60,7 +60,6 @@ namespace KJing.Directory
 		UserService userService;
 		ResourceService resourceService;
 		FileService fileService;
-		public MessageService MessageService { get; set; }
 
 		public DirectoryService(
 			string basepath, AuthSessionService authSessionService, string authHeader, string authCookie,
@@ -196,14 +195,24 @@ namespace KJing.Directory
 			}
 		}
 
-		public JsonArray GetUserShares(IDbConnection dbcon, IDbTransaction transaction, string user, int depth, List<string> groups)
+		public JsonArray GetUserShares(IDbConnection dbcon, IDbTransaction transaction, string user, List<string> groups)
 		{
-			return resourceService.GetUserShares(dbcon, transaction, user, depth, groups);
+			return resourceService.GetUserShares(dbcon, transaction, user, groups);
 		}
 
-		public JsonArray GetGroupShares(IDbConnection dbcon, IDbTransaction transaction, string group, string seenBy, int depth)
+		public void GetUserGroups(IDbConnection dbcon, IDbTransaction transaction, string id, List<string> groups)
 		{
-			return resourceService.GetGroupShares(dbcon, transaction, group, seenBy, depth);
+			resourceService.GetUserGroups(dbcon, transaction, id, groups);
+		}
+
+		public JsonArray GetShares(IDbConnection dbcon, IDbTransaction transaction, string shares)
+		{
+			return resourceService.GetShares(dbcon, transaction, shares);
+		}
+
+		public JsonArray GetSharesByWith(IDbConnection dbcon, IDbTransaction transaction, string byUser, string withUser)
+		{
+			return resourceService.GetSharesByWith(dbcon, transaction, byUser, withUser);
 		}
 
 		public JsonValue CreateResource(JsonValue data)
@@ -216,24 +225,24 @@ namespace KJing.Directory
 			return resourceService.CreateResource(dbcon, transaction, data, changes);
 		}
 
-		public JsonValue GetResource(string id, string filterBy, int depth)
+		public JsonValue GetResource(string id, string filterBy)
 		{
-			return resourceService.GetResource(id, filterBy, depth);
+			return resourceService.GetResource(id, filterBy);
 		}
 
-		public JsonValue GetResource(IDbConnection dbcon, IDbTransaction transaction, string id, string filterBy, int depth)
+		public JsonValue GetResource(IDbConnection dbcon, IDbTransaction transaction, string id, string filterBy)
 		{
-			return resourceService.GetResource(dbcon, transaction, id, filterBy, depth);
+			return resourceService.GetResource(dbcon, transaction, id, filterBy);
 		}
 
-		public JsonValue GetChildResourceByName(IDbConnection dbcon, IDbTransaction transaction, string parent, string name)
+		public JsonValue GetChildResourceByName(IDbConnection dbcon, IDbTransaction transaction, string parent, string name, bool cache)
 		{
-			return GetChildResourceByName(dbcon, transaction, parent, name);
+			return resourceService.GetChildResourceByName(dbcon, transaction, parent, name, cache);
 		}
 
-		public JsonValue GetChildResourceByName(IDbConnection dbcon, IDbTransaction transaction, string parent, string name, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceContext> parents, bool cache)
+		public JsonValue GetChildResourceByName(IDbConnection dbcon, IDbTransaction transaction, string parent, string name, string filterBy, List<string> groups, Rights heritedRights, List<ResourceContext> parents, ResourceContext context, bool cache)
 		{
-			return resourceService.GetChildResourceByName(dbcon, transaction, parent, name, filterBy, depth, groups, heritedRights, parents, cache);
+			return resourceService.GetChildResourceByName(dbcon, transaction, parent, name, filterBy, groups, heritedRights, parents, context, cache);
 		}
 
 		public JsonValue ChangeResource(string id, JsonValue diff)
@@ -261,14 +270,19 @@ namespace KJing.Directory
 			return resourceService.GetGroupUsers(group);
 		}
 
-		public JsonArray GetUserShares(string user, int depth)
+		public void GetGroupUsers(IDbConnection dbcon, IDbTransaction transaction, string id, List<string> users)
 		{
-			return resourceService.GetUserShares(user, depth);
+			resourceService.GetGroupUsers(dbcon, transaction, id, users);
 		}
 
-		public Task<FileDefinition> GetFilePostAsync(HttpContext context)
+		public JsonArray GetUserShares(string user)
 		{
-			return fileService.GetFilePostAsync(context);
+			return resourceService.GetUserShares(user);
+		}
+
+		public Task<FileDefinition> GetFileDefinitionAsync(HttpContext context)
+		{
+			return fileService.GetFileDefinitionAsync(context);
 		}
 
 		public Task<JsonValue> CreateFileAsync(FileDefinition fileDefinition)
@@ -309,27 +323,27 @@ namespace KJing.Directory
 				}
 
 				// test if user added in a group
-				if(newValues["type"] == "group") {
-					foreach(string user in (JsonArray)newValues["users"]) {
-						string oldUser = null;
-						foreach(string u in (JsonArray)oldValues["users"]) {
-							if(u == user) {
-								oldUser = u;
-								break;
-							}
-						}
-						if(oldUser == null) {
-							// find all concerned final users
-							List<string> users = GetGroupUsers(user);
-							// find all shared resources
-							JsonArray shares = GetUserShares(user, 0);
-							foreach(string u in users) {
-								foreach(JsonValue resource in shares)
-									NotifyShare(resource, u, user);
-							}
-						}
-					}
-				}
+//				if(newValues["type"] == "group") {
+//					foreach(string user in (JsonArray)newValues["users"]) {
+//						string oldUser = null;
+//						foreach(string u in (JsonArray)oldValues["users"]) {
+//							if(u == user) {
+//								oldUser = u;
+//								break;
+//							}
+//						}
+//						if(oldUser == null) {
+//							// find all concerned final users
+//							List<string> users = GetGroupUsers(user);
+//							// find all shared resources
+//							JsonArray shares = GetUserShares(user);
+//							foreach(string u in users) {
+//								foreach(JsonValue resource in shares)
+//									NotifyShare(resource, u, user);
+//							}
+//						}
+//					}
+//				}
 
 			}
 		}
@@ -337,7 +351,7 @@ namespace KJing.Directory
 		void NotifyShare(JsonValue resource, string userId, string sharedBy)
 		{
 			// TODO
-			Console.WriteLine("NotifyShare resource: " + resource["id"] + ", for user: " + userId);
+			//Console.WriteLine("NotifyShare resource: " + resource["id"] + ", for user: " + userId);
 			if(MessageService != null) {
 				JsonValue message = new JsonObject();
 				message["origin"] = resource["owner"];
@@ -349,6 +363,33 @@ namespace KJing.Directory
 				content["sharedBy"] = sharedBy;
 				message["content"] = content;
 				MessageService.SendMessage(message);
+			}
+		}
+
+		MessageService messageService = null;
+		public MessageService MessageService {
+			get {
+				return messageService;
+			}
+			set {
+				messageService = value;
+				messageService.MessageCreated += delegate(JsonValue message) {
+					Console.WriteLine("MessageCreated "+message.ToString());
+					//resourceService.SendMessage(message["origin"],
+					JsonObject json = new JsonObject();
+					json["type"] = "change";
+					json["resource"] = "messages:"+message["destination"];
+					json["data"] = message;
+					resourceService.SendResourceMessage("messages:"+message["destination"], json);
+				};
+				messageService.MessageChanged += delegate(JsonValue message) {
+					Console.WriteLine("MessageChanged"+message.ToString());
+					JsonObject json = new JsonObject();
+					json["type"] = "change";
+					json["resource"] = "messages:"+message["destination"];
+					json["data"] = message;
+					resourceService.SendResourceMessage("messages:"+message["destination"], message);
+				};
 			}
 		}
 
@@ -386,7 +427,7 @@ namespace KJing.Directory
 			// need a logged user
 			EnsureIsAuthenticated(context);
 
-			JsonValue user = resourceService.GetResource(context.User, null, 0);
+			JsonValue user = resourceService.GetResource(context.User, null);
 			if(!user.ContainsKey("admin") || !(bool)user["admin"])
 				throw new WebException(403, 0, "Logged user has no sufficient credentials");
 		}
@@ -397,12 +438,14 @@ namespace KJing.Directory
 			EnsureIsAuthenticated(context);
 
 			Rights ownRight = resourceService.GetResourceOwnRights(resource, context.User);
+			//Console.WriteLine("EnsureRights on: " + resource + ", for user: " + context.User+", rights: "+ownRight);
+
 			// user are the roots of the system. They are always "readable"
 			if(resource.StartsWith("user:"))
 				ownRight.Read = true;
 			if(!((!read || ownRight.Read) && (!write || ownRight.Write) && (!admin || ownRight.Admin))) {
 				// last chance, check if the connected user is not an admin
-				JsonValue user = resourceService.GetResource(context.User, null, 0);
+				JsonValue user = resourceService.GetResource(context.User, null);
 				if(!user.ContainsKey("admin") || !(bool)user["admin"])
 					throw new WebException(403, 0, "Logged user has no sufficient credentials");
 			}

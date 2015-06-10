@@ -1,37 +1,25 @@
 ﻿
 KJing.FileProperties.extend('KJing.VideoProperties', {
-
-	formatDuration: function(size) {
-		var res;
-		if(size > 3600*2)
-			res = (size/3600).toFixed(2)+' H';
-		else if(size > 60*2)
-			res = (size/60).toFixed(2)+' min';
-		else if(size > 2)
-			res = (size).toFixed(2)+' s';
-		else
-			res = (size*1000)+' ms';
-		return res;
-	}
-
+	videoWidthField: undefined,
+	videoHeightField: undefined,
+	videoDurationField: undefined
 }, {
+	build: function() {
+		KJing.VideoProperties.base.build.apply(this, arguments);
 
-	getFields: function() {
-		var fields = KJing.VideoProperties.base.getFields();
+		this.remove(this.durationField);
 
 		var data = this.resource.getData();
 		if('videoMediaInfo' in data) {
-			var widthField = new KJing.TextField({ title: 'Largeur', value: data.videoMediaInfo.width, disabled: true, width: 200 });
-			fields.push(widthField);
+			this.videoWidthField = new KJing.TextField({ title: 'Largeur', value: data.videoMediaInfo.width, disabled: true, width: 200 });
+			this.insertAt(this.videoWidthField, 1);
 
-			var heightField = new KJing.TextField({ title: 'Hauteur', value: data.videoMediaInfo.height, disabled: true, width: 200 });
-			fields.push(heightField);
+			this.videoHeightField = new KJing.TextField({ title: 'Hauteur', value: data.videoMediaInfo.height, disabled: true, width: 200 });
+			this.insertAt(this.videoHeightField, 2);
 
-			var durationField = new KJing.TextField({ title: 'Durée', value: this.formatDuration(data.videoMediaInfo.durationMilliseconds/1000), disabled: true, width: 200 });
-			fields.push(durationField);
+			this.videoDurationField = new KJing.TextField({ title: 'Durée', value: this.formatDuration(data.videoMediaInfo.durationMilliseconds/1000), disabled: true, width: 200 });
+			this.insertAt(this.videoDurationField, 3);
 		}
-
-		return fields;
 	}
 });
 

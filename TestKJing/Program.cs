@@ -212,6 +212,119 @@ namespace TestKJing
 			return done;
 		}
 
+
+		public static bool TestPositionChange()
+		{
+			string parentId;
+			string[] childrenIds = new string[5];
+
+			// create a parent folder
+			bool done = false;
+			using(HttpClient client = HttpClient.Create(ServerHost, ServerPort)) {
+				HttpClientRequest request = new HttpClientRequest();
+				request.Headers["authorization"] = TestUserAuthorization;
+				request.Method = "POST";
+				request.Path = "/cloud/resource";
+				JsonObject json = new JsonObject();
+				json["type"] = "folder";
+				json["name"] = "Test Folder";
+				json["parent"] = TestUserId;
+				request.Content = new JsonContent(json);
+				client.SendRequest(request);
+				HttpClientResponse response = client.GetResponse();
+				done = (response.StatusCode == 200) && response.Headers["content-type"].StartsWith("application/json");
+				if(!done)
+					return false;
+				JsonValue res = response.ReadAsJson();
+				parentId = (string)res["id"];
+			}
+
+			// create 5 children
+			for(int i = 0; i < childrenIds.Length; i++) {
+				using(HttpClient client = HttpClient.Create(ServerHost, ServerPort)) {
+					HttpClientRequest request = new HttpClientRequest();
+					request.Headers["authorization"] = TestUserAuthorization;
+					request.Method = "POST";
+					request.Path = "/cloud/resource";
+					JsonObject json = new JsonObject();
+					json["type"] = "folder";
+					json["name"] = "Child "+i;
+					json["parent"] = parentId;
+					request.Content = new JsonContent(json);
+					client.SendRequest(request);
+					HttpClientResponse response = client.GetResponse();
+					done = (response.StatusCode == 200) && response.Headers["content-type"].StartsWith("application/json");
+					if(!done)
+						return false;
+					JsonValue res = response.ReadAsJson();
+					childrenIds[i] = (string)res["id"];
+				}
+			}
+
+			// move child 0 to position 1
+			using(HttpClient client = HttpClient.Create(ServerHost, ServerPort)) {
+				HttpClientRequest request = new HttpClientRequest();
+				request.Headers["authorization"] = TestUserAuthorization;
+				request.Method = "PUT";
+				request.Path = "/cloud/resource/"+childrenIds[0];
+				JsonObject json = new JsonObject();
+				json["position"] = 1;
+				request.Content = new JsonContent(json);
+				client.SendRequest(request);
+				HttpClientResponse response = client.GetResponse();
+				done = (response.StatusCode == 200) && response.Headers["content-type"].StartsWith("application/json");
+				if(!done)
+					return false;
+			}
+			// check if the child position change to 1
+			using (HttpClient client = HttpClient.Create(ServerHost, ServerPort)) {
+				HttpClientRequest request = new HttpClientRequest();
+				request.Method = "GET";
+				request.Path = "/cloud/resource/"+childrenIds[0];
+				request.Headers["authorization"] = TestUserAuthorization;
+				client.SendRequest(request);
+				HttpClientResponse response = client.GetResponse();
+				done = (response.StatusCode == 200);
+				if(!done)
+					return false;
+				JsonValue res = response.ReadAsJson();
+				if((long)res["position"] != 1)
+					return false;
+			}
+			// check if the child is at position 1 in the parent folder
+			using (HttpClient client = HttpClient.Create(ServerHost, ServerPort)) {
+				HttpClientRequest request = new HttpClientRequest();
+				request.Method = "GET";
+				request.Path = "/cloud/resource/"+parentId;
+				request.Headers["authorization"] = TestUserAuthorization;
+				client.SendRequest(request);
+				HttpClientResponse response = client.GetResponse();
+				done = (response.StatusCode == 200);
+				if(!done)
+					return false;
+				JsonValue res = response.ReadAsJson();
+				JsonArray children = (JsonArray)res["children"];
+				if((string)children[1] != childrenIds[0])
+					return false;
+			}
+
+			// delete the parent folder
+			using (HttpClient client = HttpClient.Create(ServerHost, ServerPort)) {
+				HttpClientRequest request = new HttpClientRequest();
+				request.Method = "DELETE";
+				request.Path = "/cloud/resource/"+parentId;
+				request.Headers["authorization"] = TestUserAuthorization;
+				client.SendRequest(request);
+				HttpClientResponse response = client.GetResponse();
+				done = (response.StatusCode == 200);
+				if(!done)
+					return false;
+			}
+
+			return done;
+		}
+
+
 		public static void Display(string desc, TestHandler handler)
 		{
 			Console.Write("Test "+desc+": ");
@@ -290,6 +403,8 @@ namespace TestKJing
 			Display("SearchResource", TestSearchResource);
 			Display("DeleteFile", TestDeleteFile);
 			Display("DeleteFolder", TestDeleteFolder);
+
+			Display("TestPositionChange", TestPositionChange);
 
 			//Display("Create/Delete Folder", TestGroup(TestCreateFolder, TestDeleteFolder));
 			//Bench("Create/Delete Folder", TestGroup(TestCreateFolder, TestDeleteFolder), 100);

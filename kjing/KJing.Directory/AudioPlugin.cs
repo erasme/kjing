@@ -85,7 +85,7 @@ namespace KJing.Directory
 		{
 		}
 
-		public void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceContext> parents)
+		public void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, List<string> groups, Rights heritedRights, List<ResourceContext> parents, ResourceContext context)
 		{
 			// contentRev == 0 => no file content
 			if(value.ContainsKey("contentRev") && ((long)value["contentRev"] == 0))
@@ -95,7 +95,7 @@ namespace KJing.Directory
 				return;
 
 			// handle MP3
-			JsonValue audioMp3 = fileService.Directory.GetChildResourceByName(dbcon, transaction, id, "audioMp3", filterBy, 0, groups, heritedRights, parents, true);
+			JsonValue audioMp3 = fileService.Directory.GetChildResourceByName(dbcon, transaction, id, "audioMp3", filterBy, groups, heritedRights, parents, context, true);
 			if(audioMp3 == null) {
 				lock(instanceLock) {
 					if(!runningTasks.ContainsKey(id + ":mp3")) {
@@ -157,7 +157,7 @@ namespace KJing.Directory
 				value["audioMp3"] = audioMp3;
 
 			// handle OGG
-			JsonValue audioOgg = fileService.Directory.GetChildResourceByName(dbcon, transaction, id, "audioOgg", filterBy, 0, groups, heritedRights, parents, true);
+			JsonValue audioOgg = fileService.Directory.GetChildResourceByName(dbcon, transaction, id, "audioOgg", filterBy, groups, heritedRights, parents, context, true);
 			if(audioOgg == null) {
 				lock(instanceLock) {
 					if(!runningTasks.ContainsKey(id + ":ogg")) {
@@ -219,15 +219,15 @@ namespace KJing.Directory
 				value["audioOgg"] = audioOgg;
 		}
 
-		public void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data)
+		public void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data, Dictionary<string, ResourceChange> changes)
 		{
 		}
 
-		public void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff)
+		public void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff, Dictionary<string, ResourceChange> changes)
 		{
 		}
 
-		public void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data)
+		public void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, Dictionary<string, ResourceChange> changes)
 		{
 		}
 

@@ -190,8 +190,6 @@ Ui.Pressable.extend('KJing.MessageView', {
 	},
 	
 	onSourceChange: function() {
-		console.log('KJing.MessageView.onSourceChange');
-
 		if(this.source.getFaceUrl() !== undefined)
 			this.sourceFace.setSrc(this.source.getFaceUrl());
 		if(this.destination.getIsReady())

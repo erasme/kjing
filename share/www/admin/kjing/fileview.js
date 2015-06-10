@@ -1,4 +1,4 @@
-﻿
+﻿/*
 Ui.LBox.extend('KJing.FileViewer', {
 	resource: undefined,
 	viewer: undefined,
@@ -19,3 +19,4 @@ Ui.LBox.extend('KJing.FileViewer', {
 		return this.resource;
 	}
 });
+*/

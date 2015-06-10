@@ -5,7 +5,7 @@
 // Author(s):
 //  Daniel Lacroix <dlacroix@erasme.org>
 // 
-// Copyright (c) 2014 Departement du Rhone
+// Copyright (c) 2014 Departement du Rhone - 2015 Metropole de Lyon
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -40,13 +40,13 @@ namespace KJing.Directory
 
 		void Init(IDbConnection dbcon);
 
-		void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceContext> parents);
+		void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, List<string> groups, Rights heritedRights, List<ResourceContext> parents, ResourceContext context);
 
-		void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data);
+		void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data, Dictionary<string, ResourceChange> changes);
 
-		void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff);
+		void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff, Dictionary<string, ResourceChange> changes);
 
-		void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data);
+		void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, Dictionary<string, ResourceChange> changes);
 	}
 }
 

@@ -12,17 +12,15 @@ Core.Util.include(appBase+'kjing/field.js');
 Core.Util.include(appBase+'kjing/textfield.js');
 Core.Util.include(appBase+'kjing/textareafield.js');
 Core.Util.include(appBase+'kjing/combofield.js');
+Core.Util.include(appBase+'kjing/quotafield.js');
 Core.Util.include(appBase+'kjing/optionsection.js');
 Core.Util.include(appBase+'kjing/newicon.js');
 Core.Util.include(appBase+'kjing/resourcenewicon.js');
-//Core.Util.include(appBase+'kjing/newfiledialog.js');
-//Core.Util.include(appBase+'kjing/filepropertiesdialog.js');
 Core.Util.include(appBase+'kjing/creatorselector.js');
 Core.Util.include(appBase+'kjing/righticonviewer.js');
 Core.Util.include(appBase+'kjing/resourcerightcreator.js');
 Core.Util.include(appBase+'kjing/resourcerightnewicon.js');
 Core.Util.include(appBase+'kjing/webaccountsection.js');
-Core.Util.include(appBase+'kjing/userprofil.js');
 Core.Util.include(appBase+'kjing/resourcecreator.js');
 Core.Util.include(appBase+'kjing/resourceproperties.js');
 Core.Util.include(appBase+'kjing/resourcecontrollerviewer.js');
@@ -30,9 +28,8 @@ Core.Util.include(appBase+'kjing/resourcepropertiesdialog.js');
 Core.Util.include(appBase+'kjing/creatordialog.js');
 //Core.Util.include(appBase+'kjing/newresourcedialog.js');
 //Core.Util.include(appBase+'kjing/fileviewer.js');
-Core.Util.include(appBase+'kjing/filecontrolviewer.js');
 Core.Util.include(appBase+'kjing/mediacontroller.js');
-Core.Util.include(appBase+'kjing/fileview.js');
+//Core.Util.include(appBase+'kjing/fileview.js');
 Core.Util.include(appBase+'kjing/message.js');
 Core.Util.include(appBase+'kjing/messages.js');
 Core.Util.include(appBase+'kjing/messageview.js');
@@ -49,15 +46,18 @@ Core.Util.include(appBase+'logins/facebook/wizard.js');
 Core.Util.include(appBase+'logins/create/wizard.js');
 
 // folder
-Core.Util.include(appBase+'kjing/folder/foldercreator.js')
+Core.Util.include(appBase+'kjing/folder/foldercreator.js');
 Core.Util.include(appBase+'kjing/folder/foldericon.js');
 Core.Util.include(appBase+'kjing/folder/foldericonviewer.js');
 Core.Util.include(appBase+'kjing/folder/folderviewer.js');
 
 // user
+Core.Util.include(appBase+'kjing/user/uploadfacebutton.js');
+Core.Util.include(appBase+'kjing/user/userproperties.js');
 Core.Util.include(appBase+'kjing/user/usercreator.js');
 Core.Util.include(appBase+'kjing/user/usericon.js');
 Core.Util.include(appBase+'kjing/user/usericonviewer.js');
+Core.Util.include(appBase+'kjing/user/userviewer.js');
 
 // group
 Core.Util.include(appBase+'kjing/group/groupcreator.js');
@@ -77,8 +77,8 @@ Core.Util.include(appBase+'kjing/device/deviceiconviewer.js');
 Core.Util.include(appBase+'kjing/map/mapproperties.js');
 Core.Util.include(appBase+'kjing/map/mapmembercreator.js');
 Core.Util.include(appBase+'kjing/map/mapdevicecreator.js');
-Core.Util.include(appBase+'kjing/map/mapcreator.js')
-Core.Util.include(appBase+'kjing/map/mapicon.js');;
+Core.Util.include(appBase+'kjing/map/mapcreator.js');
+Core.Util.include(appBase+'kjing/map/mapicon.js');
 Core.Util.include(appBase+'kjing/map/mapmembernewicon.js');
 Core.Util.include(appBase+'kjing/map/mapviewer.js');
 Core.Util.include(appBase+'kjing/map/mapdevicesviewer.js');
@@ -117,7 +117,7 @@ Core.Util.include(appBase+'kjing/pdf/pdfviewer.js');
 Core.Util.include(appBase+'kjing/pdf/pdfcontrollerviewer.js');
 
 // site
-Core.Util.include(appBase+'kjing/site/sitecreator.js')
+Core.Util.include(appBase+'kjing/site/sitecreator.js');
 Core.Util.include(appBase+'kjing/site/siteproperties.js');
 Core.Util.include(appBase+'kjing/site/siteviewer.js');
 Core.Util.include(appBase+'kjing/site/sitecontrollerviewer.js');
@@ -131,7 +131,7 @@ Core.Util.include(appBase+'kjing/link/linkiconviewer.js');
 Core.Util.include(appBase+'kjing/search/searchviewer.js');
 
 // state
-Core.Util.include(appBase+'kjing/state/statecreator.js')
+Core.Util.include(appBase+'kjing/state/statecreator.js');
 Core.Util.include(appBase+'kjing/state/stateviewer.js');
 
 // main app

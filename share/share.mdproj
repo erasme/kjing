@@ -194,20 +194,16 @@
     <None Include="www\admin\logins\logincreator.js" />
     <None Include="www\admin\logins\loginwizard.js" />
     <None Include="www\admin\logins\wizarditem.js" />
-    <None Include="www\admin\kjing\userprofil.js" />
     <None Include="www\admin\kjing\webaccountsection.js" />
     <None Include="www\admin\kjing\optionsection.js" />
     <None Include="www\admin\kjing\textfield.js" />
     <None Include="www\admin\kjing\textareafield.js" />
-    <None Include="www\admin\kjing\newresourcedialog.js" />
     <None Include="www\admin\kjing\resourcepropertiesdialog.js" />
-    <None Include="www\admin\kjing\newfiledialog.js" />
     <None Include="www\era\ui\menutoolbar.js" />
     <None Include="www\admin\kjing.js" />
     <None Include="www\admin\img\default.png" />
     <None Include="www\client\kjing.js" />
     <None Include="www\client\kjing\fileviewer.js" />
-    <None Include="www\admin\kjing\filepropertiesdialog.js" />
     <None Include="www\admin\kjing\fileviewer.js" />
     <None Include="www\admin\kjing\combofield.js" />
     <None Include="www\favicon.ico" />
@@ -219,7 +215,6 @@
     <None Include="www\era\ui\actionbutton.js" />
     <None Include="www\admin\kjing\rounditemgraphic.js" />
     <None Include="www\admin\kjing\ratiobox.js" />
-    <None Include="www\admin\kjing\deviceitemview.js" />
     <None Include="www\era\ui\carouselable2.js" />
     <None Include="www\era\ui\form.js" />
     <None Include="www\era\ui\text.js.html" />
@@ -242,7 +237,6 @@
     <None Include="www\common\user.js" />
     <None Include="www\common\link.js" />
     <None Include="www\admin\kjing\field.js" />
-    <None Include="www\admin\kjing\filecontrolviewer.js" />
     <None Include="www\era\ui\pointerevent.js" />
     <None Include="www\era\ui\event.js" />
     <None Include="www\admin\kjing\fileview.js" />
@@ -336,5 +330,9 @@
     <None Include="www\admin\kjing\map\mapmembercreator.js" />
     <None Include="www\admin\kjing\map\mapmembernewicon.js" />
     <None Include="www\admin\kjing\map\mapdevicecreator.js" />
+    <None Include="www\admin\kjing\user\userproperties.js" />
+    <None Include="www\admin\kjing\quotafield.js" />
+    <None Include="www\admin\kjing\user\uploadfacebutton.js" />
+    <None Include="www\admin\kjing\user\userviewer.js" />
   </ItemGroup>
 </Project>

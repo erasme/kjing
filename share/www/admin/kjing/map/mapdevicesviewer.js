@@ -247,7 +247,7 @@ Ui.DropBox.extend('KJing.MapDevicesViewer', {
 	},
 
 	onResourceChange: function() {
-		//console.log(this+'.onResourceChange');
+		console.log(this+'.onResourceChange');
 
 		var imageUrl = this.resource.getMapImageUrl();
 		if((imageUrl !== undefined) && (imageUrl !== this.image.getSrc()))
@@ -299,6 +299,8 @@ Ui.DropBox.extend('KJing.MapDevicesViewer', {
 		KJing.MapDevicesViewer.base.onLoad.apply(this, arguments);
 		this.connect(this.resource, 'change', this.onResourceChange);
 		this.resource.monitor();
+		if(this.resource.getIsReady())
+			this.onResourceChange();
 	},
 	
 	onUnload: function() {

@@ -488,9 +488,8 @@ KJing.OptionSection.extend('KJing.WebAccountSection', {
 		
 		this.flow = new Ui.Flow({ uniform: true });
 		this.setContent(this.flow);
-				
-		this.plus = new Ui.Pressable();
-		this.plus.setContent(new Ui.Icon({ icon: 'plus', width: 48, height: 48, fill: '#444444', verticalAlign: 'center', horizontalAlign: 'center' }));
+
+		this.plus = new KJing.NewIcon();
 		this.flow.append(this.plus);
 		this.connect(this.plus, 'press', this.onPlusPress);
 	},
@@ -508,7 +507,7 @@ KJing.OptionSection.extend('KJing.WebAccountSection', {
 	},
 		
 	onUserChange: function() {
-	
+
 		if((this.user.getData().googleid !== null) && (this.googleAccount === undefined)) {
 			this.googleAccount = new KJing.GoogleAccount({ user: this.user });
 			this.flow.prepend(this.googleAccount);

@@ -23,7 +23,11 @@ Ui.LBox.extend('KJing.FileViewer', {
 			}
 			else {
 				if(this.playTimer === undefined) {
-					var duration = 5;
+					var duration = this.fileControl.getResource().getData().durationMs;
+					if(typeof(duration) === 'number')
+						duration /= 1000;
+					else
+						duration = 5;
 					this.playTimer = new Core.DelayedTask({ scope: this, delay: duration, callback: this.onPlayEnd });
 				}
 			}
@@ -119,7 +123,6 @@ Ui.ScrollingArea.extend('KJing.ImageFileViewer', {
 		if(this.getIsDown() || this.getIsInertia())
 			return;
 		this.changeLock = true;
-//		console.log('onFileControlChange transform: '+JSON.stringify(this.fileControl.getTransform()));
 		this.setScale(this.fileControl.getTransform().scale);
 		this.setOffset(-this.fileControl.getTransform().x, -this.fileControl.getTransform().y, false);
 		this.changeLock = false;
@@ -357,8 +360,6 @@ Ui.LBox.extend('KJing.AudioFileViewer', {
 	},
 
 	onFileChange: function() {
-		console.log(this+'.onFileChange ICI');
-
 		// no MP3 audio, sorry
 		if(this.file.getData().audioMp3 === undefined) {
 			this.setContent(new Ui.Text({ text: 'Impossible de lire ce fichier audio', verticalAlign: 'center', textAlign: 'center' }));
@@ -526,9 +527,17 @@ Ui.TransitionBox.extend('KJing.PdfFileViewer', {
 		else
 			this.file = this.fileControl.getResource();
 
+		var duration = this.file.getData().durationMs;
+		if(typeof(duration) === 'number')
+			duration /= 1000;
+		else
+			duration = 5;
+		this.pageDuration = duration;
+
 		// generate page control
 		this.pagesControl = [];
-		var pdfPages = this.file.getData().pdfPages.cacheChildren;
+		var pdfPages = this.file.getData().pdfPages;
+		console.log(pdfPages);
 //		console.log(this.fileControl);
 		var controlData = this.fileControl.getData();
 //		console.log(controlData);
@@ -536,9 +545,8 @@ Ui.TransitionBox.extend('KJing.PdfFileViewer', {
 		controlData.pages = pages;
 		for(var i = 0; i < pdfPages.length; i++) {
 			var page = pdfPages[i];
-
 			var pageFile = KJing.Resource.create(page);
-			var pageControl = new KJing.PageController({ controller: this.fileControl, resource: pageFile, id: page.id });
+			var pageControl = new KJing.PageController({ controller: this.fileControl, resource: pageFile, id: i });
 			this.pagesControl.push(pageControl);
 			pages.push(pageControl.getData());
 		}
@@ -551,7 +559,6 @@ Ui.TransitionBox.extend('KJing.PdfFileViewer', {
 
 	play: function() {
 		if(this.playTimer === undefined) {
-			this.pageDuration = 5;
 			this.playTimer = new Core.DelayedTask({ scope: this, delay: this.pageDuration, callback: this.onPlayTimerEnd });
 		}
 	},
@@ -632,7 +639,13 @@ Ui.ScrollingArea.extend('KJing.TextFileViewer', {
 
 		this.text = new Ui.Text({ margin: 20, fontSize: 40, color: 'white' });
 		scalebox.append(this.text);
+	
+		this.loadText();
 
+		this.connect(this, 'scroll', this.onFileTransform);
+	},
+
+	loadText: function() {
 		var request = new Core.HttpRequest({ method: 'GET', url: this.file.getDownloadUrl() });
 		this.connect(request, 'done', this.onTextLoaded);
 		request.send();
@@ -640,5 +653,44 @@ Ui.ScrollingArea.extend('KJing.TextFileViewer', {
 
 	onTextLoaded: function(req) {
 		this.text.setText(req.getResponseText());
+	},
+
+	onFileTransform: function() {
+		if(this.changeLock)
+			return;
+		this.fileControl.mergeData({ transform: {
+			x: -this.getRelativeOffsetX(),
+			y: -this.getRelativeOffsetY(),
+			scale: this.getScale()
+		} });
+		this.fileControl.getDevice().notifyClientData();
+	},
+
+	onFileControlChange: function() {
+		if(this.getIsDown() || this.getIsInertia())
+			return;
+		this.changeLock = true;
+		this.setScale(this.fileControl.getTransform().scale);
+		this.setOffset(-this.fileControl.getTransform().x, -this.fileControl.getTransform().y, false);
+		this.changeLock = false;
+	},
+
+	onFileChange: function() {
+		this.loadText();
+	}
+}, {
+	onLoad: function() {
+		KJing.TextFileViewer.base.onLoad.apply(this, arguments);
+		this.connect(this.fileControl, 'change', this.onFileControlChange);
+		this.onFileControlChange();
+		this.connect(this.file, 'change', this.onFileChange);
+		this.file.monitor();
+	},
+	
+	onUnload: function() {
+		KJing.TextFileViewer.base.onUnload.apply(this, arguments);
+		this.disconnect(this.fileControl, 'change', this.onFileControlChange);
+		this.disconnect(this.file, 'change', this.onFileChange);
+		this.file.unmonitor();
 	}
 });

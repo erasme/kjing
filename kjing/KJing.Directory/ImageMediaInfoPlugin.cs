@@ -82,13 +82,16 @@ namespace KJing.Directory
 				fails = true;
 
 			JsonValue imageMediaInfo = new JsonObject();
-			diff["imageMediaInfo"] = imageMediaInfo;
+			if(diff != null)
+				diff["imageMediaInfo"] = imageMediaInfo;
+			else
+				data["imageMediaInfo"] = imageMediaInfo;
 			imageMediaInfo["width"] = width;
 			imageMediaInfo["height"] = height;
 			imageMediaInfo["fails"] = fails;
 		}
 
-		public void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceContext> parents)
+		public void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, List<string> groups, Rights heritedRights, List<ResourceContext> parents, ResourceContext context)
 		{
 			// contentRev == 0 => no file content
 			if(value.ContainsKey("contentRev") && ((long)value["contentRev"] == 0))
@@ -148,12 +151,12 @@ namespace KJing.Directory
 			}
 		}
 
-		public void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data)
+		public void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data, Dictionary<string, ResourceChange> changes)
 		{
-			Change(dbcon, transaction, data["id"], null, data);
+			Change(dbcon, transaction, data["id"], null, data, changes);
 		}
 
-		public void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff)
+		public void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff, Dictionary<string, ResourceChange> changes)
 		{
 			bool found = false;
 			bool fails = false;
@@ -210,7 +213,7 @@ namespace KJing.Directory
 				// cache the result in the database
 				using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 					dbcmd.Transaction = transaction;
-					dbcmd.CommandText = "UPDATE imageMediaInfo fails=@fails,width=@width,height=@height WHERE id=@id";
+					dbcmd.CommandText = "UPDATE imageMediaInfo SET fails=@fails,width=@width,height=@height WHERE id=@id";
 					dbcmd.Parameters.Add(new SqliteParameter("id", id));
 					dbcmd.Parameters.Add(new SqliteParameter("fails", fails));
 					dbcmd.Parameters.Add(new SqliteParameter("width", width));
@@ -221,7 +224,7 @@ namespace KJing.Directory
 			}
 		}
 
-		public void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data)
+		public void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, Dictionary<string, ResourceChange> changes)
 		{
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 				dbcmd.Transaction = transaction;

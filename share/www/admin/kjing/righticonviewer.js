@@ -8,7 +8,8 @@
 		delete(config.resource);
 		this.right = config.right;
 		delete(config.right);
-		
+
+		this.setItemName('');
 		this.user = KJing.Resource.create(this.right.user);
 
 		this.itemIcon = KJing.ResourceIcon.create(this.user);

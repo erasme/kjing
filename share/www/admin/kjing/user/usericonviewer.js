@@ -19,7 +19,7 @@ KJing.ResourceIconViewer.extend('KJing.UserIconViewer', {
 			'Voulez vous vraiment ouvrir une session sur le compte de "'+this.getResource().getName()+'" ? ATTENTION, '+
 			'vous ne serez plus sur votre compte et vous aller agir au nom de cette personne.' }));
 		dialog.setCancelButton(new Ui.DialogCloseButton({ text: 'Annuler' }));
-		var switchButton = new Ui.Button({ text: 'Commuter' });
+		var switchButton = new Ui.DefaultButton({ text: 'Commuter' });
 		dialog.setActionButtons([switchButton]);
 
 		this.connect(switchButton, 'press', function() {
@@ -34,10 +34,6 @@ KJing.ResourceIconViewer.extend('KJing.UserIconViewer', {
 		dialog.open();
 	}
 }, {
-	onResourceChange: function() {
-		KJing.UserIconViewer.base.onResourceChange.call(this);
-	},
-
 	getSelectionActions: function() {
 		return {
 			messages: {

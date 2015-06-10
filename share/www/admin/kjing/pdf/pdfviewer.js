@@ -19,7 +19,9 @@ Ui.CarouselableLoader.extend('KJing.PdfPagesLoader', {
 		this.resource = config.resource;
 		delete(config.resource);
 
-		this.pages = this.resource.getData().pdfPages.cacheChildren;
+		this.pages = this.resource.getData().pdfPages;
+		if(this.pages === undefined)
+			this.pages = [];
 	}
 }, {
 	getMin: function() {
@@ -48,7 +50,10 @@ KJing.ResourceViewer.extend('KJing.PdfViewer', {
 	},
 
 	onPagesReady: function() {
-		this.loader = new KJing.PdfPagesLoader({ resource: this.resource });
+		if(this.resource.getData().pdf !== undefined)
+			this.loader = new KJing.PdfPagesLoader({ resource: KJing.Resource.create(this.resource.getData().pdf) });
+		else
+			this.loader = new KJing.PdfPagesLoader({ resource: this.resource });
 		this.carousel = new Ui.Carousel3({ loader: this.loader });
 		this.setContent(this.carousel);
 	},
@@ -73,3 +78,4 @@ KJing.ResourceViewer.extend('KJing.PdfViewer', {
 });
 
 KJing.ResourceViewer.register('file:application:pdf', KJing.PdfViewer);
+KJing.ResourceViewer.register('file:application:msword', KJing.PdfViewer);

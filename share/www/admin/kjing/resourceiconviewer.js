@@ -11,12 +11,7 @@ KJing.IconViewer.extend('KJing.ResourceIconViewer', {
 		this.itemIcon.setVerticalAlign('bottom');
 		this.setIcon(this.itemIcon);
 
-
 		this.setDraggableData(this.resource);
-
-		this.connect(this.resource, 'change', this.onResourceChange);
-		if(this.resource.getIsReady())
-			this.onResourceChange();
 	},
 
 	getResource: function() {
@@ -77,12 +72,16 @@ KJing.IconViewer.extend('KJing.ResourceIconViewer', {
 }, {
 	onLoad: function() {
 		KJing.ResourceIconViewer.base.onLoad.apply(this, arguments);
+		this.resource.monitor();
 		this.connect(this.resource, 'change', this.onResourceChange);
 		this.connect(this.resource, 'delete', this.onResourceDelete);
+		if(this.resource.getIsReady())
+			this.onResourceChange();
 	},
 	
 	onUnload: function() {
 		KJing.ResourceIconViewer.base.onUnload.apply(this, arguments);
+		this.resource.unmonitor();
 		this.disconnect(this.resource, 'change', this.onResourceChange);
 		this.disconnect(this.resource, 'delete', this.onResourceDelete);
 	},
@@ -94,7 +93,7 @@ KJing.IconViewer.extend('KJing.ResourceIconViewer', {
 				scope: this, callback: this.suppress, multiple: false
 			},
 			edit: {
-				text: 'Propriétés', icon: 'edit', testRight: this.testWriteRight,
+				text: 'Propriétés', icon: 'edit',
 				scope: this, callback: this.onItemProperties, multiple: false
 			},
 			open: {

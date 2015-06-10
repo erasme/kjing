@@ -3,11 +3,19 @@ KJing.ResourceIconViewer.extend('KJing.LinkIconViewer', {
 	linkedResource: undefined,
 
 	constructor: function(config) {
-/*		this.setItemIcon('draglink');*/
-	
-		this.linkedResource = this.getResource().getLinkedResource();
-		this.setItemTags([ 'link' ]);
 
+		console.log(this+'.new id: '+this.getResource().getId()+', getIsReady: '+this.getResource().getIsReady());
+
+		if(this.getResource().getIsReady())
+			this.onResourceReady();
+		else
+			this.connect(this.getResource(), 'ready', this.onResourceReady);
+
+		this.setItemTags([ 'link' ]);
+	},
+
+	onResourceReady: function() {
+		this.linkedResource = this.getResource().getLinkedResource();
 		if(this.linkedResource.getIsReady())
 			this.onLinkedResourceReady();
 		else
@@ -15,8 +23,6 @@ KJing.ResourceIconViewer.extend('KJing.LinkIconViewer', {
 	},
 
 	onLinkedResourceReady: function() {
-		//console.log('onLinkedResourceReady name: '+this.getResource().getName()+', linkedName: '+this.linkedResource.getName());
-	
 		this.setItemName(this.getResource().getName());
 
 		var owner = KJing.Resource.create(this.linkedResource.getOwnerId());

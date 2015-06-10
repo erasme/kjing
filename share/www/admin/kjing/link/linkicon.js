@@ -2,6 +2,8 @@
 Ui.LBox.extend('KJing.LinkIcon', {
 	resource: undefined,
 	icon: undefined,
+	tags: undefined,
+	ownerImage: undefined,
 
 	constructor: function(config) {
 		this.resource = config.resource;
@@ -26,11 +28,13 @@ Ui.LBox.extend('KJing.LinkIcon', {
 	},
 
 	setTags: function(tags) {
+		this.tags = tags;
 		if(!Ui.Icon.hasInstance(this.icon))
 			this.icon.setTags(tags);
 	},
 
 	setOwnerImage: function(src) {
+		this.ownerImage = src;
 		if(!Ui.Icon.hasInstance(this.icon))
 			this.icon.setOwnerImage(src);
 	},
@@ -40,6 +44,10 @@ Ui.LBox.extend('KJing.LinkIcon', {
 			var linkedResource = this.resource.getLinkedResource();
 			this.icon = KJing.ResourceIcon.create(linkedResource);
 			this.setContent(this.icon);
+			if(this.ownerImage !== undefined)
+				this.icon.setOwnerImage(this.ownerImage);
+			if(this.tags !== undefined)
+				this.icon.setTags(this.tags);
 		}
 	}
 }, {

@@ -1,19 +1,19 @@
 ﻿
-KJing.FileProperties.extend('KJing.ImageProperties', {}, {
-
-	getFields: function() {
-		var fields = KJing.ImageProperties.base.getFields();
+KJing.FileProperties.extend('KJing.ImageProperties', {
+	imageWidthField: undefined,
+	imageHeightField: undefined
+}, {
+	build: function() {
+		KJing.ImageProperties.base.build.apply(this, arguments);
 
 		var data = this.resource.getData();
 		if('imageMediaInfo' in data) {
-			var widthField = new KJing.TextField({ title: 'Largeur', value: data.imageMediaInfo.width, disabled: true, width: 200 });
-			fields.push(widthField);
+			this.imageWidthField = new KJing.TextField({ title: 'Largeur', value: data.imageMediaInfo.width, disabled: true, width: 200 });
+			this.insertAt(this.imageWidthField, 2, undefined, 'newline');
 
-			var heightField = new KJing.TextField({ title: 'Hauteur', value: data.imageMediaInfo.height, disabled: true, width: 200 });
-			fields.push(heightField);
-		}
-
-		return fields;
+			this.imageHeightField = new KJing.TextField({ title: 'Hauteur', value: data.imageMediaInfo.height, disabled: true, width: 200 });
+			this.insertAt(this.imageHeightField, 3);
+		}		
 	}
 });
 

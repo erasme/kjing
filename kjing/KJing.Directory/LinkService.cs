@@ -60,7 +60,7 @@ namespace KJing.Directory
 			}
 		}
 
-		public override void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceContext> parents)
+		public override void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, List<string> groups, Rights heritedRights, List<ResourceContext> parents, ResourceContext context)
 		{
 			string link = null;
 			// select from the link table
@@ -80,7 +80,7 @@ namespace KJing.Directory
 			value["link"] = link;
 		}
 
-		public override void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data)
+		public override void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data, Dictionary<string, ResourceChange> changes)
 		{
 			string id = data["id"];
 			if(data.ContainsKey("link")) {
@@ -96,7 +96,7 @@ namespace KJing.Directory
 			}
 		}
 
-		public override void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff)
+		public override void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff, Dictionary<string, ResourceChange> changes)
 		{
 			if(diff.ContainsKey("link")) {
 				using(IDbCommand dbcmd = dbcon.CreateCommand()) {
@@ -109,7 +109,7 @@ namespace KJing.Directory
 			}
 		}
 
-		public override void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data)
+		public override void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, Dictionary<string, ResourceChange> changes)
 		{
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 				dbcmd.Transaction = transaction;

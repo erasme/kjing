@@ -71,7 +71,7 @@ namespace KJing.Directory
 			}
 		}
 			
-		public override void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceContext> parents)
+		public override void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, List<string> groups, Rights heritedRights, List<ResourceContext> parents, ResourceContext context)
 		{
 			// get the publicName
 			value["publicName"] = null;
@@ -87,7 +87,7 @@ namespace KJing.Directory
 				}
 			}
 
-			JsonValue imageJson = directory.GetChildResourceByName(dbcon, transaction, id, "image", filterBy, 0, groups, heritedRights, parents, false);
+			JsonValue imageJson = directory.GetChildResourceByName(dbcon, transaction, id, "image", filterBy, groups, heritedRights, parents, context, false);
 			if(imageJson != null)
 				value["image"] = imageJson;
 
@@ -110,7 +110,7 @@ namespace KJing.Directory
 			}
 		}
 
-		public override void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data)
+		public override void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data, Dictionary<string, ResourceChange> changes)
 		{
 			string id = (string)data["id"];
 			string publicName = null;
@@ -139,7 +139,7 @@ namespace KJing.Directory
 			}
 		}
 
-		public override void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff)
+			public override void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff, Dictionary<string, ResourceChange> changes)
 		{
 			if(diff.ContainsKey("publicName")) {
 				string publicName = (string)diff["publicName"];
@@ -185,7 +185,7 @@ namespace KJing.Directory
 			}
 		}
 
-		public override void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data)
+		public override void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, Dictionary<string, ResourceChange> changes)
 		{
 			// delete from map_device table
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
@@ -209,7 +209,7 @@ namespace KJing.Directory
 			JsonValue newValues;
 			lock(dbcon) {
 				using(IDbTransaction transaction = dbcon.BeginTransaction()) {
-					oldValues = directory.GetResource(dbcon, transaction, id, null, 0);
+					oldValues = directory.GetResource(dbcon, transaction, id, null);
 
 					if(data is JsonArray) {
 						foreach(JsonValue item in (JsonArray)data) {
@@ -231,7 +231,7 @@ namespace KJing.Directory
 							dbcmd.ExecuteNonQuery();
 						}
 					}
-					newValues = directory.GetResource(dbcon, transaction, id, null, 0);
+					newValues = directory.GetResource(dbcon, transaction, id, null);
 					transaction.Commit();
 				}
 			}
@@ -247,11 +247,13 @@ namespace KJing.Directory
 
 		public void MapAddDevices(string id, JsonValue data)
 		{
+			Dictionary<string,ResourceChange> changes = new Dictionary<string, ResourceChange>();
+
 			JsonValue oldValues;
 			JsonValue newValues;
 			lock(dbcon) {
 				using(IDbTransaction transaction = dbcon.BeginTransaction()) {
-					oldValues = directory.GetResource(dbcon, transaction, id, null, 0);
+					oldValues = directory.GetResource(dbcon, transaction, id, null);
 
 					if(data is JsonArray) {
 						foreach(JsonValue item in (JsonArray)data) {
@@ -295,11 +297,23 @@ namespace KJing.Directory
 							dbcmd.ExecuteNonQuery();
 						}
 					}
-					newValues = directory.GetResource(dbcon, transaction, id, null, 0);
+					directory.ChangeResource(dbcon, transaction, id, null, changes);
+
+					newValues = directory.GetResource(dbcon, transaction, id, null);
+
+					changes[id] = new ResourceChange {
+						Before = oldValues,
+						After = newValues
+					};
+
 					transaction.Commit();
 				}
 			}
-			directory.NotifyChange(oldValues, newValues);
+
+			// notify the changes
+			foreach(string resourceId in changes.Keys) {
+				directory.NotifyChange(changes[resourceId].Before, changes[resourceId].After);
+			}
 		}
 
 		public void MapSetImage(string map, string file) 
@@ -336,7 +350,7 @@ namespace KJing.Directory
 					while(reader.Read()) {
 						if(!reader.IsDBNull(0)) {
 							string mapId = reader.GetString(0);
-							res.Add(GetResource(mapId, null, 0));
+							res.Add(GetResource(mapId, null));
 						}
 					}
 				}
@@ -348,13 +362,8 @@ namespace KJing.Directory
 		{
 			string[] parts = context.Request.Path.Split(new char[] { '/' }, System.StringSplitOptions.RemoveEmptyEntries);
 
-			// GET /public?seenBy=[user] get the list of public maps
+			// GET /public get the list of public maps
 			if((context.Request.Method == "GET") && (parts.Length == 1) && (parts[0] == "public")) {
-			
-				string seenBy = null;
-				if(context.Request.QueryString.ContainsKey("seenBy"))
-					seenBy = context.Request.QueryString["seenBy"];
-
 				context.Response.StatusCode = 200;
 				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
 				context.Response.Content = new JsonContent(GetPublicList());
@@ -364,7 +373,7 @@ namespace KJing.Directory
 
 				directory.EnsureRights(context, parts[0], false, true, false);
 
-				FileDefinition fileDefinition = await directory.GetFilePostAsync(context);
+				FileDefinition fileDefinition = await directory.GetFileDefinitionAsync(context);
 
 				// check if it is really an image
 				if(!((string)fileDefinition.Define["mimetype"]).StartsWith("image/"))
@@ -378,12 +387,6 @@ namespace KJing.Directory
 
 				JsonValue jsonFile = await directory.CreateFileAsync(fileDefinition);
 
-				JsonValue jsonDiff = new JsonObject();
-				jsonDiff["image"] = jsonFile;
-				// change the map because the image is embedded
-				// and we want revision update, notifications...
-				directory.ChangeResource(parts[0], jsonDiff);
-
 				context.Response.StatusCode = 200;
 				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
 				context.Response.Content = new JsonContent(jsonFile);
@@ -396,7 +399,7 @@ namespace KJing.Directory
 
 				context.Response.StatusCode = 200;
 				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
-				context.Response.Content = new JsonContent(directory.GetResource(parts[0], null, 0));
+				context.Response.Content = new JsonContent(directory.GetResource(parts[0], null));
 			}
 			// PUT /[map]/devices/[device] change a device position in the map
 			else if((context.Request.Method == "PUT") && (parts.Length == 3) && (parts[1] == "devices") && IsValidId(parts[0]) && IsValidId(parts[2])) {
@@ -409,7 +412,7 @@ namespace KJing.Directory
 
 				context.Response.StatusCode = 200;
 				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
-				context.Response.Content = new JsonContent(directory.GetResource(parts[0], null, 0));
+				context.Response.Content = new JsonContent(directory.GetResource(parts[0], null));
 			}
 			// DELETE /[map]/devices/[device] remove a device from the map
 			else if((context.Request.Method == "DELETE") && (parts.Length == 3) && IsValidId(parts[0]) && (parts[1] == "devices") && IsValidId(parts[2])) {

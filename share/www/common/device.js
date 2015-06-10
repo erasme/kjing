@@ -4,6 +4,7 @@ KJing.Resource.extend('KJing.Device', {
 	sendClientTask: undefined,
 	devicePlayList: undefined,
 	currentFileControl: undefined,
+	controlCount: 0,
 	
 	constructor: function(config) {
 		this.addEvents('playlistchange', 'clientdatachange');
@@ -19,13 +20,29 @@ KJing.Resource.extend('KJing.Device', {
 		this.changeData({ path: path });
 	},
 
+	control: function() {
+		if(++this.controlCount === 1) {
+			this.clientData.controller = true;
+			this.notifyClientData();
+		}
+	},
+
+	uncontrol: function() {
+		if(--this.controlCount <= 0) {
+			this.controlCount = 0;
+			delete(this.clientData.controller);
+			this.notifyClientData();
+		}
+	},
+
 	countControllers: function() {
 		var count = 0;
-		if('clients' in this.data) {
-			for(var i = 0; i < this.data.clients.length; i++) {
-				if(this.data.clients[i].user !== this.id)
-					count++;
-			}
+		var connections = this.getConnections();
+		for(var i = 0; i < connections.length; i++) {
+			var connection = connections[i];
+			if((connection.user !== this.id) && (connection.data !== undefined) &&
+			   (connection.data !== null) && (connection.data.controller === true))
+				count++;
 		}
 		return count;
 	},
@@ -35,12 +52,10 @@ KJing.Resource.extend('KJing.Device', {
 	},
 
 	getDeviceData: function() {
-		var clients = this.getData().clients;
-		if(clients !== undefined) {
-			for(var i = 0; i < clients.length; i++) {
-				if(clients[i].user === this.getId())
-					return clients[i];
-			}
+		var connections = this.getConnections();
+		for(var i = 0; i < connections.length; i++) {
+			if(connections[i].user === this.getId())
+				return connections[i];
 		}
 		return undefined;
 	},
@@ -52,7 +67,7 @@ KJing.Resource.extend('KJing.Device', {
 	sendDeviceMessage: function(message) {
 		var data = this.getDeviceData();
 		if(data !== undefined)
-			this.sendClientMessage(data.id, message);
+			this.sendClientMessage(data.connection, message);
 	},
 
 	setDevicePath: function(path) {
@@ -126,10 +141,11 @@ KJing.Resource.extend('KJing.Device', {
 		return this.clientData;
 	},
 
-	sendClientData: function(clientData) {
-		if((this.socket !== undefined) && (this.connectionId !== undefined))
-			this.socket.send(JSON.stringify({ type: 'clientdata', data: clientData }));
-	},
+//	sendClientData: function(clientData) {
+//		console.log(this+'.sendClientData '+JSON.stringify(clientData));
+//		if((this.socket !== undefined) && (this.connectionId !== undefined))
+//			this.socket.send(JSON.stringify({ type: 'clientdata', data: clientData }));
+//	},
 
 	notifyClientData: function() {
 		// delay the client data notification to limit the rate of the updates
@@ -146,13 +162,12 @@ KJing.Resource.extend('KJing.Device', {
 			this.sendClientData(this.clientData);
 	}
 }, {
-	updateDataCore: function() {
+	updateConnectionsCore: function(connections) {
 
-//		console.log(this+'.updateDataCore isSync: '+this.getIsDeviceSync());
+		console.log(this+'.updateConnectionsCore isSync: '+this.getIsDeviceSync());
 		if(!this.getIsDeviceSync())
 			return;
-
-
+		
 		if(this.devicePlayList !== undefined) {
 			var playList;
 			var client = this.getDeviceData();

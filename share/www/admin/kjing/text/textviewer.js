@@ -38,13 +38,7 @@ KJing.ResourceViewer.extend('KJing.TextViewer', {
 			var dialog = new KJing.TextEditor({ file: this.resource });
 			dialog.open();
 			// find MenuPopup
-			var popup = undefined;
-			var current = button.getParent();
-			while((popup === undefined) && (current !== undefined)) {
-				if(Ui.Popup.hasInstance(current))
-					popup = current;
-				current = current.getParent();
-			}
+			var popup = button.getParentByClass(Ui.Popup);
 			if(popup !== undefined)
 				popup.close();
 		});

@@ -110,6 +110,10 @@ Ui.DropBox.extend('KJing.ResourceIcon', {
 			this.append(this.progressbar);
 	},
 
+	getTags: function() {
+		return this.tags;
+	},
+
 	setTags: function(tags) {
 		this.tags = tags;
 		this.updateTags();
@@ -129,8 +133,17 @@ Ui.DropBox.extend('KJing.ResourceIcon', {
 			var flow = new Ui.Flow({ itemAlign: 'right', verticalAlign: 'bottom' });
 			this.tagsBox.setContent(flow);
 			if(this.tags !== undefined) {
-				for(var i = 0; i < this.tags.length; i++)
-					flow.append(new Ui.Icon({ icon: this.tags[i], width: 24, height: 24, fill: '#00c3ff' }));
+				for(var i = 0; i < this.tags.length; i++) {
+					var tag = this.tags[i];
+					var tagColor = '#00c3ff';
+					var tagIcon = tag;
+					if(typeof(tag) === 'object') {
+						tagIcon = tag.icon;
+						if(tag.color !== undefined)
+							tagColor = tag.color;
+					}
+					flow.append(new Ui.Icon({ icon: tagIcon, width: 24, height: 24, fill: tagColor }));
+				}
 			}
 			if(this.ownerImageSrc !== undefined)
 				flow.append(new KJing.RoundItemGraphic({ width: 24, height: 24, imageSrc: this.ownerImageSrc }));
@@ -152,6 +165,14 @@ Ui.DropBox.extend('KJing.ResourceIcon', {
 	},
 
 	onResourceChange: function() {
+	},
+
+	onResourceError: function() {
+		this.setTags([ { icon: 'deny', color: '#ff5151' } ]);
+	},
+
+	onResourceDelete: function() {
+		this.setTags([ { icon: 'deleted', color: '#ff5151' } ]);
 	}
 }, {
 	onLoad: function() {
@@ -159,11 +180,19 @@ Ui.DropBox.extend('KJing.ResourceIcon', {
 		this.connect(this.resource, 'change', this.onResourceChange);
 		if(this.resource.getIsReady())
 			this.onResourceChange();
+		this.connect(this.resource, 'error', this.onResourceError);
+		if(this.resource.getIsError())
+			this.onResourceError();
+		this.connect(this.resource, 'delete', this.onResourceDelete);
+		if(this.resource.getIsDeleted())
+			this.onResourceDelete();
 	},
 	
 	onUnload: function() {
 		KJing.ResourceIcon.base.onUnload.apply(this, arguments);
 		this.disconnect(this.resource, 'change', this.onResourceChange);
+		this.disconnect(this.resource, 'error', this.onResourceError);
+		this.disconnect(this.resource, 'delete', this.onResourceDelete);
 	}
 }, {
 	types: undefined, 

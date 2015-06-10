@@ -37,6 +37,7 @@ using Mono.Data.Sqlite;
 using Erasme.Json;
 using Erasme.Http;
 using Erasme.Cloud.Logger;
+using Erasme.Cloud.Manage;
 
 namespace KJing.Directory
 {
@@ -71,6 +72,8 @@ namespace KJing.Directory
 		public JsonValue After;
 	}
 
+
+
 	public class ResourceService: IService
 	{
 		DirectoryService directory;
@@ -78,22 +81,33 @@ namespace KJing.Directory
 		ILogger logger;
 
 		object instanceLock = new object();
-		Dictionary<string, WebSocketHandlerCollection<ResourceClient>> clients = new Dictionary<string, WebSocketHandlerCollection<ResourceClient>>();
 
-		public class ResourceClient: WebSocketHandler
+		public class ResourceClients: List<ResourceClient>
+		{
+			public void Broadcast(string message)
+			{
+				lock(this) {
+					foreach(ResourceClient resourceClient in this) {
+						resourceClient.Client.Send(message);
+					}
+				}
+			}
+		}
+
+		Dictionary<string, ResourceClients> resourceClients = new Dictionary<string, ResourceClients>();
+		Dictionary<string, MonitoringClient> monitoringClients = new Dictionary<string, MonitoringClient>();
+
+		public class MonitoringClient: WebSocketHandler, IManageExtension
 		{
 			object instanceLock = new object();
-			JsonValue values = null;
+			Dictionary<string, ResourceClient> resources = new Dictionary<string, ResourceClient>();
 
-			public ResourceClient(ResourceService service, string resource)
+			public MonitoringClient(ResourceService service)
 			{
 				Service = service;
-				Resource = resource;
 			}
 
 			public ResourceService Service { get; private set; }
-
-			public string Resource { get; private set; }
 
 			public string Id {
 				get {
@@ -107,23 +121,8 @@ namespace KJing.Directory
 				}
 			}
 
-			public JsonValue Values {
-				get {
-					string jsonString = null;
-					lock(instanceLock) {
-						if(values != null)
-							jsonString = values.ToString();
-					}
-					if(jsonString == null)
-						return null;
-					else
-						return JsonValue.Parse(jsonString);
-				}
-			}
-
 			public override void OnOpen()
 			{
-				JsonValue oldResource = Service.GetResource(Resource, null, 0);
 				// send open message
 				JsonValue json = new JsonObject();
 				json["type"] = "open";
@@ -131,36 +130,149 @@ namespace KJing.Directory
 				Send(json.ToString());
 				// register the client in the currently connected users
 				lock(Service.instanceLock) {
-					WebSocketHandlerCollection<ResourceClient> handlers;
-					if(Service.clients.ContainsKey(Resource))
-						handlers = Service.clients[Resource];
-					else {
-						handlers = new WebSocketHandlerCollection<ResourceClient>();
-						Service.clients[Resource] = handlers;
-					}
-					handlers.Add(this);
+					Service.monitoringClients[Id] = this;
 				}
-				JsonValue newResource = Service.GetResource(Resource, null, 0);
-				// notify change
-				Service.Directory.NotifyChange(oldResource, newResource);
 			}
 
 			public override void OnMessage(string message)
 			{
+				//Console.WriteLine("OnMessage(" + message + ")");
+
 				JsonValue json = JsonValue.Parse(message);
 				if(json.ContainsKey("type")) {
 					string type = (string)json["type"];
-					if((type == "clientdata") && (json.ContainsKey("data"))) {
-						JsonValue oldResource = Service.GetResource(Resource, null, 0);
+
+					if((type == "monitor") && (json.ContainsKey("resources"))) {
+						JsonArray resourcesJson = (JsonArray)json["resources"];
+
 						lock(instanceLock) {
-							values = json["data"];
+							List<string> removeList = null;
+							foreach(string id in resources.Keys) {
+								bool found = false;
+								foreach(string newId in resourcesJson) {
+									if(newId == id) {
+										found = true;
+										break;
+									}
+								}
+								// unmonitor the resource
+								if(!found) {
+									ResourceClients clients = null;
+									lock(Service.instanceLock) {
+										if(Service.resourceClients.ContainsKey(id)) {
+											clients = Service.resourceClients[id];
+											clients.Remove(resources[id]);
+										}
+									}
+									if(removeList == null)
+										removeList = new List<string>();
+									removeList.Add(id);
+									// TODO: signal that connections attached to the resource has changed
+
+									// notify connections change
+									if(clients != null) {
+										JsonObject notifyJson = new JsonObject();
+										notifyJson["type"] = "change";
+										notifyJson["resource"] = id;
+										notifyJson["rev"] = Service.GetResourceRev(id);
+										notifyJson["connections"] = Service.GetResourceClients(id);
+										clients.Broadcast(notifyJson.ToString());
+									}
+								}
+							}
+							if(removeList != null) {
+								foreach(string removeId in removeList)
+									resources.Remove(removeId);
+							}
+
+							foreach(string newId in resourcesJson) {
+								// monitor the new resource
+								if(!resources.ContainsKey(newId)) {
+									// TODO: check if the User has
+									ResourceClient client;
+									ResourceClients clients = null;
+									lock(Service.instanceLock) {
+										if(Service.resourceClients.ContainsKey(newId))
+											clients = Service.resourceClients[newId];
+										else {
+											clients = new ResourceClients();
+											Service.resourceClients[newId] = clients;
+										}
+										client = new ResourceClient(this, newId);
+										clients.Add(client);
+									}
+									resources[newId] = client;
+									// notify connections change
+									JsonObject notifyJson = new JsonObject();
+									notifyJson["type"] = "change";
+									notifyJson["resource"] = newId;
+									notifyJson["rev"] = Service.GetResourceRev(newId);
+									notifyJson["connections"] = Service.GetResourceClients(newId);
+									clients.Broadcast(notifyJson.ToString());
+								}
+							}
 						}
-						JsonValue newResource = Service.GetResource(Resource, null, 0);
-						// notify change
-						Service.Directory.NotifyChange(oldResource, newResource);
 					}
-					else if((type == "clientmessage") && (json.ContainsKey("message")) && (json.ContainsKey("destination"))) {
-						Service.SendMessage(Resource, Id, json["destination"], json["message"]);
+					else if(type == "ping") {
+						JsonObject res = new JsonObject();
+						res["type"] = "pong";
+						Send(res.ToString());
+					}
+					else if(type == "listmonitor") {
+						JsonObject res = new JsonObject();
+						res["type"] = "monitorlist";
+						lock(instanceLock) {
+							JsonArray resourcesJson = new JsonArray();
+							res["resources"] = resourcesJson;
+							foreach(string resourceId in resources.Keys) {
+								resourcesJson.Add(resourceId);
+							}
+						}
+						Send(res.ToString());
+					}
+					else if((type == "message") && (json.ContainsKey("message")) && (json.ContainsKey("destination"))) {
+						if(json["destination"] is JsonArray) {
+							foreach(string destination in (JsonArray)json["destination"])
+								Service.SendMessage(Id, destination, json["message"]);
+						}
+						else {
+							Service.SendMessage(Id, json["destination"], json["message"]);
+						}
+					}
+					else if((type == "get") && (json.ContainsKey("resource"))) {
+						string resourceId = (string)json["resource"];
+						JsonValue resourceJson = Service.GetResource(resourceId, User);
+						JsonObject res = new JsonObject();
+						res["type"] = "resource";
+						res["resource"] = resourceJson;
+						res["connections"] = Service.GetResourceClients(resourceId);
+						Send(res.ToString());
+					}
+					else if((type == "clientdata") && json.ContainsKey("resource") && json.ContainsKey("data")) {
+						string resourceId = (string)json["resource"];
+
+						ResourceClient resourceClient = null;
+						lock(instanceLock) {
+							resources.ContainsKey(resourceId);
+							resourceClient = resources[resourceId];
+						}
+
+						if(resourceClient != null) {
+							resourceClient.Values = json["data"];
+
+							JsonObject notifyJson = new JsonObject();
+							notifyJson["type"] = "change";
+							notifyJson["resource"] = resourceId;
+							notifyJson["connections"] = Service.GetResourceClients(resourceId);
+
+							// notify clientdata change
+							lock(Service.instanceLock) {
+								if(Service.resourceClients.ContainsKey(resourceId)) {
+									ResourceClients clients = Service.resourceClients[resourceId];
+									clients.Broadcast(notifyJson.ToString());
+								}
+							}
+						}
 					}
 				}
 			}
@@ -172,18 +284,76 @@ namespace KJing.Directory
 
 			public override void OnClose()
 			{
-				JsonValue oldResource = Service.GetResource(Resource, null, 0);
-				lock(Service.instanceLock) {
-					if(Service.clients.ContainsKey(Resource)) {
-						Service.clients[Resource].Remove(this);
-						if(Service.clients[Resource].Count == 0)
-							Service.clients.Remove(Resource);
+				// unmonitor all resources
+				foreach(string id in resources.Keys) {
+					ResourceClient client = resources[id];
+					// unmonitor
+					lock(Service.instanceLock) {
+						if(Service.resourceClients.ContainsKey(client.Resource)) {
+							ResourceClients clients = Service.resourceClients[client.Resource];
+							clients.Remove(client);
+							if(clients.Count == 0)
+								Service.resourceClients.Remove(client.Resource);
+							// notify connections change
+							JsonObject json = new JsonObject();
+							json["type"] = "change";
+							json["resource"] = client.Resource;
+							json["rev"] = Service.GetResourceRev(client.Resource);
+							json["connections"] = Service.GetResourceClients(client.Resource);
+							clients.Broadcast(json.ToString());
+						}
 					}
 				}
-				JsonValue newResource = Service.GetResource(Resource, null, 0);
-				//				Console.WriteLine("OnClose for " + Resource + ": " + newResource.ToString());
-				// notify change
-				Service.Directory.NotifyChange(oldResource, newResource);
+				lock(Service.instanceLock) {
+					Service.monitoringClients.Remove(Id);
+				}
+			}
+
+			public void GetStatus(JsonValue json)
+			{
+				JsonArray resourcesJson = new JsonArray();
+				json["resources"] = resourcesJson;
+				lock(instanceLock) {
+					foreach(string resourceId in resources.Keys) {
+						resourcesJson.Add(resourceId);
+					}
+				}
+			}
+		}
+
+
+		public class ResourceClient
+		{
+			object instanceLock = new object();
+			JsonValue values = null;
+
+			public ResourceClient(MonitoringClient client, string resource)
+			{
+				Client = client;
+				Resource = resource;
+			}
+
+			public MonitoringClient Client { get; private set; }
+
+			public string Resource { get; private set; }
+
+			public JsonValue Values {
+				set {
+					lock(instanceLock) {
+						values = value;
+					}
+				}
+				get {
+					string jsonString = null;
+					lock(instanceLock) {
+						if(values != null)
+							jsonString = values.ToString();
+					}
+					if(jsonString == null)
+						return null;
+					else
+						return JsonValue.Parse(jsonString);
+				}
 			}
 		}
 
@@ -222,8 +392,8 @@ namespace KJing.Directory
 			// create resource table
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 				string sql = "CREATE TABLE resource ("+
-					"id VARCHAR PRIMARY KEY, type VARCHAR NOT NULL, parent VARCHAR DEFAULT NULL, "+
-					"parents VARCHAR DEFAULT NULL, "+
+					"id VARCHAR PRIMARY KEY, type VARCHAR NOT NULL, owner VARCHAR, "+
+					"parent VARCHAR DEFAULT NULL, parents VARCHAR DEFAULT NULL, "+
 					"name VARCHAR DEFAULT NULL, ctime INTEGER, mtime INTEGER, rev INTEGER DEFAULT 0, "+
 					"cache INTEGER(1) DEFAULT 0, publicRead INTEGER(1) DEFAULT 0, "+
 					"publicWrite INTEGER(1) DEFAULT 0, publicAdmin INTEGER(1) DEFAULT 0, "+
@@ -246,19 +416,19 @@ namespace KJing.Directory
 			}
 		}
 
-		public virtual void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceContext> parents)
+		public virtual void Get(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue value, string filterBy, List<string> groups, Rights heritedRights, List<ResourceContext> parents, ResourceContext context)
 		{
 		}
 
-		public virtual void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data)
+		public virtual void Create(IDbConnection dbcon, IDbTransaction transaction, JsonValue data, Dictionary<string, ResourceChange> changes)
 		{
 		}
 
-		public virtual void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff)
+		public virtual void Change(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, JsonValue diff, Dictionary<string, ResourceChange> changes)
 		{
 		}
 
-		public virtual void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data)
+		public virtual void Delete(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue data, Dictionary<string, ResourceChange> changes)
 		{
 		}
 
@@ -289,32 +459,37 @@ namespace KJing.Directory
 
 		public string TypeFreeId(string id)
 		{
-			return id.Substring(id.IndexOf(':') + 1);
+			return id.Substring(id.LastIndexOf(':') + 1);
 		}
 
-		public void SendMessage(string resource, string source, string destination, JsonValue message)
+		public void SendMessage(string source, string destination, JsonValue message)
 		{
 			JsonValue json = new JsonObject();
-			json["type"] = "clientmessage";
+			json["type"] = "message";
 			json["source"] = source;
 			json["message"] = message;
 
-			WebSocketHandlerCollection<ResourceClient> handlers = null;
+			MonitoringClient client = null;
 
 			lock(instanceLock) {
-				if(clients.ContainsKey(resource)) {
-					handlers = clients[resource];
+				if(monitoringClients.ContainsKey(destination)) {
+					client = monitoringClients[destination];
 				}
 			}
-			if(handlers != null) {
-				string jsonString = json.ToString();
-				foreach(ResourceClient client in handlers) {
-					if(client.Id == destination) {
-						client.Send(jsonString);
-						break;
-					}
+			if(client != null)
+				client.Send(json.ToString());
+		}
+
+		public void SendResourceMessage(string resource, JsonValue message)
+		{
+			ResourceClients clients = null;
+			lock(instanceLock) {
+				if(resourceClients.ContainsKey(resource)) {
+					clients = resourceClients[resource];
 				}
 			}
+			if(clients != null)
+				clients.Broadcast(message.ToString());
 		}
 
 		void GetChangeInterestedIds(JsonValue values, List<string> ids) 
@@ -330,15 +505,33 @@ namespace KJing.Directory
 
 		public void NotifyChange(JsonValue oldValues, JsonValue newValues)
 		{
-			List<string> ids = new List<string>();
-			if(newValues != null)
-				GetChangeInterestedIds(newValues, ids);
-			if(oldValues != null)
-				GetChangeInterestedIds(oldValues, ids);
+//			List<string> ids = new List<string>();
+//			if(newValues != null)
+//				GetChangeInterestedIds(newValues, ids);
+//			if(oldValues != null)
+//				GetChangeInterestedIds(oldValues, ids);
 
 			string resource = (oldValues != null) ? oldValues["id"] : ((newValues != null) ? newValues["id"] : null);
+			//ids.Add(resource);
 
-			WebSocketHandlerCollection<ResourceClient> handlers = null;
+			// if parent has changed
+			//if((oldValues != null) && (newValues != null) && (oldValues["parent"] != null) &&
+			//	(newValues["parent"] != null) && ((string)oldValues["parent"] != (string)newValues["parent"]))
+
+//			foreach(string id in ids) {
+				//Console.WriteLine("NotifyChange for " + resource + " (" + resource + ")");
+
+				JsonValue json = new JsonObject();
+				json["type"] = "change";
+				json["resource"] = resource;
+				if(newValues != null)
+					json["rev"] = (long)newValues["rev"];
+				else if(oldValues != null)
+					json["rev"] = (long)oldValues["rev"] + 1;
+				SendResourceMessage(resource, json);
+//			}
+
+			/*WebSocketHandlerCollection<ResourceClient> handlers = null;
 			foreach(string id in ids) {
 				lock(instanceLock) {
 					if(clients.ContainsKey(id))
@@ -354,7 +547,7 @@ namespace KJing.Directory
 						json["rev"] = (long)oldValues["rev"] + 1;
 					handlers.Broadcast(json.ToString());
 				}
-			}
+			}*/
 			//			Console.WriteLine("NotifyChange Id: "+resource);
 		}
 
@@ -363,7 +556,7 @@ namespace KJing.Directory
 			Rights ownRights;
 			lock(dbcon) {
 				using(IDbTransaction transaction = dbcon.BeginTransaction()) {
-					Dictionary<string, Rights> delegatedRights = GetDelegatedRights(dbcon, transaction, user);
+					Dictionary<string, Rights> delegatedRights = GetDelegatedRights(dbcon, transaction, user, id);
 					List<string> groups = new List<string>();
 					GetUserGroups(dbcon, transaction, user, groups);
 					List<ResourceContext> parents;
@@ -455,19 +648,47 @@ namespace KJing.Directory
 			return heritedRights;
 		}
 
-		public JsonValue GetResource(string id, string filterBy, int depth)
+		public long GetResourceRev(string id)
+		{
+			long rev;
+			lock(dbcon) {
+				using(IDbTransaction transaction = dbcon.BeginTransaction()) {
+					rev = GetResourceRev(dbcon, transaction, id);
+					transaction.Commit();
+				}
+			}
+			return rev;
+		}
+
+		long GetResourceRev(IDbConnection dbcon, IDbTransaction transaction, string id)
+		{
+			long rev = -1;
+			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+				dbcmd.CommandText = "SELECT rev FROM resource WHERE id=@id";
+				dbcmd.Transaction = transaction;
+				dbcmd.Parameters.Add(new SqliteParameter("id", id));
+				using(IDataReader reader = dbcmd.ExecuteReader()) {
+					while(reader.Read()) {
+						rev = reader.GetInt64(0);
+					}
+				}
+			}
+			return rev;
+		}
+
+		public JsonValue GetResource(string id, string filterBy)
 		{
 			JsonValue res;
 			lock(dbcon) {
 				using(IDbTransaction transaction = dbcon.BeginTransaction()) {
-					res = GetResource(dbcon, transaction, id, filterBy, depth);
+					res = GetResource(dbcon, transaction, id, filterBy);
 					transaction.Commit();
 				}
 			}
 			return res;
 		}
 
-		public JsonValue GetResource(IDbConnection dbcon, IDbTransaction transaction, string id, string filterBy, int depth)
+		public JsonValue GetResource(IDbConnection dbcon, IDbTransaction transaction, string id, string filterBy)
 		{
 			List<string> groups = null;
 			Rights heritedRights = new Rights(false, false, false);
@@ -475,30 +696,38 @@ namespace KJing.Directory
 			List<ResourceContext> parents;
 
 			if(filterBy != null) {
-				Dictionary<string, Rights> delegatedRights = GetDelegatedRights(dbcon, transaction, filterBy);
+				Dictionary<string, Rights> delegatedRights = GetDelegatedRights(dbcon, transaction, filterBy, id);
 				groups = new List<string> ();
-				GetUserGroups (dbcon, transaction, filterBy, groups);
+				GetUserGroups(dbcon, transaction, filterBy, groups);
 				heritedRights = GetResourceOwnRights(dbcon, transaction, id, filterBy, groups, delegatedRights, out parents);
 			}
 			else
 				heritedRights = GetResourceOwnRights(dbcon, transaction, id, filterBy, null, null, out parents);
 
 			//Console.WriteLine("GetResource id: " + id + ", filterBy: " + filterBy + ", heritedRight: " + heritedRights);
-			return GetResource(dbcon, transaction, id, filterBy, depth, groups, heritedRights, out ownRights, parents);
+			return GetResource(dbcon, transaction, id, filterBy, groups, heritedRights, out ownRights, parents);
 		}
 
-		Dictionary<string, Rights> GetDelegatedRights(IDbConnection dbcon, IDbTransaction transaction, string user)
+		Dictionary<string, Rights> GetDelegatedRights(IDbConnection dbcon, IDbTransaction transaction, string user, string resource)
 		{
 			Dictionary<string, Rights> rights = new Dictionary<string, Rights>();
-			if(user.StartsWith("device:")) {
-				JsonValue device = GetResource(user, null, 0);
-				if(device.ContainsKey("path") && ((string)device["path"] != null)) {
-					string path = (string)device["path"];
+
+			if(user == resource)
+				rights[resource] = new Rights(true, true, true);
+			else {
+				JsonValue userJson = GetResource(user, null);
+				if(userJson.ContainsKey("admin") && (bool)userJson["admin"])
+					rights[resource] = new Rights(true, true, true);
+				else if(user.StartsWith("device:")) {
+					JsonValue device = GetResource(user, null);
+					if(device.ContainsKey("path") && ((string)device["path"] != null)) {
+						string path = (string)device["path"];
 //					if(path.StartsWith("file:")) {
 //						path = path.Substring(5, path.LastIndexOf(":") - 5);
 //					}
-					//Console.WriteLine("GetDeletagedRights share: " + path);
-					rights[path] = new Rights(true, false, false);
+						//Console.WriteLine("GetDeletagedRights share: " + path);
+						rights[path] = new Rights(true, false, false);
+					}
 				}
 			}
 			return rights;
@@ -530,17 +759,28 @@ namespace KJing.Directory
 			return rights;
 		}
 
-		JsonArray GetResourceClients(IDbConnection dbcon, IDbTransaction transaction, string id)
+		JsonArray GetResourceClients(string id)
 		{
-			WebSocketHandlerCollection<ResourceClient> resourceClients = null;
+//			WebSocketHandlerCollection<ResourceClient> resourceClients = null;
 
 			// get clients
-			JsonArray jsonClients = new JsonArray();
-			lock(instanceLock) {
-				if(clients.ContainsKey(id))
-					resourceClients = clients[id];
+			JsonArray clientsJson = new JsonArray();
+
+			lock(instanceLock) {			 
+				if(resourceClients.ContainsKey(id)) {
+					ResourceClients clients = resourceClients[id];
+					foreach(ResourceClient client in clients) {
+						JsonObject clientJson = new JsonObject();
+						clientJson["connection"] = client.Client.Id;
+						clientJson["user"] = client.Client.User;
+						clientJson["data"] = client.Values;
+						clientsJson.Add(clientJson);
+					}
+				}
+//				if(clients.ContainsKey(id))
+//					resourceClients = clients[id];
 			}
-			if(resourceClients != null) {
+			/*if(resourceClients != null) {
 				foreach(ResourceClient client in resourceClients) {
 					JsonValue jsonClient = new JsonObject();
 					jsonClient["id"] = client.Id;
@@ -548,18 +788,18 @@ namespace KJing.Directory
 					jsonClient["data"] = client.Values;
 					jsonClients.Add(jsonClient);
 				}
-			}
-			return jsonClients;
+			}*/
+			return clientsJson;
 		}
 
-		JsonValue GetResource(IDbConnection dbcon, IDbTransaction transaction, string id, string filterBy, int depth, List<string> groups, Rights heritedRights, out Rights ownRights, List<ResourceContext> parents)
+		JsonValue GetResource(IDbConnection dbcon, IDbTransaction transaction, string id, string filterBy, List<string> groups, Rights heritedRights, out Rights ownRights, List<ResourceContext> parents)
 		{
 			JsonValue resource = new JsonObject();
 			string type;
 			// select from the resource table
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 				dbcmd.CommandText = "SELECT id,type,name,parent,ctime,mtime,rev,cache,"+
-					"publicRead,publicWrite,publicAdmin,position,quotaBytesUsed FROM resource WHERE id=@id";
+					"publicRead,publicWrite,publicAdmin,position,quotaBytesUsed,owner FROM resource WHERE id=@id";
 				dbcmd.Parameters.Add(new SqliteParameter("id", id));
 				dbcmd.Transaction = transaction;
 				using(IDataReader reader = dbcmd.ExecuteReader()) {
@@ -582,12 +822,6 @@ namespace KJing.Directory
 						jsonParents.Add(rRights.Id);
 					resource["parents"] = jsonParents;
 
-					// TODO: improve this. Who is the owner: the root or the first user parent
-					if(parents.Count > 0)
-						resource["owner"] = parents[0].Id;
-					else
-						resource["owner"] = id;
-
 					if(reader.IsDBNull(4))
 						resource["ctime"] = 0;
 					else
@@ -603,6 +837,8 @@ namespace KJing.Directory
 					resource["publicAdmin"] = reader.GetBoolean(10);
 					resource["position"] = reader.GetInt64(11) / 2;
 					resource["quotaBytesUsed"] = reader.GetInt64(12);
+
+					resource["owner"] = reader.GetString(13);
 				}
 			}
 			// get rights
@@ -610,7 +846,10 @@ namespace KJing.Directory
 
 			resource["rights"] = rights;
 			// get connected clients
-			resource["clients"] = GetResourceClients(dbcon, transaction, id);
+//			resource["clients"] = GetResourceClients(id);
+
+			resource["children"] = GetResourceChildren(dbcon, transaction, id);
+			resource["cacheChildren"] = GetResourceCacheChildren(dbcon, transaction, id);
 
 			// handle filterBy user's rights
 			if(filterBy != null) {
@@ -645,37 +884,63 @@ namespace KJing.Directory
 				ownRights = new Rights(true, true, true);
 
 			IService service = GetResourceTypeService(type);
-			if(service != null)
-				service.Get(dbcon, transaction, id, resource, filterBy, depth, groups, ownRights, parents);
+			//Console.WriteLine("GetResource type: " + type + ", service: " + service);
 
-			// get child resources
-			if(depth > 0) {
+			if(service != null) {
 				ResourceContext rRights = new ResourceContext();
 				rRights.Id = id;
 				rRights.PublicRead = (bool)resource["publicRead"];
 				rRights.PublicWrite = (bool)resource["publicWrite"];
 				rRights.PublicAdmin = (bool)resource["publicAdmin"];
 				rRights.QuotaBytesUsed = (long)resource["quotaBytesUsed"];
-				parents.Add(rRights);
 
-				JsonArray allResources = GetResources(dbcon, transaction, id, filterBy, depth - 1, groups, ownRights, parents);
-				JsonArray cache = new JsonArray();
-				JsonArray children = new JsonArray();
-				foreach(JsonValue r in allResources) {
-					if((bool)r["cache"])
-						cache.Add(r);
-					else
-						children.Add(r);
-				}
-				resource["children"] = children;
-				resource["cacheChildren"] = cache;
-
-				parents.Remove(rRights);
+				service.Get(dbcon, transaction, id, resource, filterBy, groups, ownRights, parents, rRights);
 			}
+
 			return resource;
 		}
 
-		public JsonArray GetResources(IDbConnection dbcon, IDbTransaction transaction, string parent, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceContext> parents)
+		public JsonArray GetResourceChildren(IDbConnection dbcon, IDbTransaction transaction, string parent)
+		{
+			JsonArray resources = new JsonArray();
+
+			// select from the resource table
+			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+				dbcmd.CommandText = "SELECT id FROM resource WHERE parent=@parent AND cache=0 ORDER BY position ASC";
+				dbcmd.Parameters.Add(new SqliteParameter("parent", parent));
+				dbcmd.Transaction = transaction;
+				using(IDataReader reader = dbcmd.ExecuteReader()) {
+					while(reader.Read()) {
+						if(!reader.IsDBNull(0)) {
+							resources.Add(reader.GetString(0));
+						}
+					}
+				}
+			}
+			return resources;
+		}
+
+		public JsonArray GetResourceCacheChildren(IDbConnection dbcon, IDbTransaction transaction, string parent)
+		{
+			JsonArray resources = new JsonArray();
+
+			// select from the resource table
+			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+				dbcmd.CommandText = "SELECT id FROM resource WHERE parent=@parent AND cache=1 ORDER BY position ASC";
+				dbcmd.Parameters.Add(new SqliteParameter("parent", parent));
+				dbcmd.Transaction = transaction;
+				using(IDataReader reader = dbcmd.ExecuteReader()) {
+					while(reader.Read()) {
+						if(!reader.IsDBNull(0)) {
+							resources.Add(reader.GetString(0));
+						}
+					}
+				}
+			}
+			return resources;
+		}
+
+		public JsonArray GetResources(IDbConnection dbcon, IDbTransaction transaction, string parent, string filterBy, List<string> groups, Rights heritedRights, List<ResourceContext> parents)
 		{
 			JsonArray resources = new JsonArray();
 
@@ -688,7 +953,7 @@ namespace KJing.Directory
 					while(reader.Read()) {
 						if(!reader.IsDBNull(0)) {
 							Rights ownRights;
-							JsonValue json = GetResource(dbcon, transaction, reader.GetString(0), filterBy, depth, groups, heritedRights, out ownRights, parents);
+							JsonValue json = GetResource(dbcon, transaction, reader.GetString(0), filterBy, groups, heritedRights, out ownRights, parents);
 							// filter the resource by what the filterBy user can view
 							if((filterBy == null) || ((bool)json["ownRights"]["read"]))
 								resources.Add(json);
@@ -711,15 +976,17 @@ namespace KJing.Directory
 				dbcmd.Transaction = transaction;
 				using(IDataReader reader = dbcmd.ExecuteReader()) {
 					if(reader.Read() && !reader.IsDBNull(0))
-						resource = GetResource(dbcon, transaction, reader.GetString(0), null, 0);
+						resource = GetResource(dbcon, transaction, reader.GetString(0), null);
 				}
 			}
 			return resource;
 		}
 
-		public JsonValue GetChildResourceByName(IDbConnection dbcon, IDbTransaction transaction, string parent, string name, string filterBy, int depth, List<string> groups, Rights heritedRights, List<ResourceContext> parents, bool cache)
+		public JsonValue GetChildResourceByName(IDbConnection dbcon, IDbTransaction transaction, string parent, string name, string filterBy, List<string> groups, Rights heritedRights, List<ResourceContext> parents, ResourceContext context, bool cache)
 		{
 			JsonValue resource = null;
+
+			parents.Add(context);
 
 			// select from the resource table
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
@@ -731,17 +998,20 @@ namespace KJing.Directory
 				using(IDataReader reader = dbcmd.ExecuteReader()) {
 					if(reader.Read() && !reader.IsDBNull(0)) {
 						Rights ownRights;
-						JsonValue json = GetResource(dbcon, transaction, reader.GetString(0), filterBy, depth, groups, heritedRights, out ownRights, parents);
+						JsonValue json = GetResource(dbcon, transaction, reader.GetString(0), filterBy, groups, heritedRights, out ownRights, parents);
 						// filter the resource by what the filterBy user can view
 //						if((filterBy == null) || ((bool)json["ownRights"]["read"]))
 						resource = json;
 					}
 				}
 			}
+
+			parents.Remove(context);
+
 			return resource;
 		}
 
-		void GetUserGroups(IDbConnection dbcon, IDbTransaction transaction, string id, List<string> groups)
+		public void GetUserGroups(IDbConnection dbcon, IDbTransaction transaction, string id, List<string> groups)
 		{
 			// select from the user table
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
@@ -762,7 +1032,7 @@ namespace KJing.Directory
 			}
 		}
 
-		void GetGroupUsers(IDbConnection dbcon, IDbTransaction transaction, string id, List<string> users)
+		public void GetGroupUsers(IDbConnection dbcon, IDbTransaction transaction, string id, List<string> users)
 		{
 			// select from the user table
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
@@ -807,7 +1077,7 @@ namespace KJing.Directory
 			return res;
 		}
 
-		public JsonArray GetUserShares(IDbConnection dbcon, IDbTransaction transaction, string user, int depth, List<string> groups)
+		public JsonArray GetUserShares(IDbConnection dbcon, IDbTransaction transaction, string user, List<string> groups)
 		{
 			JsonArray shares = new JsonArray();
 
@@ -827,7 +1097,7 @@ namespace KJing.Directory
 				using(IDataReader reader = dbcmd.ExecuteReader()) {
 					while(reader.Read()) {
 						try {
-							shares.Add(GetResource(dbcon, transaction, reader.GetString(0), user, depth-1));
+							shares.Add(reader.GetString(0));
 						}
 						catch(WebException e) {
 							logger.Log(LogLevel.Error, "Error while getting shared resource '" + reader.GetString(0) + "' by user '" + user + "' (" + e.ToString() + ")");
@@ -838,35 +1108,92 @@ namespace KJing.Directory
 			return shares;
 		}
 
-		public JsonArray GetUserShares(string user, int depth)
+		public JsonArray GetUserShares(string user)
 		{
 			JsonArray res;
 			lock(dbcon) {
 				using(IDbTransaction transaction = dbcon.BeginTransaction()) {
 					List<string> groups = new List<string>();
 					GetUserGroups(dbcon, transaction, user, groups);
-					res = GetUserShares(dbcon, transaction, user, depth, groups);
+					res = GetUserShares(dbcon, transaction, user, groups);
 					transaction.Commit();
 				}
 			}
 			return res;
 		}
 
-		public JsonArray GetGroupShares(IDbConnection dbcon, IDbTransaction transaction, string group, string seenBy, int depth)
+		public JsonArray GetShares(IDbConnection dbcon, IDbTransaction transaction, string user)
 		{
 			JsonArray shares = new JsonArray();
 
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 				dbcmd.Transaction = transaction;
-				dbcmd.CommandText = "SELECT resource FROM right WHERE user=@group";
-				dbcmd.Parameters.Add(new SqliteParameter("group", group));
+
+				dbcmd.CommandText = "SELECT resource FROM right WHERE user=@user";
+				dbcmd.Parameters.Add(new SqliteParameter("user", user));
 				using(IDataReader reader = dbcmd.ExecuteReader()) {
 					while(reader.Read()) {
-						try {
-							shares.Add(GetResource(dbcon, transaction, reader.GetString(0), seenBy, depth-1));
+							shares.Add(reader.GetString(0));
+					}
+				}
+			}
+			return shares;
+		}
+
+		public JsonArray GetShares(string user)
+		{
+			JsonArray res;
+			lock(dbcon) {
+				using(IDbTransaction transaction = dbcon.BeginTransaction()) {
+					res = GetShares(dbcon, transaction, user);
+					transaction.Commit();
+				}
+			}
+			return res;
+		}
+
+		public JsonArray GetSharesByWith(IDbConnection dbcon, IDbTransaction transaction, string byUser, string withUser)
+		{
+			JsonArray shares = new JsonArray();
+
+			if(withUser == null) {
+				using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+					dbcmd.Transaction = transaction;
+					dbcmd.CommandText = "SELECT right.resource FROM right,resource "+
+						"WHERE right.resource=resource.id "+
+						"AND resource.parents LIKE '"+byUser.Replace("'", "''")+"%'";
+					using(IDataReader reader = dbcmd.ExecuteReader()) {
+						while(reader.Read()) {
+								shares.Add(reader.GetString(0));
 						}
-						catch(WebException e) {
-							logger.Log(LogLevel.Error, "Error while getting shared resource '" + reader.GetString(0) + "' by user '" + seenBy + "' (" + e.ToString() + ")");
+					}
+				}
+			}
+			else {
+				// get all the groups and upper groups of withUser
+				List<string> withGroups = new List<string>();
+				GetUserGroups(dbcon, transaction, withUser, withGroups);
+
+				StringBuilder sb = new StringBuilder();
+				sb.Append("'");
+				sb.Append(withUser.Replace("'", "''"));
+				sb.Append("'");
+
+				foreach(string g in withGroups) {
+					sb.Append(",'");
+					sb.Append(g.Replace("'", "''"));
+					sb.Append("'");
+				}
+
+				using(IDbCommand dbcmd = dbcon.CreateCommand()) {
+					dbcmd.Transaction = transaction;
+					dbcmd.CommandText = "SELECT right.resource FROM right,resource " +
+					"WHERE right.user IN (" + sb.ToString() + ") " +
+					"AND right.resource=resource.id " +
+					"AND resource.parents LIKE '" + byUser.Replace("'", "''") + "%'";
+					using(IDataReader reader = dbcmd.ExecuteReader()) {
+						while(reader.Read()) {
+							shares.Add(reader.GetString(0));
 						}
 					}
 				}
@@ -874,12 +1201,12 @@ namespace KJing.Directory
 			return shares;
 		}
 
-		public JsonArray GetGroupShares(string group, string seenBy, int depth)
+		public JsonArray GetSharesByWith(string byUser, string withUser)
 		{
 			JsonArray res;
 			lock(dbcon) {
 				using(IDbTransaction transaction = dbcon.BeginTransaction()) {
-					res = GetGroupShares(dbcon, transaction, group, seenBy, depth);
+					res = GetSharesByWith(dbcon, transaction, byUser, withUser);
 					transaction.Commit();
 				}
 			}
@@ -1020,13 +1347,14 @@ namespace KJing.Directory
 
 						sb.Append("LIMIT 500");
 						dbcmd.CommandText = sb.ToString();
-						Console.WriteLine("Search SQL: " + dbcmd.CommandText);
+						//Console.WriteLine("Search SQL: " + dbcmd.CommandText);
 						dbcmd.Parameters.Add(new SqliteParameter("query", query));
 						using(IDataReader reader = dbcmd.ExecuteReader()) {
 							while(reader.Read()) {
 								string resourceId = reader.GetString(0);
-								JsonValue json = GetResource(dbcon, transaction, resourceId, seenBy, 0);
-								result.Add(json);
+								result.Add(resourceId);
+								//JsonValue json = GetResource(dbcon, transaction, resourceId, seenBy);
+								//result.Add(json);
 							}
 						}
 					}
@@ -1037,7 +1365,7 @@ namespace KJing.Directory
 		}
 
 
-		bool CleanPositions(IDbConnection dbcon, IDbTransaction transaction, string parent)
+		bool CleanPositions(IDbConnection dbcon, IDbTransaction transaction, string parent, bool cache)
 		{
 			List<string> resources = new List<string>();
 			// get all files of a directory
@@ -1045,8 +1373,9 @@ namespace KJing.Directory
 			bool cleanNeeded = false;
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 				dbcmd.Transaction = transaction;
-				dbcmd.CommandText = "SELECT id,position FROM resource WHERE parent=@parent ORDER BY position ASC";
+				dbcmd.CommandText = "SELECT id,position FROM resource WHERE parent=@parent AND cache=@cache ORDER BY position ASC";
 				dbcmd.Parameters.Add(new SqliteParameter("parent", parent));
+				dbcmd.Parameters.Add(new SqliteParameter("cache", cache ? 1 : 0));
 				using(IDataReader reader = dbcmd.ExecuteReader()) {
 					while(reader.Read()) {
 						resources.Add(reader.GetString(0));
@@ -1075,27 +1404,11 @@ namespace KJing.Directory
 
 		public JsonValue CreateResource(JsonValue data)
 		{
-			JsonValue removeResource = null;
-			string parent = null;
-			if(data.ContainsKey("parent"))
-				parent = data["parent"];
-			string name = null;
-			if(data.ContainsKey("name"))
-				parent = data["name"];
-			bool cache = false;
-			if(data.ContainsKey("cache"))
-				cache = data["cache"];
-			bool uniqueName = data.ContainsKey("uniqueName") && (bool)data["uniqueName"];
-
 			Dictionary<string,ResourceChange> changes = new Dictionary<string, ResourceChange>();
 			JsonValue json;
 			lock(dbcon) {
 				using(IDbTransaction transaction = dbcon.BeginTransaction()) {
-					if(uniqueName)
-						removeResource = GetChildResourceByName(dbcon, transaction, parent, name, null, 0, null, new Rights(), null, cache);
 					json = CreateResource(dbcon, transaction, data, changes);
-					if(removeResource != null)
-						DeleteResource(dbcon, transaction, removeResource["id"], changes);
 					transaction.Commit();
 				}
 			}
@@ -1103,7 +1416,6 @@ namespace KJing.Directory
 			foreach(string resourceId in changes.Keys) {
 				Directory.NotifyChange(changes[resourceId].Before, changes[resourceId].After);
 			}
-
 			return json;
 		}
 
@@ -1112,7 +1424,7 @@ namespace KJing.Directory
 			string id = null;
 			string type = (string)data["type"];
 			int count = 0;
-			// generate the random session id
+			// generate the random resource id
 			do {
 				id = type+":"+GenerateRandomId();
 				// check if resource id already exists
@@ -1125,27 +1437,24 @@ namespace KJing.Directory
 			} while(count > 0);
 			data["id"] = id;
 
-
-			IService service = GetResourceTypeService(type);
-			if(service != null)
-				service.Create(dbcon, transaction, data);
-
 			string parent = null;
 			if(data.ContainsKey("parent"))
 				parent = (string)data["parent"];
 			// build the parents string
 			string parents = null;
+			string owner = id;
 			if(parent != null) {
 				List<string> list = new List<string>();
 				string current = parent;
 				do {
+					owner = current;
 					using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 						dbcmd.CommandText = "SELECT parent FROM resource WHERE id=@id";
 						dbcmd.Transaction = transaction;
 						dbcmd.Parameters.Add(new SqliteParameter("id", current));
 						using(IDataReader reader = dbcmd.ExecuteReader()) {
 							if(!reader.Read())
-								throw new WebException(404, 0, "Resource not found");
+								throw new WebException(404, 0, "Resource not found id: "+current+", when create: "+id);
 							list.Add(current);
 							if(reader.IsDBNull(0))
 								current = null;
@@ -1187,12 +1496,20 @@ namespace KJing.Directory
 			if(data.ContainsKey("quotaBytesUsed"))
 				quotaBytesUsed = (long)data["quotaBytesUsed"];
 
+			JsonValue removeResource = null;
+			bool uniqueName = data.ContainsKey("uniqueName") && (bool)data["uniqueName"];
+			if(uniqueName)
+				removeResource = GetChildResourceByName(dbcon, transaction, parent, name, cache);
+
+			//Console.WriteLine("CreateResource id: " + id + ", name: " + name);
+			//Console.WriteLine(data.ToString());
+
 			long now = DateTime.Now.ToEpoch();
 			// insert into resource table
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 				dbcmd.Transaction = transaction;
-				dbcmd.CommandText = "INSERT INTO resource (id,type,ctime,mtime,parent,parents,name,rev,cache,publicRead,publicWrite,publicAdmin,position,quotaBytesUsed) "+
-					"VALUES (@id,@type,@ctime,@mtime,@parent,@parents,@name,0,@cache,@publicRead,@publicWrite,@publicAdmin,@position,@quotaBytesUsed)";
+				dbcmd.CommandText = "INSERT INTO resource (id,type,ctime,mtime,parent,parents,name,rev,cache,publicRead,publicWrite,publicAdmin,position,quotaBytesUsed,owner) "+
+					"VALUES (@id,@type,@ctime,@mtime,@parent,@parents,@name,0,@cache,@publicRead,@publicWrite,@publicAdmin,@position,@quotaBytesUsed,@owner)";
 				dbcmd.Parameters.Add(new SqliteParameter("id", id));
 				dbcmd.Parameters.Add(new SqliteParameter("type", type));
 				dbcmd.Parameters.Add(new SqliteParameter("ctime", now));
@@ -1206,16 +1523,23 @@ namespace KJing.Directory
 				dbcmd.Parameters.Add(new SqliteParameter("publicAdmin", publicAdmin));
 				dbcmd.Parameters.Add(new SqliteParameter("position", position));
 				dbcmd.Parameters.Add(new SqliteParameter("quotaBytesUsed", quotaBytesUsed));
+				dbcmd.Parameters.Add(new SqliteParameter("owner", owner));
 
 				if(dbcmd.ExecuteNonQuery() != 1)
 					throw new Exception("Resource create fails");
 			}
+
+			IService service = GetResourceTypeService(type);
+			//Console.WriteLine("CreateResource type: " + type + ", service: " + service);
+			if(service != null)
+				service.Create(dbcon, transaction, data, changes);
+
 			// clean the parent childs positions
 			if(parent != null) {
-				CleanPositions(dbcon, transaction, parent);
+				CleanPositions(dbcon, transaction, parent, false);
 				// update the parent because a child was created
 				if(quotaBytesUsed > 0) {
-					JsonValue parentData = GetResource(dbcon, transaction, parent, null, 0);
+					JsonValue parentData = GetResource(dbcon, transaction, parent, null);
 					JsonObject parentDiff = new JsonObject();
 					parentDiff["quotaBytesUsed"] = (long)parentData["quotaBytesUsed"] + quotaBytesUsed;
 					ChangeResource(dbcon, transaction, parent, parentData, parentDiff, changes);
@@ -1251,7 +1575,10 @@ namespace KJing.Directory
 				}
 			}
 
-			JsonValue newData = GetResource(dbcon, transaction, id, null, 0);
+			if(removeResource != null)
+				DeleteResource(dbcon, transaction, removeResource["id"], changes);
+
+			JsonValue newData = GetResource(dbcon, transaction, id, null);
 			if(changes.ContainsKey(id)) {
 				changes[id] = new ResourceChange {
 					Before = changes[id].Before,
@@ -1288,7 +1615,7 @@ namespace KJing.Directory
 
 		public JsonValue ChangeResource(IDbConnection dbcon, IDbTransaction transaction, string id, JsonValue diff, Dictionary<string,ResourceChange> changes)
 		{
-			JsonValue data = GetResource(dbcon, transaction, id, null, 0);
+			JsonValue data = GetResource(dbcon, transaction, id, null);
 			return ChangeResource(dbcon, transaction, id, data, diff, changes);
 		}
 
@@ -1300,10 +1627,10 @@ namespace KJing.Directory
 			//Console.WriteLine("ChangeResource " + id + ", diff: " + ((diff == null) ? "null" : diff.ToString()));
 
 			if(diff != null) {
-
 				IService service = GetResourceTypeService(type);
+
 				if(service != null)
-					service.Change(dbcon, transaction, id, data, diff);
+					service.Change(dbcon, transaction, id, data, diff, changes);
 
 				// handle name resource field
 				if(diff.ContainsKey("name")) {
@@ -1364,7 +1691,7 @@ namespace KJing.Directory
 
 					oldParentDiff = new JsonObject();
 
-					newParent = GetResource(dbcon, transaction, newParentId, null, 0);
+					newParent = GetResource(dbcon, transaction, newParentId, null);
 					newParentDiff = new JsonObject();
 					JsonArray newParentParents = (JsonArray)newParent["parents"];
 
@@ -1399,14 +1726,16 @@ namespace KJing.Directory
 					}
 					// change the full path parents for all sub-resources
 					string subParentString = newParentsString + id + "/";
+					string oldSubParentString = oldParentsString + id + "/";
 					using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 						dbcmd.Transaction = transaction;
-						dbcmd.CommandText = "UPDATE resource SET parents=('"+subParentString+"' || SUBSTR(parents,"+(subParentString.Length+1)+")) WHERE parents LIKE '"+oldParentsString+"%'";
+						dbcmd.CommandText = "UPDATE resource SET parents=('"+subParentString+"' || SUBSTR(parents,"+(subParentString.Length+1)+")) WHERE parents LIKE '"+oldSubParentString+"%'";
+						//Console.WriteLine("Child update request: " + dbcmd.CommandText);
 						dbcmd.ExecuteNonQuery();
 					}
 
 					// TODO: change the parents field
-					Console.WriteLine("Change parents for resource : " + id +", old: "+oldParentsString+", new: " + newParentsString);
+					//Console.WriteLine("Change parents for resource : " + id +", old: "+oldParentsString+", new: " + newParentsString);
 
 					// TODO: change the parents field for sub-resources
 
@@ -1414,7 +1743,7 @@ namespace KJing.Directory
 
 					if((oldParentId != null) && (quotaBytesUsed > 0)) {
 						if(oldParent == null)
-							oldParent = GetResource(dbcon, transaction, oldParentId, null, 0);
+							oldParent = GetResource(dbcon, transaction, oldParentId, null);
 						oldParentDiff["quotaBytesUsed"] = (long)oldParent["quotaBytesUsed"] - quotaBytesUsed;
 					}
 
@@ -1439,7 +1768,7 @@ namespace KJing.Directory
 					// handle quota for the resource's parent
 					if(newParentId != null) {
 						if(newParent == null)
-							newParent = GetResource(dbcon, transaction, newParentId, null, 0);
+							newParent = GetResource(dbcon, transaction, newParentId, null);
 						if(newParentDiff == null)
 							newParentDiff = new JsonObject();
 						newParentDiff["quotaBytesUsed"] = (long)newParent["quotaBytesUsed"] + newQuotaBytesUsed - oldQuotaBytesUsed;
@@ -1535,12 +1864,12 @@ namespace KJing.Directory
 
 				// clean parents childs positions if needed (parent change or/and new position)
 				if((newParentId != oldParentId) || (newPosition != oldPosition))
-					CleanPositions(dbcon, transaction, newParentId);
+					CleanPositions(dbcon, transaction, newParentId, false);
 
 				// change parent resource if needed
 				if(oldParentDiff != null)
 					ChangeResource(dbcon, transaction, oldParentId, oldParentDiff, changes);
-				if(newParentDiff != null)
+				if((newParentDiff != null) || (newPosition != oldPosition))
 					ChangeResource(dbcon, transaction, newParentId, newParentDiff, changes);
 			}
 
@@ -1554,7 +1883,7 @@ namespace KJing.Directory
 				dbcmd.ExecuteNonQuery();
 			}
 
-			JsonValue newData = GetResource(dbcon, transaction, id, null, 0);
+			JsonValue newData = GetResource(dbcon, transaction, id, null);
 			if(changes.ContainsKey(id)) {
 				changes[id] = new ResourceChange {
 					Before = changes[id].Before,
@@ -1588,7 +1917,7 @@ namespace KJing.Directory
 
 		public void DeleteResource(IDbConnection dbcon, IDbTransaction transaction, string id, Dictionary<string,ResourceChange> changes)
 		{
-			JsonValue jsonResource = GetResource(dbcon, transaction, id, null, 0);
+			JsonValue jsonResource = GetResource(dbcon, transaction, id, null);
 			DeleteResource(dbcon, transaction, id, jsonResource, changes);
 		}
 
@@ -1603,7 +1932,7 @@ namespace KJing.Directory
 					while(reader.Read()) {
 						if(!reader.IsDBNull(0)) {
 							string childId = reader.GetString(0);
-							JsonValue jsonResource = GetResource(dbcon, transaction, childId, null, 0);
+							JsonValue jsonResource = GetResource(dbcon, transaction, childId, null);
 							// detach the parent
 							jsonResource["parent"] = null;
 							DeleteResource(dbcon, transaction, childId, jsonResource, changes);
@@ -1617,7 +1946,7 @@ namespace KJing.Directory
 
 			IService service = GetResourceTypeService(type);
 			if(service != null)
-				service.Delete(dbcon, transaction, id, data);
+				service.Delete(dbcon, transaction, id, data, changes);
 
 			// delete from the resource table
 			using(IDbCommand dbcmd = dbcon.CreateCommand()) {
@@ -1639,11 +1968,11 @@ namespace KJing.Directory
 			// clean the parent childs positions
 			string parent = (string)data["parent"];
 			if(parent != null) {
-				CleanPositions(dbcon, transaction, parent);
+				CleanPositions(dbcon, transaction, parent, false);
 				// update the parent because a child was removed
 				long quotaBytesUsed = (long)data["quotaBytesUsed"];
 				if(quotaBytesUsed > 0) {
-					JsonValue parentData = GetResource(dbcon, transaction, parent, null, 0);
+					JsonValue parentData = GetResource(dbcon, transaction, parent, null);
 					JsonObject parentDiff = new JsonObject();
 					parentDiff["quotaBytesUsed"] = Math.Max(0, (long)parentData["quotaBytesUsed"] - quotaBytesUsed);
 					ChangeResource(dbcon, transaction, parent, parentData, parentDiff, changes);
@@ -1672,7 +2001,7 @@ namespace KJing.Directory
 			Dictionary<string,ResourceChange> changes = new Dictionary<string, ResourceChange>();
 			lock(dbcon) {
 				using(IDbTransaction transaction = dbcon.BeginTransaction()) {
-					JsonValue data = GetResource(dbcon, transaction, id, null, 0);
+					JsonValue data = GetResource(dbcon, transaction, id, null);
 					AddResourceRights(dbcon, transaction, id, data, rights, changes);
 					transaction.Commit();
 				}
@@ -1733,8 +2062,16 @@ namespace KJing.Directory
 				dbcmd.ExecuteNonQuery();
 			}
 
+			List<string> users = new List<string>();
+
 			// create the new ones
 			foreach(JsonValue right in resourceRights) {
+				string user = (string)right["user"];
+				if(!users.Contains(user)) {
+					users.Add(user);
+					GetGroupUsers(dbcon, transaction, user, users);
+				}
+
 				if((bool)right["admin"] || (bool)right["read"] || (bool)right["write"]) {
 					using(IDbCommand dbcmd = dbcon.CreateCommand()) {
 						dbcmd.Transaction = transaction;
@@ -1761,6 +2098,31 @@ namespace KJing.Directory
 				Before = before,
 				After = after
 			};
+
+			// change the owner resource for the sharesBy
+			ChangeResource(dbcon, transaction, (string)before["owner"], null, changes);
+
+			// change all groups and users in the rights users for the shareWith
+			foreach(string user in users)
+				ChangeResource(dbcon, transaction, user, null, changes);
+		}
+
+		public string ListToSqlIn(List<string> list)
+		{
+			bool first = true;
+			StringBuilder sb = new StringBuilder();
+			sb.Append("IN (");
+			foreach(string i in list) {
+				if(first)
+					first = false;
+				else
+					sb.Append(",");
+				sb.Append("'");
+				sb.Append(i.Replace("'", "''"));
+				sb.Append("'");
+			}
+			sb.Append(")");
+			return sb.ToString();
 		}
 
 		public virtual async Task ProcessRequestAsync(HttpContext context)
@@ -1768,28 +2130,42 @@ namespace KJing.Directory
 			string[] parts = context.Request.Path.Split(new char[] { '/' }, System.StringSplitOptions.RemoveEmptyEntries);
 
 			// WS /[id]
-			if((parts.Length == 1) && context.Request.IsWebSocketRequest && IsValidId(parts[0])) {
-				directory.EnsureRights(context, parts[0], true, false, false);
-
+//			if((parts.Length == 1) && context.Request.IsWebSocketRequest && IsValidId(parts[0])) {
+//				directory.EnsureRights(context, parts[0], true, false, false);
+//
+//				// accept the web socket and process it
+//				await context.AcceptWebSocketRequestAsync(new ResourceClient(this, parts[0]));
+//			}
+			// WS /
+			if((parts.Length == 0) && context.Request.IsWebSocketRequest) {
+				directory.EnsureIsAuthenticated(context);
 				// accept the web socket and process it
-				await context.AcceptWebSocketRequestAsync(new ResourceClient(this, parts[0]));
+				await context.AcceptWebSocketRequestAsync(new MonitoringClient(this));
 			}
-			// GET /[id]?depth=[depth]&seenBy=[user]
+			// GET /[id]?seenBy=[user]
 			else if((context.Request.Method == "GET") && (parts.Length == 1) && IsValidId(parts[0])) {
-				directory.EnsureRights(context, parts[0], true, false, false);
-
-				int depth = 0;
-				if(context.Request.QueryString.ContainsKey("depth"))
-					depth = Math.Min(5, Math.Max(0, Convert.ToInt32(context.Request.QueryString["depth"])));
 				string seenBy = null;
 				if(context.Request.QueryString.ContainsKey("seenBy"))
 					seenBy = context.Request.QueryString["seenBy"];
+				if(seenBy != null) {
+					directory.EnsureRights(context, seenBy, false, false, true);
+					directory.EnsureRights(context, parts[0], true, false, false);
+				}
+				else
+					directory.EnsureRights(context, parts[0], true, false, true);
+
 				context.Response.StatusCode = 200;
-				context.Response.Content = new JsonContent(GetResource(parts[0], seenBy, depth));
+				context.Response.Content = new JsonContent(GetResource(parts[0], seenBy));
 			}
 			// GET /?query=[words]&seenBy=[user][&type=[user|group...]]
 			else if((context.Request.Method == "GET") && (parts.Length == 0) && context.Request.QueryString.ContainsKey("seenBy")) {
 				string seenBy = context.Request.QueryString["seenBy"];
+
+				if(seenBy != null)
+					directory.EnsureRights(context, seenBy, false, false, true);
+				else
+					directory.EnsureIsAdmin(context);
+
 				string query = "";
 				if(context.Request.QueryString.ContainsKey("query"))
 					query = context.Request.QueryString["query"];
@@ -1846,7 +2222,7 @@ namespace KJing.Directory
 
 				context.Response.StatusCode = 200;
 				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
-				context.Response.Content = new JsonContent(GetResource(parts[0], null, 0));
+				context.Response.Content = new JsonContent(GetResource(parts[0], null));
 			}
 			// DELETE /[id]/rights/[user] remove a user resource rights
 			else if((context.Request.Method == "DELETE") && (parts.Length == 3) && IsValidId(parts[0]) && (parts[1] == "rights") && IsValidId(parts[2])) {
@@ -1861,12 +2237,13 @@ namespace KJing.Directory
 
 				context.Response.StatusCode = 200;
 				context.Response.Headers["cache-control"] = "no-cache, must-revalidate";
-				context.Response.Content = new JsonContent(GetResource(parts[0], null, 0));
+				context.Response.Content = new JsonContent(GetResource(parts[0], null));
 			}
 			// GET /[id]/ownRights?seenBy=[user]
 			else if((context.Request.Method == "GET") && (parts.Length == 2) && IsValidId(parts[0]) && (parts[1] == "ownRights") && context.Request.QueryString.ContainsKey("seenBy")) {
 
 				string seenBy = context.Request.QueryString["seenBy"];
+				directory.EnsureRights(context, seenBy, false, false, true);
 				JsonObject ownRightsJson = new JsonObject();
 				Rights ownRights = GetResourceOwnRights(parts[0], seenBy);
 				ownRightsJson["read"] = ownRights.Read;

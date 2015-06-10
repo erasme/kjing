@@ -1,57 +1,33 @@
 ﻿
-Ui.Flow.extend('KJing.SearchViewer', {
-	resource: undefined,
+KJing.ResourceViewer.extend('KJing.SearchViewer', {
 	flow: undefined,
+	filterType: undefined,
 
 	constructor: function(config) {
-		this.resource = config.resource;
-		delete(config.resource);
-
-		this.setUniform(true);
-
-/*		var filters = this.resource.getFilters();
-		var filtersArgs = '';
-		for(var key in filters) {
-			filtersArgs += '&'+encodeURIComponent(key)+'='+encodeURIComponent(filters[key]);
-		}
-
-		var request = new Core.HttpRequest({
-			method: 'GET',
-			url: '/cloud/resource?seenBy='+Ui.App.current.getUser().getId()+
-			'&query='+encodeURIComponent(this.resource.getQueryString())+filtersArgs });
-
-		this.connect(request, 'done', this.onSearchDone);
-		this.connect(request, 'error', this.onSearchError);
-		request.send();*/
-	},
-	
-	getResource: function() {
-		return this.resource;
+		this.flow = new Ui.Flow({ uniform: true });
+		this.setContent(this.flow);
 	},
 
 	onResourceError: function() {
-		this.clear();
+		this.flow.clear();
 	},
 
 	onResourceChange: function() {
-		console.log('onResourceChange');
-		this.clear();
+		this.flow.clear();
+		this.flow.append(new KJing.NewIcon({ disabled: true }));
 		var resources = this.getResource().getResources();
 		for(var i = 0; i < resources.length; i++) {
-			this.addResource(resources[i]);
+			var item = KJing.ResourceIconViewer.create(resources[i]);
+			if(item !== undefined)
+				this.flow.append(item);
 		}
 	},
 
-	addResource: function(resource) {	
-		var item = KJing.ResourceIconViewer.create(resource);
-		if(item !== undefined)
-			this.append(item);
-	},
-
 	onTypeFilterChange: function(combo, value, position) {
-		console.log('type filter change: '+value.type);
+		this.filterType = value.type;
 		this.getResource().setFilter('type', value.type);
-	},
+	}
+}, {
 
 	getSetupPopup: function() {
 		var popup = new Ui.MenuPopup();
@@ -81,12 +57,26 @@ Ui.Flow.extend('KJing.SearchViewer', {
 		combo.setCurrentAt(pos);
 		this.connect(combo, 'change', this.onTypeFilterChange);
 		return popup;
-	}
-}, {
+	},
+
+	getState: function() {
+		if(this.filterType !== undefined)
+			return { filterType: this.filterType };
+		else
+			return undefined;
+	},
+
+	setState: function(state) {
+		if((state !== undefined) && (state.filterType !== undefined))
+			this.getResource().setFilter('type', state.filterType);
+	},
+
 	onLoad: function() {
 		KJing.SearchViewer.base.onLoad.apply(this, arguments);
 		this.connect(this.resource, 'change', this.onResourceChange);
 		this.connect(this.resource, 'error', this.onResourceError);
+		// force an update request
+		this.resource.update();
 		if(this.resource.getIsReady())
 			this.onResourceChange();
 	},

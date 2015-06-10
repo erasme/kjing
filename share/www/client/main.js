@@ -79,12 +79,14 @@ Ui.App.extend('KJing.ClientApp', {
 			this.transBox.replaceContent(new Ui.Element());
 		}
 		else {
-			//console.log('setPath('+path+')');
+			console.log('setPath('+path+')');
 
 			if((this.resource !== undefined) && !this.resource.getIsReady())
 				this.disconnect(this.resource, 'ready', this.onResourceReady);
+			
+			this.resource = KJing.Resource.create(path);
+			this.resource.loadChildren();
 
-			this.resource = KJing.Resource.create(path, 4);
 			if(this.resource.getIsReady())
 				this.onResourceReady();
 			else
@@ -95,11 +97,18 @@ Ui.App.extend('KJing.ClientApp', {
 	onResourceReady: function() {
 		this.playList = [];
 		this.generatePlayList(this.resource);
+		console.log('PlayList');
+		console.log(this.playList);
 		this.setPosition(0);
 		this.device.notifyClientData();
 	},
 
+	onResourceChildrenReady: function() {
+	},
+
 	onItemEnd: function() {
+		console.log(this+'.onItemEnd controlled ? '+this.device.getIsControlled());
+
 		// auto move to the next content is the device is not remote controlled
 		if(!this.device.getIsControlled()) {
 
@@ -120,21 +129,26 @@ Ui.App.extend('KJing.ClientApp', {
 	},
 
 	generatePlayList: function(resource) {
-		if((resource !== undefined) && (resource.getIsReady())) {
-			if(KJing.Folder.hasInstance(resource)) {
-				if(resource.getIsChildrenReady()) {
-					for(var i = 0; i < resource.getChildren().length; i++)
-						this.generatePlayList(resource.getChildren()[i]);
-				}
-			}
-			else {
+		if(KJing.Folder.hasInstance(resource)) {
+			for(var i = 0; i < resource.getChildren().length; i++) {
+				var child = resource.getChildren()[i];
+				if(KJing.Folder.hasInstance(child))
+					continue;
 				var controller = new KJing.Controller({
 					id: this.playList.length, device: this.device,
-					resource: resource
+					resource: child
 				});
 				this.playList.push(controller);
 			}
 		}
+		else {
+			var controller = new KJing.Controller({
+				id: this.playList.length, device: this.device,
+				resource: resource
+			});
+			this.playList.push(controller);
+		}
+
 		var list = [];
 		for(var i = 0; i < this.playList.length; i++) {
 			var item = this.playList[i];
